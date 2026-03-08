@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { ToolLauncher } from "@/components/layout/tool-launcher";
 import { Header } from "@/components/layout/header";
+import { Footer } from "@/components/layout/footer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
@@ -99,6 +100,7 @@ export default function RootLayout({
             <main className="min-h-[calc(100vh-3.5rem)]">
               {children}
             </main>
+            <Footer />
           </TooltipProvider>
         </ThemeProvider>
       </body>
