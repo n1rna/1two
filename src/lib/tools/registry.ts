@@ -114,6 +114,22 @@ export const tools: ToolDefinition[] = [
     keywords: ["websocket", "ws", "wss", "socket", "realtime", "test", "connect", "message", "api"],
   },
   {
+    slug: "notifications",
+    name: "Notification Tester",
+    description: "Test push notifications, generate VAPID keys, subscribe to push services, and inspect incoming notifications",
+    category: "web",
+    icon: "Bell",
+    keywords: ["notification", "push", "firebase", "fcm", "vapid", "web push", "service worker", "subscribe", "test"],
+  },
+  {
+    slug: "workers",
+    name: "Worker Inspector",
+    description: "Inspect service workers, view registration state, scope, and script. Browse and manage Cache Storage.",
+    category: "web",
+    icon: "Cog",
+    keywords: ["service worker", "worker", "cache", "cache storage", "pwa", "sw", "inspect", "unregister", "debug"],
+  },
+  {
     slug: "markdown",
     name: "Markdown Editor",
     description: "Write and preview markdown with toolbar shortcuts and live rendering",
@@ -246,7 +262,14 @@ export function searchItems(query: string, items: SearchItem[]): SearchItem[] {
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  return scored.map((s) => s.item);
+  // If any sub-items of a parent matched, hide the parent
+  const matchedParents = new Set(
+    scored.filter((s) => s.item.parent).map((s) => s.item.parent)
+  );
+
+  return scored
+    .filter((s) => !matchedParents.has(s.item.name))
+    .map((s) => s.item);
 }
 
 export function searchTools(query: string): ToolDefinition[] {
