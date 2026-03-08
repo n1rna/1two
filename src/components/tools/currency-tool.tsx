@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -9,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   DollarSign,
   RefreshCw,
@@ -38,15 +38,13 @@ export function CurrencyTool() {
   const [rateFilter, setRateFilter] = useState("");
 
   // Converter state
-  const [fromCurrency, setFromCurrency] = useState("USD");
-  const [toCurrency, setToCurrency] = useState("EUR");
-  const [fromAmount, setFromAmount] = useState("1");
-  const [convertedResult, setConvertedResult] = useState<{
-    rate: number;
-    result: number;
-    date: string;
-  } | null>(null);
-  const [converting, setConverting] = useState(false);
+  const [leftCurrency, setLeftCurrency] = useState("USD");
+  const [rightCurrency, setRightCurrency] = useState("EUR");
+  const [leftAmount, setLeftAmount] = useState("1");
+  const [rightAmount, setRightAmount] = useState("");
+  const [convRate, setConvRate] = useState<number | null>(null);
+  const [convDate, setConvDate] = useState("");
+  const [convLoading, setConvLoading] = useState(false);
 
   useEffect(() => {
     fetchCurrencies()
@@ -70,45 +68,73 @@ export function CurrencyTool() {
     loadRates(baseCurrency);
   }, [baseCurrency, loadRates]);
 
-  // Convert
-  const handleConvert = useCallback(async () => {
-    const amount = parseFloat(fromAmount);
-    if (isNaN(amount) || amount <= 0) return;
-    if (fromCurrency === toCurrency) {
-      setConvertedResult({
-        rate: 1,
-        result: amount,
-        date: new Date().toISOString().split("T")[0],
-      });
+  // Fetch conversion rate whenever currencies change
+  const fetchConvRate = useCallback(async (from: string, to: string) => {
+    if (from === to) {
+      setConvRate(1);
+      setConvDate(new Date().toISOString().split("T")[0]);
       return;
     }
-    setConverting(true);
+    setConvLoading(true);
     try {
       const res = await fetch(
-        `https://api.frankfurter.dev/v1/latest?amount=${amount}&from=${fromCurrency}&to=${toCurrency}`
+        `https://api.frankfurter.dev/v1/latest?from=${from}&to=${to}`
       );
       if (!res.ok) throw new Error();
       const data = await res.json();
-      const result = data.rates[toCurrency];
-      const rate = result / amount;
-      setConvertedResult({ rate, result, date: data.date });
+      setConvRate(data.rates[to]);
+      setConvDate(data.date);
     } catch {
-      setError("Conversion failed");
+      setConvRate(null);
     }
-    setConverting(false);
-  }, [fromAmount, fromCurrency, toCurrency]);
+    setConvLoading(false);
+  }, []);
 
-  // Auto-convert on currency change
   useEffect(() => {
-    if (fromAmount && parseFloat(fromAmount) > 0) {
-      handleConvert();
+    fetchConvRate(leftCurrency, rightCurrency);
+  }, [leftCurrency, rightCurrency, fetchConvRate]);
+
+  // When rate loads, update the right side based on left
+  useEffect(() => {
+    if (convRate == null) return;
+    const v = parseFloat(leftAmount);
+    if (!isNaN(v)) {
+      setRightAmount(formatAmount(v * convRate));
     }
-  }, [fromCurrency, toCurrency]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [convRate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLeftChange = useCallback(
+    (val: string) => {
+      setLeftAmount(val);
+      const v = parseFloat(val);
+      if (convRate != null && !isNaN(v)) {
+        setRightAmount(formatAmount(v * convRate));
+      } else {
+        setRightAmount("");
+      }
+    },
+    [convRate]
+  );
+
+  const handleRightChange = useCallback(
+    (val: string) => {
+      setRightAmount(val);
+      const v = parseFloat(val);
+      if (convRate != null && convRate !== 0 && !isNaN(v)) {
+        setLeftAmount(formatAmount(v / convRate));
+      } else {
+        setLeftAmount("");
+      }
+    },
+    [convRate]
+  );
 
   const swapCurrencies = useCallback(() => {
-    setFromCurrency(toCurrency);
-    setToCurrency(fromCurrency);
-  }, [fromCurrency, toCurrency]);
+    setLeftCurrency(rightCurrency);
+    setRightCurrency(leftCurrency);
+    setLeftAmount(rightAmount);
+    setRightAmount(leftAmount);
+  }, [leftCurrency, rightCurrency, leftAmount, rightAmount]);
 
   const currencyName = (code: string) =>
     currencies.find((c) => c.code === code)?.name || code;
@@ -229,97 +255,84 @@ export function CurrencyTool() {
             </div>
           )}
 
-          {/* Converter — inline */}
+          {/* Converter — two-sided */}
           <div className="border rounded-lg p-4 bg-muted/10 space-y-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
               <ArrowRightLeft className="h-3.5 w-3.5" />
               Convert
+              {convLoading && (
+                <RefreshCw className="h-3 w-3 animate-spin ml-1" />
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={fromAmount}
-                onChange={(e) => setFromAmount(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleConvert();
-                }}
-                placeholder="1"
-                className="w-28 h-8 px-3 text-sm rounded-md border bg-transparent focus:outline-none focus:ring-1 focus:ring-ring font-mono"
-                min="0"
-                step="any"
-              />
-              <Select
-                value={fromCurrency}
-                onValueChange={(v) => v && setFromCurrency(v)}
-              >
-                <SelectTrigger size="sm" className="text-xs w-24 shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {currencies.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.code} — {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-3">
+              {/* Left side */}
+              <div className="flex-1 space-y-1.5">
+                <Select
+                  value={leftCurrency}
+                  onValueChange={(v) => v && setLeftCurrency(v)}
+                >
+                  <SelectTrigger size="sm" className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {currencies.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.code} — {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input
+                  type="number"
+                  value={leftAmount}
+                  onChange={(e) => handleLeftChange(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full h-10 px-3 text-lg rounded-md border bg-transparent focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                  min="0"
+                  step="any"
+                />
+              </div>
 
+              {/* Swap */}
               <button
                 onClick={swapCurrencies}
-                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                className="p-2 rounded-full border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-5"
               >
-                <ArrowRightLeft className="h-3.5 w-3.5" />
+                <ArrowRightLeft className="h-4 w-4" />
               </button>
 
-              <Select
-                value={toCurrency}
-                onValueChange={(v) => v && setToCurrency(v)}
-              >
-                <SelectTrigger size="sm" className="text-xs w-24 shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {currencies.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.code} — {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <span className="text-sm font-mono flex-1 text-right">
-                {converting ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground inline" />
-                ) : convertedResult ? (
-                  <>
-                    <span className="text-muted-foreground text-xs mr-1">
-                      {getCurrencySymbol(toCurrency)}
-                    </span>
-                    <span className="font-medium">
-                      {formatAmount(convertedResult.result)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </span>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-3 text-xs shrink-0"
-                onClick={handleConvert}
-                disabled={
-                  converting || !fromAmount || parseFloat(fromAmount) <= 0
-                }
-              >
-                Go
-              </Button>
+              {/* Right side */}
+              <div className="flex-1 space-y-1.5">
+                <Select
+                  value={rightCurrency}
+                  onValueChange={(v) => v && setRightCurrency(v)}
+                >
+                  <SelectTrigger size="sm" className="text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {currencies.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.code} — {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input
+                  type="number"
+                  value={rightAmount}
+                  onChange={(e) => handleRightChange(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full h-10 px-3 text-lg rounded-md border bg-transparent focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+                  min="0"
+                  step="any"
+                />
+              </div>
             </div>
-            {convertedResult && !converting && (
+            {convRate != null && !convLoading && (
               <div className="text-[11px] text-muted-foreground/60">
-                1 {fromCurrency} = {formatRate(convertedResult.rate)}{" "}
-                {toCurrency} · {convertedResult.date}
+                1 {leftCurrency} = {formatRate(convRate)} {rightCurrency}
+                {convDate && <> · {convDate}</>}
               </div>
             )}
           </div>
