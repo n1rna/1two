@@ -1,0 +1,38 @@
+"use client";
+
+import Link from "next/link";
+import { Search } from "lucide-react";
+import { ThemeToggle } from "./theme-toggle";
+import { Button } from "@/components/ui/button";
+
+export function Header() {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
+        <Link href="/" className="font-bold text-lg shrink-0">
+          1two.dev
+        </Link>
+
+        <button
+          onClick={() => {
+            document.dispatchEvent(new CustomEvent("open-tool-launcher"));
+          }}
+          className="ml-4 flex flex-1 max-w-sm items-center gap-2 rounded-lg border border-input bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="flex-1 text-left">Search tools...</span>
+          <kbd className="pointer-events-none hidden select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+            <span className="text-xs">⌘</span>P
+          </kbd>
+        </button>
+
+        <div className="ml-auto flex items-center gap-2">
+          <ThemeToggle />
+          <Button variant="outline" size="sm" disabled>
+            Sign in
+          </Button>
+        </div>
+      </div>
+    </header>
+  );
+}
