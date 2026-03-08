@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-sm">
+    <header className="z-50 w-full border-b bg-background/80 backdrop-blur-sm shrink-0">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-6">
         <Link href="/" className="font-bold text-lg shrink-0">
           1two.dev

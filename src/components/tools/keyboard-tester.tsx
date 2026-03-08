@@ -126,7 +126,7 @@ export function KeyboardTester() {
 
   return (
     <div
-      className="flex flex-col h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden"
+      className="flex flex-col h-full overflow-hidden"
       ref={containerRef}
       tabIndex={0}
     >

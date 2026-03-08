@@ -590,7 +590,7 @@ export function ColorTool() {
   if (!mounted) return null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-4 py-2 border-b shrink-0 flex-wrap">
         <div className="flex items-center gap-2 mr-1">

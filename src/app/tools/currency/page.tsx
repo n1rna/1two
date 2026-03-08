@@ -3,19 +3,21 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "currency",
-  title: "Currency Converter & Exchange Rates",
+  title: "Finance Tool — Crypto, Gold & Currency Converter",
   description:
-    "View live exchange rates for 30+ world currencies and convert between them. Powered by European Central Bank data. Supports USD, EUR, GBP, JPY, CHF, and more.",
+    "Live crypto prices (Bitcoin, Ethereum), gold tracking via PAXG, exchange rates for 30+ currencies, and a two-sided currency converter. Market data with sparkline charts powered by CoinGecko and ECB.",
   keywords: [
+    "finance tool",
+    "crypto prices",
+    "bitcoin price",
+    "ethereum price",
+    "gold price",
     "currency converter",
     "exchange rate",
-    "currency exchange",
     "forex rates",
-    "usd to eur",
-    "eur to usd",
-    "convert currency",
-    "live exchange rates",
-    "currency calculator",
+    "market data",
+    "sparkline chart",
+    "coingecko",
     "ecb rates",
   ],
 });

@@ -123,11 +123,11 @@ export const tools: ToolDefinition[] = [
   },
   {
     slug: "currency",
-    name: "Currency Tool",
-    description: "View live exchange rates for 30+ currencies and convert between them with ECB data",
+    name: "Finance Tool",
+    description: "Live crypto prices, gold, exchange rates, currency converter, and market data with sparkline charts",
     category: "data",
-    icon: "DollarSign",
-    keywords: ["currency", "exchange rate", "forex", "convert", "usd", "eur", "gbp", "jpy", "money", "finance"],
+    icon: "TrendingUp",
+    keywords: ["finance", "crypto", "bitcoin", "ethereum", "gold", "currency", "exchange rate", "forex", "convert", "usd", "eur", "market", "price", "sparkline"],
   },
   {
     slug: "workers",
@@ -138,12 +138,36 @@ export const tools: ToolDefinition[] = [
     keywords: ["service worker", "worker", "cache", "cache storage", "pwa", "sw", "inspect", "unregister", "debug"],
   },
   {
+    slug: "calendar",
+    name: "Calendar",
+    description: "Plan and visualize with multiple views, day selection, markers for milestones and epics, and timeline summaries",
+    category: "planning",
+    icon: "CalendarDays",
+    keywords: ["calendar", "plan", "schedule", "milestone", "epic", "timeline", "date", "week", "month", "year", "quarter"],
+  },
+  {
     slug: "markdown",
     name: "Markdown Editor",
     description: "Write and preview markdown with toolbar shortcuts and live rendering",
     category: "text",
     icon: "FileText",
     keywords: ["markdown", "md", "editor", "preview", "write", "format", "text"],
+  },
+  {
+    slug: "pomodoro",
+    name: "Pomodoro Timer",
+    description: "Focus timer with customizable work/break durations, daily goals, progress tracking, and browser notifications",
+    category: "planning",
+    icon: "Timer",
+    keywords: ["pomodoro", "timer", "focus", "productivity", "break", "goals", "notification", "work"],
+  },
+  {
+    slug: "hash",
+    name: "Hash Generator",
+    description: "Generate SHA-1, SHA-256, SHA-384, and SHA-512 hashes for text or files",
+    category: "crypto",
+    icon: "Hash",
+    keywords: ["hash", "md5", "sha256", "sha512", "sha1", "sha384", "checksum", "digest", "file hash", "integrity"],
   },
 ];
 

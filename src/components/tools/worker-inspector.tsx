@@ -96,9 +96,9 @@ export function WorkerInspector() {
   }, []);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
-      <div className="border-b shrink-0">
+      <div className="border-b shrink-0 sticky top-0 z-10 bg-background">
         <div className="max-w-6xl mx-auto flex items-center gap-2 px-6 py-2">
           <Cog className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">Worker Inspector</span>

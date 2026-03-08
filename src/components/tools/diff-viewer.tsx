@@ -97,7 +97,7 @@ export function DiffViewer() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0">
         <GitCompareArrows className="h-4 w-4 text-muted-foreground" />

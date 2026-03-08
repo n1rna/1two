@@ -172,7 +172,7 @@ export function MarkdownEditor() {
   const renderedHtml = useMemo(() => renderMarkdown(markdown), [markdown]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-4 py-2 border-b shrink-0">
         <FileText className="h-4 w-4 text-muted-foreground" />

@@ -96,11 +96,13 @@ export default function RootLayout({
         >
           <TooltipProvider>
             <ToolLauncher />
-            <Header />
-            <main className="min-h-[calc(100vh-3.5rem)]">
-              {children}
-            </main>
-            <Footer />
+            <div className="flex flex-col h-screen">
+              <Header />
+              <main className="flex-1 min-h-0 overflow-auto">
+                {children}
+              </main>
+              <Footer />
+            </div>
           </TooltipProvider>
         </ThemeProvider>
       </body>

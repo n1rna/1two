@@ -16,7 +16,9 @@ export type ToolCategory =
   | "crypto"
   | "text"
   | "web"
-  | "data";
+  | "data"
+  | "media"
+  | "planning";
 
 export const categoryLabels: Record<ToolCategory, string> = {
   encoding: "Encoding / Decoding",
@@ -28,4 +30,6 @@ export const categoryLabels: Record<ToolCategory, string> = {
   text: "Text Tools",
   web: "Web Tools",
   data: "Data Tools",
+  media: "Media Tools",
+  planning: "Planning",
 };
