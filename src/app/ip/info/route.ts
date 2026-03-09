@@ -10,10 +10,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/tools/ip", req.url));
   }
 
-  const xff = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
+  const clientIp = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
   try {
     const res = await apiFetch("/api/v1/ip/info", {
-      headers: { "x-forwarded-for": xff },
+      headers: { "x-forwarded-for": clientIp },
     });
     const data = await res.text();
     return new NextResponse(data, {

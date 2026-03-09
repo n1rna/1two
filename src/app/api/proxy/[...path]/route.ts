@@ -20,7 +20,7 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
 
   // Build forwarded headers
   const forwardHeaders: Record<string, string> = {
-    "x-forwarded-for": req.headers.get("x-forwarded-for") || "",
+    "x-forwarded-for": req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "",
   };
 
   const contentType = req.headers.get("content-type");
