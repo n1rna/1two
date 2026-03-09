@@ -16,7 +16,7 @@ interface PasteData {
   format: string;
 }
 
-export default function PasteEditPage({
+export default function MarkdownEditPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -58,7 +58,7 @@ export default function PasteEditPage({
 
   if (loading || sessionPending) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
@@ -66,11 +66,11 @@ export default function PasteEditPage({
 
   if (notFound) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
+      <div className="h-full flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-center space-y-2">
-          <p className="text-lg font-semibold">Paste not found</p>
+          <p className="text-lg font-semibold">Page not found</p>
           <p className="text-sm text-muted-foreground">
-            This paste may have been deleted or the link is incorrect.
+            This page may have been deleted or the link is incorrect.
           </p>
         </div>
         <Link
@@ -86,7 +86,7 @@ export default function PasteEditPage({
 
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="h-full flex items-center justify-center px-4">
         <div className="flex flex-col items-center gap-4 rounded-xl border bg-card p-8 shadow-lg max-w-sm text-center">
           <div className="flex items-center justify-center w-12 h-12 rounded-full bg-muted">
             <Lock className="h-5 w-5 text-muted-foreground" />
@@ -124,7 +124,7 @@ export default function PasteEditPage({
 
   if (unauthorized) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
+      <div className="h-full flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-center space-y-2">
           <p className="text-lg font-semibold">Not authorized</p>
           <p className="text-sm text-muted-foreground">

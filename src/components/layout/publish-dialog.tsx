@@ -18,6 +18,8 @@ export interface PublishDialogProps {
   content: string;
   format: "text" | "markdown" | "json" | "code";
   defaultTitle?: string;
+  /** Called with the new paste ID after successful publish */
+  onPublished?: (id: string) => void;
 }
 
 const PREVIEW_LINES = 6;
@@ -28,6 +30,7 @@ export function PublishDialog({
   content,
   format,
   defaultTitle = "",
+  onPublished,
 }: PublishDialogProps) {
   const [title, setTitle] = useState(defaultTitle);
   const [visibility, setVisibility] = useState<PasteVisibility>("unlisted");
@@ -60,6 +63,7 @@ export function PublishDialog({
       }
       const paste = await res.json();
       setPublishedId(paste.id);
+      onPublished?.(paste.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to publish");
     } finally {

@@ -53,9 +53,10 @@ export interface MarkdownEditorProps {
   initialTitle?: string;
 }
 
-export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = "" }: MarkdownEditorProps = {}) {
+export function MarkdownEditor({ pasteId: initialPasteId, initialContent = "", initialTitle = "" }: MarkdownEditorProps = {}) {
   const [markdown, setMarkdown] = useState(initialContent);
   const [copied, setCopied] = useState(false);
+  const [activePasteId, setActivePasteId] = useState(initialPasteId);
   const [pasteTitle, setPasteTitle] = useState(initialTitle);
   const [publishOpen, setPublishOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
@@ -244,12 +245,24 @@ export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = ""
     return () => document.removeEventListener("mousedown", handler);
   }, [pagesOpen]);
 
-  // Refetch after publish dialog closes with a new paste
+  // After publish: switch to edit mode and update URL
+  const handlePublished = useCallback(
+    (id: string) => {
+      setActivePasteId(id);
+      // Update URL without full navigation
+      window.history.replaceState(null, "", `/tools/markdown/${id}`);
+      setPublishOpen(false);
+      // Refetch pages list
+      setTimeout(() => fetchPublishedPastes(), 500);
+    },
+    [fetchPublishedPastes]
+  );
+
+  // Refetch after publish dialog closes
   const handlePublishChange = useCallback(
     (open: boolean) => {
       setPublishOpen(open);
       if (!open && session) {
-        // Small delay to let the API propagate
         setTimeout(() => fetchPublishedPastes(), 500);
       }
     },
@@ -257,12 +270,12 @@ export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = ""
   );
 
   const handleUpdate = useCallback(async () => {
-    if (!pasteId || !markdown.trim()) return;
+    if (!activePasteId || !markdown.trim()) return;
     setUpdating(true);
     setUpdateError(null);
     setUpdateSuccess(false);
     try {
-      const res = await fetch(`/api/proxy/pastes/${pasteId}`, {
+      const res = await fetch(`/api/proxy/pastes/${activePasteId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -282,14 +295,14 @@ export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = ""
     } finally {
       setUpdating(false);
     }
-  }, [pasteId, markdown, pasteTitle]);
+  }, [activePasteId, markdown, pasteTitle]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-4 py-2 border-b shrink-0">
         <FileText className="h-4 w-4 text-muted-foreground" />
-        {pasteId ? (
+        {activePasteId ? (
           <input
             type="text"
             value={pasteTitle}
@@ -390,7 +403,7 @@ export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = ""
                           <ExternalLink className="h-3 w-3" />
                         </a>
                         <a
-                          href={`/p/${paste.id}/edit`}
+                          href={`/tools/markdown/${paste.id}`}
                           className="shrink-0 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                           title="Edit page"
                           onClick={() => setPagesOpen(false)}
@@ -405,14 +418,14 @@ export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = ""
             )}
           </div>
         )}
-        {pasteId ? (
+        {activePasteId ? (
           /* Edit mode: Update button + view link */
           <div className="flex items-center gap-1.5">
             {updateError && (
               <span className="text-xs text-destructive">{updateError}</span>
             )}
             <a
-              href={`/p/${pasteId}`}
+              href={`/p/${activePasteId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="h-7 px-2 text-xs gap-1.5 inline-flex items-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -586,7 +599,8 @@ export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = ""
         onOpenChange={handlePublishChange}
         content={markdown}
         format="markdown"
-        defaultTitle=""
+        defaultTitle={pasteTitle}
+        onPublished={handlePublished}
       />
     </div>
   );

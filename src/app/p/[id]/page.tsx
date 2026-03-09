@@ -217,7 +217,7 @@ export default function PasteViewerPage({
           <div className="flex items-center gap-2">
             {isOwner && (
               <Link
-                href={`/p/${paste.id}/edit`}
+                href={`/tools/markdown/${paste.id}`}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
                 <Pencil className="h-3 w-3" />
