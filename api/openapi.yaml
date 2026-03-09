@@ -105,6 +105,138 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /pastes:
+    post:
+      operationId: createPaste
+      summary: Create a new paste
+      tags: [pastes]
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePasteRequest"
+      responses:
+        "201":
+          description: Paste created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasteCreateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    get:
+      operationId: listPastes
+      summary: List the current user's pastes (metadata only)
+      tags: [pastes]
+      security:
+        - sessionAuth: []
+      responses:
+        "200":
+          description: List of pastes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pastes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PasteInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /pastes/{id}:
+    get:
+      operationId: getPaste
+      summary: Get a paste by ID (public)
+      tags: [pastes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paste content and metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasteDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          description: Paste has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      operationId: updatePaste
+      summary: Update a paste (owner only)
+      tags: [pastes]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePasteRequest"
+      responses:
+        "200":
+          description: Paste updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasteInfo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deletePaste
+      summary: Delete a paste (owner only)
+      tags: [pastes]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paste deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /files/{id}:
     get:
       operationId: getFile
@@ -186,6 +318,108 @@ components:
           format: int64
         mimeType:
           type: string
+        createdAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+
+    CreatePasteRequest:
+      type: object
+      required: [content]
+      properties:
+        title:
+          type: string
+          default: ""
+        content:
+          type: string
+        format:
+          type: string
+          enum: [text, markdown, json, code]
+          default: text
+        visibility:
+          type: string
+          enum: [public, unlisted]
+          default: public
+        expiresIn:
+          type: integer
+          format: int64
+          description: Expiry duration in seconds. 0 means never expires.
+          default: 0
+
+    UpdatePasteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        format:
+          type: string
+          enum: [text, markdown, json, code]
+        visibility:
+          type: string
+          enum: [public, unlisted]
+
+    PasteAuthor:
+      type: object
+      properties:
+        name:
+          type: string
+        image:
+          type: string
+
+    PasteInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        format:
+          type: string
+          enum: [text, markdown, json, code]
+        visibility:
+          type: string
+          enum: [public, unlisted]
+        size:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+
+    PasteDetail:
+      allOf:
+        - $ref: "#/components/schemas/PasteInfo"
+        - type: object
+          properties:
+            content:
+              type: string
+            author:
+              $ref: "#/components/schemas/PasteAuthor"
+
+    PasteCreateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        format:
+          type: string
+          enum: [text, markdown, json, code]
+        visibility:
+          type: string
+          enum: [public, unlisted]
+        size:
+          type: integer
+          format: int64
         createdAt:
           type: string
           format: date-time

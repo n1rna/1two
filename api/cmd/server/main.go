@@ -65,6 +65,11 @@ func main() {
 			r.Post("/internal/cleanup", handler.CleanupExpiredFiles(cfg, db, r2))
 		}
 
+		// Public paste route (no auth)
+		if db != nil {
+			r.Get("/pastes/{id}", handler.GetPaste(db))
+		}
+
 		// Authenticated routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg))
@@ -73,6 +78,12 @@ func main() {
 				r.Get("/files", handler.ListFiles(db))
 				r.Get("/files/{id}", handler.GetFile(db, r2))
 				r.Delete("/files/{id}", handler.DeleteFile(db, r2))
+			}
+			if db != nil {
+				r.Post("/pastes", handler.CreatePaste(db))
+				r.Get("/pastes", handler.ListPastes(db))
+				r.Put("/pastes/{id}", handler.UpdatePaste(db))
+				r.Delete("/pastes/{id}", handler.DeletePaste(db))
 			}
 		})
 	})

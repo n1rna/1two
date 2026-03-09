@@ -24,12 +24,17 @@ import {
   Image,
   Table,
   Minus,
+  Globe,
 } from "lucide-react";
 import { EditorScrollbar } from "./editor-scrollbar";
+import { useSession } from "@/lib/auth-client";
+import { PublishDialog } from "@/components/layout/publish-dialog";
 
 export function MarkdownEditor() {
   const [markdown, setMarkdown] = useState("");
   const [copied, setCopied] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const { data: session } = useSession();
   const [widths, setWidths] = useState([50, 50]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -217,6 +222,17 @@ export function MarkdownEditor() {
             {lineCount.toLocaleString()} lines
           </span>
         )}
+        {session && markdown && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPublishOpen(true)}
+            className="h-7 px-2 text-xs gap-1.5 ml-2"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            Publish
+          </Button>
+        )}
       </div>
 
       {/* Split panes */}
@@ -348,6 +364,13 @@ export function MarkdownEditor() {
           </div>
         </div>
       </div>
+      <PublishDialog
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        content={markdown}
+        format="markdown"
+        defaultTitle=""
+      />
     </div>
   );
 }
