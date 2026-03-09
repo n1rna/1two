@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, use, useCallback } from "react";
-import { Copy, Check, ExternalLink, Loader2, Globe, Lock, ArrowLeft, Pencil, Save, X } from "lucide-react";
+import { useState, useEffect, use } from "react";
+import { Copy, Check, ExternalLink, Loader2, Globe, Lock, ArrowLeft, Pencil } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 
 type PasteFormat = "text" | "markdown" | "json" | "code";
@@ -43,21 +42,12 @@ export default function PasteViewerPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const searchParams = useSearchParams();
-  const wantsEdit = searchParams.get("edit") === "1";
   const { data: session } = useSession();
   const [paste, setPaste] = useState<Paste | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
   const [rawMode, setRawMode] = useState(false);
-
-  // Edit mode state
-  const [editing, setEditing] = useState(false);
-  const [editContent, setEditContent] = useState("");
-  const [editTitle, setEditTitle] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   const isOwner = !!(session?.user?.id && paste?.userId && session.user.id === paste.userId);
 
@@ -81,71 +71,12 @@ export default function PasteViewerPage({
     fetchPaste();
   }, [id]);
 
-  // Auto-enter edit mode when ?edit=1 and user is the owner
-  useEffect(() => {
-    if (wantsEdit && paste && session?.user?.id && session.user.id === paste.userId) {
-      setEditContent(paste.content);
-      setEditTitle(paste.title || "");
-      setEditing(true);
-    }
-  }, [wantsEdit, paste, session]);
-
   const copyContent = async () => {
     if (!paste) return;
     await navigator.clipboard.writeText(paste.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
-
-  const startEditing = useCallback(() => {
-    if (!paste) return;
-    setEditContent(paste.content);
-    setEditTitle(paste.title || "");
-    setSaveError(null);
-    setEditing(true);
-  }, [paste]);
-
-  const cancelEditing = useCallback(() => {
-    setEditing(false);
-    setSaveError(null);
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    if (!paste) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch(`/api/proxy/pastes/${paste.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          title: editTitle.trim(),
-          content: editContent,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
-      // Update paste in place
-      setPaste((prev) =>
-        prev
-          ? {
-              ...prev,
-              title: editTitle.trim(),
-              content: editContent,
-              size: new TextEncoder().encode(editContent).length,
-            }
-          : prev
-      );
-      setEditing(false);
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }, [paste, editTitle, editContent]);
 
   if (loading) {
     return (
@@ -225,19 +156,9 @@ export default function PasteViewerPage({
 
           {/* Title & meta */}
           <div className="space-y-2">
-            {editing ? (
-              <input
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="Untitled"
-                className="w-full text-xl font-semibold bg-transparent border-b border-dashed border-muted-foreground/30 outline-none focus:border-foreground/50 pb-1 placeholder:text-muted-foreground/50 transition-colors"
-              />
-            ) : (
-              <h1 className="text-xl font-semibold">
-                {paste.title || <span className="text-muted-foreground">Untitled</span>}
-              </h1>
-            )}
+            <h1 className="text-xl font-semibold">
+              {paste.title || <span className="text-muted-foreground">Untitled</span>}
+            </h1>
 
             <div className="flex items-center gap-3 flex-wrap">
               {/* Format badge */}
@@ -294,83 +215,40 @@ export default function PasteViewerPage({
             {paste.size !== undefined && ` · ${paste.size} bytes`}
           </span>
           <div className="flex items-center gap-2">
-            {isOwner && !editing && (
-              <button
-                onClick={startEditing}
+            {isOwner && (
+              <Link
+                href={`/p/${paste.id}/edit`}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
                 <Pencil className="h-3 w-3" />
                 Edit
-              </button>
+              </Link>
             )}
-            {editing && (
-              <>
-                <button
-                  onClick={cancelEditing}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                >
-                  <X className="h-3 w-3" />
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-40"
-                >
-                  {saving ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Save className="h-3 w-3" />
-                  )}
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </>
-            )}
-            {!editing && (
-              <>
-                <button
-                  onClick={() => setRawMode(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Raw
-                </button>
-                <button
-                  onClick={copyContent}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                >
-                  {copied ? (
-                    <Check className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                  {copied ? "Copied!" : "Copy"}
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => setRawMode(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Raw
+            </button>
+            <button
+              onClick={copyContent}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+              {copied ? "Copied!" : "Copy"}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Save error */}
-      {saveError && (
-        <div className="max-w-4xl mx-auto px-4 pt-3">
-          <p className="text-xs text-destructive">{saveError}</p>
-        </div>
-      )}
-
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-6">
-        {editing ? (
-          <textarea
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            className="w-full min-h-[60vh] rounded-xl border bg-muted/30 px-5 py-4 text-sm font-mono leading-relaxed resize-y outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
-            spellCheck={false}
-          />
-        ) : (
-          <PasteContent paste={paste} />
-        )}
+        <PasteContent paste={paste} />
       </div>
     </div>
   );
@@ -389,7 +267,6 @@ function PasteContent({ paste }: { paste: Paste }) {
 }
 
 function MarkdownContent({ content }: { content: string }) {
-  // Simple markdown rendering: headings, bold, italic, code, links, paragraphs
   const html = markdownToHtml(content);
   return (
     <div

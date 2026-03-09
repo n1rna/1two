@@ -44,13 +44,26 @@ interface PublishedPaste {
   url: string;
 }
 
-export function MarkdownEditor() {
-  const [markdown, setMarkdown] = useState("");
+export interface MarkdownEditorProps {
+  /** When editing an existing paste, pass its ID */
+  pasteId?: string;
+  /** Initial content to load into the editor */
+  initialContent?: string;
+  /** Initial title for the paste */
+  initialTitle?: string;
+}
+
+export function MarkdownEditor({ pasteId, initialContent = "", initialTitle = "" }: MarkdownEditorProps = {}) {
+  const [markdown, setMarkdown] = useState(initialContent);
   const [copied, setCopied] = useState(false);
+  const [pasteTitle, setPasteTitle] = useState(initialTitle);
   const [publishOpen, setPublishOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
   const [publishedPastes, setPublishedPastes] = useState<PublishedPaste[]>([]);
   const [loadingPastes, setLoadingPastes] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
   const { data: session } = useSession();
   const pagesRef = useRef<HTMLDivElement>(null);
   const [widths, setWidths] = useState([50, 50]);
@@ -243,12 +256,50 @@ export function MarkdownEditor() {
     [session, fetchPublishedPastes]
   );
 
+  const handleUpdate = useCallback(async () => {
+    if (!pasteId || !markdown.trim()) return;
+    setUpdating(true);
+    setUpdateError(null);
+    setUpdateSuccess(false);
+    try {
+      const res = await fetch(`/api/proxy/pastes/${pasteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title: pasteTitle.trim(),
+          content: markdown,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 2000);
+    } catch (e) {
+      setUpdateError(e instanceof Error ? e.message : "Failed to update");
+    } finally {
+      setUpdating(false);
+    }
+  }, [pasteId, markdown, pasteTitle]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-4 py-2 border-b shrink-0">
         <FileText className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-semibold mr-2">Markdown</span>
+        {pasteId ? (
+          <input
+            type="text"
+            value={pasteTitle}
+            onChange={(e) => setPasteTitle(e.target.value)}
+            placeholder="Untitled"
+            className="text-sm font-semibold mr-2 bg-transparent outline-none border-b border-transparent focus:border-muted-foreground/30 placeholder:text-muted-foreground/50 max-w-48"
+          />
+        ) : (
+          <span className="text-sm font-semibold mr-2">Markdown</span>
+        )}
 
         {/* Formatting buttons */}
         <div className="flex items-center gap-0.5">
@@ -339,7 +390,7 @@ export function MarkdownEditor() {
                           <ExternalLink className="h-3 w-3" />
                         </a>
                         <a
-                          href={`/p/${paste.id}?edit=1`}
+                          href={`/p/${paste.id}/edit`}
                           className="shrink-0 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                           title="Edit page"
                           onClick={() => setPagesOpen(false)}
@@ -354,16 +405,50 @@ export function MarkdownEditor() {
             )}
           </div>
         )}
-        {session && markdown && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setPublishOpen(true)}
-            className="h-7 px-2 text-xs gap-1.5"
-          >
-            <Globe className="h-3.5 w-3.5" />
-            Publish
-          </Button>
+        {pasteId ? (
+          /* Edit mode: Update button + view link */
+          <div className="flex items-center gap-1.5">
+            {updateError && (
+              <span className="text-xs text-destructive">{updateError}</span>
+            )}
+            <a
+              href={`/p/${pasteId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-7 px-2 text-xs gap-1.5 inline-flex items-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              View
+            </a>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleUpdate}
+              disabled={updating || !markdown.trim()}
+              className="h-7 px-3 text-xs gap-1.5"
+            >
+              {updating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : updateSuccess ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <Globe className="h-3.5 w-3.5" />
+              )}
+              {updating ? "Updating..." : updateSuccess ? "Updated!" : "Update"}
+            </Button>
+          </div>
+        ) : (
+          session && markdown && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPublishOpen(true)}
+              className="h-7 px-2 text-xs gap-1.5"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Publish
+            </Button>
+          )
         )}
       </div>
 
