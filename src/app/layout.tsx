@@ -107,9 +107,9 @@ export default function RootLayout({
           <QueryProvider>
             <TooltipProvider>
               <ToolLauncher />
-              <div className="flex flex-col h-screen">
+              <div className="flex flex-col min-h-screen">
                 <Header />
-                <main className="flex-1 min-h-0 overflow-y-scroll">
+                <main className="flex-1 min-h-0">
                   {children}
                 </main>
                 <Footer />

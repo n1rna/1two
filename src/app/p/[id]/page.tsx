@@ -80,7 +80,7 @@ export default function PasteViewerPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
@@ -88,7 +88,7 @@ export default function PasteViewerPage({
 
   if (notFound || !paste) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-center space-y-2">
           <p className="text-lg font-semibold">Paste not found</p>
           <p className="text-sm text-muted-foreground">
@@ -108,7 +108,7 @@ export default function PasteViewerPage({
 
   if (rawMode) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="flex-1 bg-background">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 backdrop-blur px-4 py-2">
           <button
             onClick={() => setRawMode(false)}
@@ -133,7 +133,7 @@ export default function PasteViewerPage({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex-1 bg-background">
       {/* Header */}
       <div className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
