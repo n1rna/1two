@@ -15,8 +15,13 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
     url.searchParams.set(key, value);
   });
 
-  // Get session from better-auth
-  const session = await auth.api.getSession({ headers: await headers() });
+  // Get session from better-auth (non-critical — don't block proxy on auth failure)
+  let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
+  try {
+    session = await auth.api.getSession({ headers: await headers() });
+  } catch (err) {
+    console.warn("[proxy] auth.getSession failed:", err);
+  }
 
   // Build forwarded headers
   const forwardHeaders: Record<string, string> = {
@@ -35,8 +40,10 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
 
   const body = req.method !== "GET" && req.method !== "HEAD" ? await req.blob() : undefined;
 
+  const fetchUrl = url.pathname + url.search;
+
   try {
-    const response = await apiFetch(url.pathname + url.search, {
+    const response = await apiFetch(fetchUrl, {
       method: req.method,
       headers: forwardHeaders,
       body,

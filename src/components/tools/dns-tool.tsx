@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Search, Loader2, AlertCircle, ChevronDown } from "lucide-react";
-import { Turnstile } from "@/components/ui/turnstile";
+import { Search, Loader2, AlertCircle, ChevronDown, X, RefreshCw, Clock } from "lucide-react";
+import { Turnstile, type TurnstileRef } from "@/components/ui/turnstile";
 
 const RECORD_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS", "SOA", "SRV", "CAA", "PTR"] as const;
 type RecordType = (typeof RECORD_TYPES)[number];
+
+const HISTORY_KEY = "dns-lookup-history";
 
 // Backend response shape
 interface DnsResponse {
@@ -14,6 +16,12 @@ interface DnsResponse {
   records: unknown[];
   ttl: number;
   resolvedAt: string;
+}
+
+interface HistoryEntry {
+  domain: string;
+  lastLookup: number; // timestamp
+  results: Record<string, DnsResponse>; // keyed by record type
 }
 
 interface MxRecord {
@@ -42,6 +50,23 @@ interface CaaRecord {
   flag: number;
   tag: string;
   value: string;
+}
+
+function loadHistory(): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries: HistoryEntry[]) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+  } catch {
+    // ignore
+  }
 }
 
 function ResultsTable({ data }: { data: DnsResponse }) {
@@ -192,6 +217,18 @@ function ResultsTable({ data }: { data: DnsResponse }) {
   );
 }
 
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 export function DnsTool() {
@@ -202,7 +239,14 @@ export function DnsTool() {
   const [result, setResult] = useState<DnsResponse | null>(null);
   const [selectOpen, setSelectOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const selectRef = useRef<HTMLDivElement>(null);
+  const turnstileRef = useRef<TurnstileRef>(null);
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
 
   // Close custom select on outside click
   useEffect(() => {
@@ -215,18 +259,19 @@ export function DnsTool() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const handleLookup = useCallback(
-    async (e?: React.FormEvent) => {
-      e?.preventDefault();
-      const trimmed = domain.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  const doLookup = useCallback(
+    async (lookupDomain: string, lookupType: RecordType, currentToken: string | null) => {
+      const trimmed = lookupDomain.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
       if (!trimmed) return;
 
       setLoading(true);
       setError(null);
       setResult(null);
+      setDomain(trimmed);
+      setRecordType(lookupType);
 
       try {
-        if (!token) {
+        if (!currentToken) {
           setError("Please complete the verification challenge first.");
           setLoading(false);
           return;
@@ -235,10 +280,12 @@ export function DnsTool() {
         const res = await fetch("/api/proxy/dns/lookup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ domain: trimmed, type: recordType, turnstileToken: token }),
+          body: JSON.stringify({ domain: trimmed, type: lookupType, turnstileToken: currentToken }),
         });
 
+        // Reset Turnstile for next lookup
         setToken(null);
+        turnstileRef.current?.reset();
 
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -247,20 +294,77 @@ export function DnsTool() {
 
         const data = (await res.json()) as DnsResponse;
         setResult(data);
+
+        // Update history
+        setHistory(prev => {
+          const updated = [...prev];
+          const idx = updated.findIndex(h => h.domain === trimmed);
+          if (idx >= 0) {
+            updated[idx] = {
+              ...updated[idx],
+              lastLookup: Date.now(),
+              results: { ...updated[idx].results, [lookupType]: data },
+            };
+          } else {
+            updated.push({
+              domain: trimmed,
+              lastLookup: Date.now(),
+              results: { [lookupType]: data },
+            });
+          }
+          updated.sort((a, b) => b.lastLookup - a.lastLookup);
+          saveHistory(updated);
+          return updated;
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred");
         setToken(null);
+        turnstileRef.current?.reset();
       } finally {
         setLoading(false);
       }
     },
-    [domain, recordType, token]
+    []
   );
+
+  const handleSubmit = useCallback(
+    (e?: React.FormEvent) => {
+      e?.preventDefault();
+      doLookup(domain, recordType, token);
+    },
+    [domain, recordType, token, doLookup]
+  );
+
+  const removeHistory = useCallback((domainToRemove: string) => {
+    setHistory(prev => {
+      const updated = prev.filter(h => h.domain !== domainToRemove);
+      saveHistory(updated);
+      return updated;
+    });
+  }, []);
+
+  const relookup = useCallback(
+    (historyDomain: string) => {
+      setDomain(historyDomain);
+      doLookup(historyDomain, recordType, token);
+    },
+    [recordType, token, doLookup]
+  );
+
+  const selectHistoryDomain = useCallback((historyEntry: HistoryEntry) => {
+    setDomain(historyEntry.domain);
+    // Show cached result for the current record type if available
+    const cached = historyEntry.results[recordType];
+    if (cached) {
+      setResult(cached);
+      setError(null);
+    }
+  }, [recordType]);
 
   return (
     <div className="space-y-6">
       {/* Input row */}
-      <form onSubmit={handleLookup} className="flex flex-col sm:flex-row gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <input
@@ -307,7 +411,7 @@ export function DnsTool() {
           className="h-10 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 shrink-0"
         >
           {loading ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Looking up…</>
+            <><Loader2 className="h-4 w-4 animate-spin" /> Looking up...</>
           ) : (
             "Lookup"
           )}
@@ -318,6 +422,7 @@ export function DnsTool() {
       {SITE_KEY && (
         <div className="flex justify-end">
           <Turnstile
+            ref={turnstileRef}
             siteKey={SITE_KEY}
             size="flexible"
             onToken={setToken}
@@ -351,9 +456,60 @@ export function DnsTool() {
       )}
 
       {/* Empty state */}
-      {!result && !error && !loading && (
+      {!result && !error && !loading && history.length === 0 && (
         <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
           Enter a domain name and select a record type to begin.
+        </div>
+      )}
+
+      {/* History */}
+      {history.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Recent lookups
+            </h3>
+          </div>
+          <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+            {history.map((entry) => (
+              <div
+                key={entry.domain}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors group"
+              >
+                <button
+                  type="button"
+                  onClick={() => selectHistoryDomain(entry)}
+                  className="flex-1 text-left min-w-0"
+                >
+                  <span className="text-sm font-mono truncate block">{entry.domain}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {timeAgo(entry.lastLookup)}
+                    {Object.keys(entry.results).length > 0 && (
+                      <> &middot; {Object.keys(entry.results).join(", ")}</>
+                    )}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => relookup(entry.domain)}
+                  disabled={loading || !token}
+                  title="Re-lookup"
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeHistory(entry.domain)}
+                  title="Remove"
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

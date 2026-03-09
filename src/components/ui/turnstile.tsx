@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 
 declare global {
   interface Window {
@@ -37,6 +37,10 @@ interface TurnstileProps {
   theme?: "light" | "dark" | "auto";
   /** @default "invisible" */
   size?: "normal" | "compact" | "invisible" | "flexible";
+}
+
+export interface TurnstileRef {
+  reset: () => void;
 }
 
 const TURNSTILE_SCRIPT_ID = "cf-turnstile-script";
@@ -76,54 +80,68 @@ function loadTurnstileScript(): Promise<void> {
 /**
  * Renders a Cloudflare Turnstile widget in managed/invisible mode.
  * The widget auto-solves and calls `onToken` with the resulting token.
- * Call the `reset()` function returned via ref to get a fresh token.
+ * Call `ref.reset()` to reset the widget and get a fresh token.
  */
-export function Turnstile({ siteKey, onToken, onError, onExpired, theme = "auto", size = "invisible" }: TurnstileProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<string | null>(null);
+export const Turnstile = forwardRef<TurnstileRef, TurnstileProps>(
+  function Turnstile({ siteKey, onToken, onError, onExpired, theme = "auto", size = "invisible" }, ref) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const widgetIdRef = useRef<string | null>(null);
 
-  const initWidget = useCallback(async () => {
-    if (!containerRef.current) return;
-    await loadTurnstileScript();
-    if (!window.turnstile || !containerRef.current) return;
+    useImperativeHandle(ref, () => ({
+      reset() {
+        if (widgetIdRef.current && window.turnstile) {
+          try {
+            window.turnstile.reset(widgetIdRef.current);
+          } catch {
+            // ignore
+          }
+        }
+      },
+    }));
 
-    // Remove existing widget if re-initialising
-    if (widgetIdRef.current) {
-      try {
-        window.turnstile.remove(widgetIdRef.current);
-      } catch {
-        // ignore
-      }
-      widgetIdRef.current = null;
-    }
+    const initWidget = useCallback(async () => {
+      if (!containerRef.current) return;
+      await loadTurnstileScript();
+      if (!window.turnstile || !containerRef.current) return;
 
-    widgetIdRef.current = window.turnstile.render(containerRef.current, {
-      sitekey: siteKey,
-      theme,
-      size,
-      appearance: size === "invisible" ? "interaction-only" : "always",
-      callback: onToken,
-      "error-callback": onError,
-      "expired-callback": onExpired,
-    });
-  }, [siteKey, theme, size, onToken, onError, onExpired]);
-
-  useEffect(() => {
-    initWidget();
-    return () => {
-      if (widgetIdRef.current && window.turnstile) {
+      // Remove existing widget if re-initialising
+      if (widgetIdRef.current) {
         try {
           window.turnstile.remove(widgetIdRef.current);
         } catch {
           // ignore
         }
+        widgetIdRef.current = null;
       }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  return <div ref={containerRef} />;
-}
+      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        sitekey: siteKey,
+        theme,
+        size,
+        appearance: size === "invisible" ? "interaction-only" : "always",
+        callback: onToken,
+        "error-callback": onError,
+        "expired-callback": onExpired,
+      });
+    }, [siteKey, theme, size, onToken, onError, onExpired]);
+
+    useEffect(() => {
+      initWidget();
+      return () => {
+        if (widgetIdRef.current && window.turnstile) {
+          try {
+            window.turnstile.remove(widgetIdRef.current);
+          } catch {
+            // ignore
+          }
+        }
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return <div ref={containerRef} />;
+  }
+);
 
 /**
  * Hook that manages Turnstile state and exposes a `getToken()` helper.
