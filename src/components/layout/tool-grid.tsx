@@ -3,12 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import * as Icons from "lucide-react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { AnimatePresence, motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { tools, categoryLabels } from "@/lib/tools/registry";
 import type { ToolDefinition } from "@/lib/tools/registry";
@@ -55,11 +50,17 @@ function SortableToolCard({
   bookmarked,
   onToggleBookmark,
   loggedIn,
+  index,
+  hovered,
+  onHover,
 }: {
   tool: ToolDefinition;
   bookmarked: boolean;
   onToggleBookmark: (slug: string) => void;
   loggedIn: boolean;
+  index: number;
+  hovered: number | null;
+  onHover: (index: number | null) => void;
 }) {
   const {
     attributes,
@@ -74,33 +75,54 @@ function SortableToolCard({
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : undefined,
-    opacity: isDragging ? 0.5 : undefined,
   };
 
   const Icon = getIcon(tool.icon);
 
   return (
-    <div ref={setNodeRef} style={style} className="relative group">
-      <Link href={`/tools/${tool.slug}`} className="block h-full">
-        <Card
-          className={`h-full hover:bg-accent/50 transition-colors cursor-pointer ${
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: isDragging ? 0.5 : 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.03 }}
+      className="relative group block p-1.5"
+      onMouseEnter={() => onHover(index)}
+      onMouseLeave={() => onHover(null)}
+    >
+      {/* Animated hover background */}
+      <AnimatePresence>
+        {hovered === index && (
+          <motion.span
+            className="absolute inset-0 h-full w-full bg-accent/60 block rounded-2xl"
+            layoutId="toolHoverBg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: 0.15 } }}
+            exit={{ opacity: 0, transition: { duration: 0.15, delay: 0.1 } }}
+          />
+        )}
+      </AnimatePresence>
+
+      <Link href={`/tools/${tool.slug}`} className="block h-full relative z-10">
+        <div
+          className={`h-full rounded-xl border bg-card p-5 transition-colors ${
             isDragging ? "shadow-lg" : ""
           }`}
         >
-          <CardHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-md bg-primary/10">
-                <Icon className="h-5 w-5 text-primary" />
-              </div>
-              <Badge variant="outline" className="text-xs">
-                {categoryLabels[tool.category]}
-              </Badge>
-              <AuthBadge requiresAuth={tool.requiresAuth} loggedIn={loggedIn} />
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Icon className="h-5 w-5 text-primary" />
             </div>
-            <CardTitle className="text-lg">{tool.name}</CardTitle>
-            <CardDescription>{tool.description}</CardDescription>
-          </CardHeader>
-        </Card>
+            <Badge variant="outline" className="text-xs">
+              {categoryLabels[tool.category]}
+            </Badge>
+            <AuthBadge requiresAuth={tool.requiresAuth} loggedIn={loggedIn} />
+          </div>
+          <h3 className="text-base font-semibold tracking-tight">{tool.name}</h3>
+          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+            {tool.description}
+          </p>
+        </div>
       </Link>
 
       {/* Bookmark button */}
@@ -110,7 +132,7 @@ function SortableToolCard({
           e.stopPropagation();
           onToggleBookmark(tool.slug);
         }}
-        className={`absolute top-2.5 right-2.5 p-1.5 rounded-md transition-all ${
+        className={`absolute top-4 right-4 z-20 p-1.5 rounded-md transition-all ${
           bookmarked
             ? "text-amber-500 opacity-100"
             : "text-muted-foreground/40 opacity-0 group-hover:opacity-100 hover:text-amber-500"
@@ -127,12 +149,12 @@ function SortableToolCard({
       <button
         {...attributes}
         {...listeners}
-        className="absolute bottom-2.5 right-2.5 p-1.5 rounded-md text-muted-foreground/30 opacity-0 group-hover:opacity-100 hover:text-muted-foreground cursor-grab active:cursor-grabbing transition-all"
+        className="absolute bottom-4 right-4 z-20 p-1.5 rounded-md text-muted-foreground/30 opacity-0 group-hover:opacity-100 hover:text-muted-foreground cursor-grab active:cursor-grabbing transition-all"
         title="Drag to reorder"
       >
         <Icons.GripVertical className="h-4 w-4" />
       </button>
-    </div>
+    </motion.div>
   );
 }
 
@@ -142,6 +164,7 @@ export function ToolGrid() {
   const [mounted, setMounted] = useState(false);
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [order, setOrder] = useState<string[]>([]);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setBookmarks(new Set(loadBookmarks()));
@@ -165,10 +188,10 @@ export function ToolGrid() {
           next.add(slug);
         }
         saveBookmarks([...next]);
-        // Dispatch event so launcher can pick it up
-        window.dispatchEvent(new CustomEvent("bookmarks-changed"));
         return next;
       });
+      // Dispatch after state update to avoid setState-during-render in ToolLauncher
+      setTimeout(() => window.dispatchEvent(new CustomEvent("bookmarks-changed")), 0);
     },
     []
   );
@@ -221,28 +244,28 @@ export function ToolGrid() {
   );
 
   if (!mounted) {
-    // SSR / initial render — no reorder or bookmarks
+    // SSR / initial render — no reorder, bookmarks, or animations
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
         {tools.map((tool) => {
           const Icon = getIcon(tool.icon);
           return (
-            <Link key={tool.slug} href={`/tools/${tool.slug}`}>
-              <Card className="h-full hover:bg-accent/50 transition-colors cursor-pointer">
-                <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 rounded-md bg-primary/10">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {categoryLabels[tool.category]}
-                    </Badge>
-                    <AuthBadge requiresAuth={tool.requiresAuth} loggedIn={false} />
+            <Link key={tool.slug} href={`/tools/${tool.slug}`} className="block p-1.5">
+              <div className="h-full rounded-xl border bg-card p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Icon className="h-5 w-5 text-primary" />
                   </div>
-                  <CardTitle className="text-lg">{tool.name}</CardTitle>
-                  <CardDescription>{tool.description}</CardDescription>
-                </CardHeader>
-              </Card>
+                  <Badge variant="outline" className="text-xs">
+                    {categoryLabels[tool.category]}
+                  </Badge>
+                  <AuthBadge requiresAuth={tool.requiresAuth} loggedIn={false} />
+                </div>
+                <h3 className="text-base font-semibold tracking-tight">{tool.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                  {tool.description}
+                </p>
+              </div>
             </Link>
           );
         })}
@@ -260,14 +283,17 @@ export function ToolGrid() {
         items={orderedTools.map((t) => t.slug)}
         strategy={rectSortingStrategy}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {orderedTools.map((tool) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+          {orderedTools.map((tool, index) => (
             <SortableToolCard
               key={tool.slug}
               tool={tool}
               bookmarked={bookmarks.has(tool.slug)}
               onToggleBookmark={toggleBookmark}
               loggedIn={loggedIn}
+              index={index}
+              hovered={hoveredIndex}
+              onHover={setHoveredIndex}
             />
           ))}
         </div>
