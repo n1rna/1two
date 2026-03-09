@@ -15,3 +15,6 @@ name = "API_CONTAINER"
 [[migrations]]
 new_sqlite_classes = ["ApiContainer"]
 tag = "v1"
+
+[triggers]
+crons = ["0 3 * * *"]  # daily at 3 AM UTC — cleanup expired files

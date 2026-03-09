@@ -36,6 +36,40 @@
 				"type": "string",
 				"required": true,
 				"secret": true
+			},
+			"R2_ACCOUNT_ID": {
+				"name": "R2_ACCOUNT_ID",
+				"title": "Cloudflare account ID for R2",
+				"type": "string",
+				"required": true
+			},
+			"R2_ACCESS_KEY_ID": {
+				"name": "R2_ACCESS_KEY_ID",
+				"title": "R2 S3-compatible access key ID",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"R2_SECRET_ACCESS_KEY": {
+				"name": "R2_SECRET_ACCESS_KEY",
+				"title": "R2 S3-compatible secret access key",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"R2_BUCKET_NAME": {
+				"name": "R2_BUCKET_NAME",
+				"title": "R2 bucket name",
+				"type": "string",
+				"default": "1two-files",
+				"required": true
+			},
+			"INTERNAL_SECRET": {
+				"name": "INTERNAL_SECRET",
+				"title": "Secret for internal API calls (cron cleanup)",
+				"type": "string",
+				"required": true,
+				"secret": true
 			}
 		}
 	},

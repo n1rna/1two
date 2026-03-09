@@ -1,31 +1,33 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
+	"log"
 	"net/http"
-	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/n1rna/1two/api/internal/config"
 	"github.com/n1rna/1two/api/internal/middleware"
+	"github.com/n1rna/1two/api/internal/storage"
 )
 
 type FileInfo struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	OriginalName string `json:"originalName"`
-	Size         int64  `json:"size"`
-	MimeType     string `json:"mimeType"`
-	CreatedAt    string `json:"createdAt"`
-	URL          string `json:"url"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	OriginalName   string `json:"originalName"`
+	Size           int64  `json:"size"`
+	MimeType       string `json:"mimeType"`
+	CreatedAt      string `json:"createdAt"`
+	LastAccessedAt string `json:"lastAccessedAt"`
+	Permanent      bool   `json:"permanent"`
+	URL            string `json:"url"`
 }
 
 func generateID() string {
@@ -36,7 +38,7 @@ func generateID() string {
 
 const maxUploadSize = 50 << 20 // 50 MB
 
-func UploadFile(cfg *config.Config, db *sql.DB) http.HandlerFunc {
+func UploadFile(cfg *config.Config, db *sql.DB, r2 *storage.R2Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := middleware.GetUserID(r.Context())
 		if userID == "" {
@@ -61,46 +63,40 @@ func UploadFile(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 		ext := filepath.Ext(header.Filename)
 		storedName := fileID + ext
 		contentType := header.Header.Get("Content-Type")
+		r2Key := userID + "/" + storedName
 
-		userDir := filepath.Join(cfg.UploadDir, userID)
-		os.MkdirAll(userDir, 0o755)
-
-		dst, err := os.Create(filepath.Join(userDir, storedName))
-		if err != nil {
-			http.Error(w, `{"error":"failed to save file"}`, http.StatusInternalServerError)
-			return
-		}
-		defer dst.Close()
-
-		written, err := io.Copy(dst, file)
-		if err != nil {
-			http.Error(w, `{"error":"failed to write file"}`, http.StatusInternalServerError)
+		// Upload to R2
+		if err := r2.Upload(r.Context(), r2Key, file, contentType, header.Size); err != nil {
+			log.Printf("r2 upload error: %v", err)
+			http.Error(w, `{"error":"failed to store file"}`, http.StatusInternalServerError)
 			return
 		}
 
 		const q = `
-			INSERT INTO files (id, user_id, filename, original_name, content_type, size)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			RETURNING created_at`
+			INSERT INTO files (id, user_id, filename, original_name, content_type, size, r2_key)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING created_at, last_accessed_at`
 
-		var createdAt time.Time
+		var createdAt, lastAccessedAt time.Time
 		err = db.QueryRowContext(r.Context(), q,
-			fileID, userID, storedName, header.Filename, contentType, written,
-		).Scan(&createdAt)
+			fileID, userID, storedName, header.Filename, contentType, header.Size, r2Key,
+		).Scan(&createdAt, &lastAccessedAt)
 		if err != nil {
-			os.Remove(filepath.Join(userDir, storedName))
+			// Best-effort cleanup from R2
+			r2.Delete(context.Background(), r2Key)
 			http.Error(w, `{"error":"failed to record file"}`, http.StatusInternalServerError)
 			return
 		}
 
 		info := FileInfo{
-			ID:           fileID,
-			Name:         storedName,
-			OriginalName: header.Filename,
-			Size:         written,
-			MimeType:     contentType,
-			CreatedAt:    createdAt.UTC().Format(time.RFC3339),
-			URL:          fmt.Sprintf("/api/v1/files/%s", fileID),
+			ID:             fileID,
+			Name:           storedName,
+			OriginalName:   header.Filename,
+			Size:           header.Size,
+			MimeType:       contentType,
+			CreatedAt:      createdAt.UTC().Format(time.RFC3339),
+			LastAccessedAt: lastAccessedAt.UTC().Format(time.RFC3339),
+			URL:            fmt.Sprintf("/api/v1/files/%s", fileID),
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -118,7 +114,7 @@ func ListFiles(db *sql.DB) http.HandlerFunc {
 		}
 
 		const q = `
-			SELECT id, filename, original_name, content_type, size, created_at
+			SELECT id, filename, original_name, content_type, size, created_at, last_accessed_at, permanent
 			FROM files
 			WHERE user_id = $1
 			ORDER BY created_at DESC`
@@ -133,12 +129,13 @@ func ListFiles(db *sql.DB) http.HandlerFunc {
 		files := make([]FileInfo, 0)
 		for rows.Next() {
 			var f FileInfo
-			var createdAt time.Time
-			if err := rows.Scan(&f.ID, &f.Name, &f.OriginalName, &f.MimeType, &f.Size, &createdAt); err != nil {
+			var createdAt, lastAccessedAt time.Time
+			if err := rows.Scan(&f.ID, &f.Name, &f.OriginalName, &f.MimeType, &f.Size, &createdAt, &lastAccessedAt, &f.Permanent); err != nil {
 				http.Error(w, `{"error":"failed to read files"}`, http.StatusInternalServerError)
 				return
 			}
 			f.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+			f.LastAccessedAt = lastAccessedAt.UTC().Format(time.RFC3339)
 			f.URL = fmt.Sprintf("/api/v1/files/%s", f.ID)
 			files = append(files, f)
 		}
@@ -152,19 +149,19 @@ func ListFiles(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func GetFile(cfg *config.Config, db *sql.DB) http.HandlerFunc {
+func GetFile(db *sql.DB, r2 *storage.R2Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := middleware.GetUserID(r.Context())
 		fileID := chi.URLParam(r, "id")
 
 		const q = `
-			SELECT filename, original_name, content_type
+			SELECT r2_key, original_name
 			FROM files
 			WHERE id = $1 AND user_id = $2`
 
-		var storedName, originalName, contentType string
+		var r2Key, originalName string
 		err := db.QueryRowContext(r.Context(), q, fileID, userID).
-			Scan(&storedName, &originalName, &contentType)
+			Scan(&r2Key, &originalName)
 		if err == sql.ErrNoRows {
 			http.Error(w, `{"error":"file not found"}`, http.StatusNotFound)
 			return
@@ -174,23 +171,25 @@ func GetFile(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		filePath := filepath.Join(cfg.UploadDir, userID, storedName)
+		// Update last_accessed_at (fire-and-forget)
+		go func() {
+			db.ExecContext(context.Background(),
+				`UPDATE files SET last_accessed_at = NOW() WHERE id = $1`, fileID)
+		}()
 
-		// Sanitize: ensure the resolved path stays within the upload directory.
-		absUpload, _ := filepath.Abs(cfg.UploadDir)
-		absFile, _ := filepath.Abs(filePath)
-		if !strings.HasPrefix(absFile, absUpload) {
-			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+		// Generate presigned URL (15 min)
+		signedURL, err := r2.PresignedURL(r.Context(), r2Key, originalName, 15*time.Minute)
+		if err != nil {
+			log.Printf("presign error: %v", err)
+			http.Error(w, `{"error":"failed to generate download URL"}`, http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, originalName))
-		http.ServeFile(w, r, filePath)
+		http.Redirect(w, r, signedURL, http.StatusFound)
 	}
 }
 
-func DeleteFile(cfg *config.Config, db *sql.DB) http.HandlerFunc {
+func DeleteFile(db *sql.DB, r2 *storage.R2Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := middleware.GetUserID(r.Context())
 		fileID := chi.URLParam(r, "id")
@@ -198,10 +197,10 @@ func DeleteFile(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 		const q = `
 			DELETE FROM files
 			WHERE id = $1 AND user_id = $2
-			RETURNING filename`
+			RETURNING r2_key`
 
-		var storedName string
-		err := db.QueryRowContext(r.Context(), q, fileID, userID).Scan(&storedName)
+		var r2Key string
+		err := db.QueryRowContext(r.Context(), q, fileID, userID).Scan(&r2Key)
 		if err == sql.ErrNoRows {
 			http.Error(w, `{"error":"file not found"}`, http.StatusNotFound)
 			return
@@ -211,14 +210,58 @@ func DeleteFile(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		filePath := filepath.Join(cfg.UploadDir, userID, storedName)
-		absUpload, _ := filepath.Abs(cfg.UploadDir)
-		absFile, _ := filepath.Abs(filePath)
-		if strings.HasPrefix(absFile, absUpload) {
-			os.Remove(filePath)
+		// Delete from R2 (best-effort)
+		if err := r2.Delete(r.Context(), r2Key); err != nil {
+			log.Printf("r2 delete error for %s: %v", r2Key, err)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+	}
+}
+
+// CleanupExpiredFiles deletes files not accessed in 90 days (unless permanent).
+// Protected by internal secret header.
+func CleanupExpiredFiles(cfg *config.Config, db *sql.DB, r2 *storage.R2Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if cfg.InternalSecret == "" || r.Header.Get("X-Internal-Secret") != cfg.InternalSecret {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+
+		const q = `
+			SELECT id, r2_key FROM files
+			WHERE NOT permanent
+			  AND last_accessed_at < NOW() - INTERVAL '90 days'
+			LIMIT 500`
+
+		rows, err := db.QueryContext(r.Context(), q)
+		if err != nil {
+			http.Error(w, `{"error":"query failed"}`, http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var deleted int
+		for rows.Next() {
+			var id, r2Key string
+			if err := rows.Scan(&id, &r2Key); err != nil {
+				continue
+			}
+
+			if err := r2.Delete(r.Context(), r2Key); err != nil {
+				log.Printf("cleanup: r2 delete %s failed: %v", r2Key, err)
+				continue
+			}
+
+			if _, err := db.ExecContext(r.Context(), `DELETE FROM files WHERE id = $1`, id); err != nil {
+				log.Printf("cleanup: db delete %s failed: %v", id, err)
+				continue
+			}
+			deleted++
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]int{"deleted": deleted})
 	}
 }

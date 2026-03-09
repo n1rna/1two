@@ -12,6 +12,7 @@ import (
 	"github.com/n1rna/1two/api/internal/database"
 	"github.com/n1rna/1two/api/internal/handler"
 	"github.com/n1rna/1two/api/internal/middleware"
+	"github.com/n1rna/1two/api/internal/storage"
 )
 
 func main() {
@@ -23,6 +24,16 @@ func main() {
 	}
 	if db != nil {
 		defer db.Close()
+	}
+
+	var r2 *storage.R2Client
+	if cfg.R2AccountID != "" {
+		r2, err = storage.NewR2Client(cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretAccessKey, cfg.R2BucketName)
+		if err != nil {
+			log.Printf("WARNING: failed to init R2 client: %v (file routes will be unavailable)", err)
+		}
+	} else {
+		log.Printf("WARNING: R2 not configured (file upload/download will be unavailable)")
 	}
 
 	r := chi.NewRouter()
@@ -49,13 +60,20 @@ func main() {
 		r.Get("/ip/info", handler.IPInfo)
 		r.Post("/dns/lookup", handler.DNSLookup(cfg))
 
+		// Internal routes (protected by secret)
+		if r2 != nil && db != nil {
+			r.Post("/internal/cleanup", handler.CleanupExpiredFiles(cfg, db, r2))
+		}
+
 		// Authenticated routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg))
-			r.Post("/files", handler.UploadFile(cfg, db))
-			r.Get("/files", handler.ListFiles(db))
-			r.Get("/files/{id}", handler.GetFile(cfg, db))
-			r.Delete("/files/{id}", handler.DeleteFile(cfg, db))
+			if r2 != nil && db != nil {
+				r.Post("/files", handler.UploadFile(cfg, db, r2))
+				r.Get("/files", handler.ListFiles(db))
+				r.Get("/files/{id}", handler.GetFile(db, r2))
+				r.Delete("/files/{id}", handler.DeleteFile(db, r2))
+			}
 		})
 	})
 
