@@ -18,6 +18,7 @@ import {
 } from "@/lib/tools/registry";
 import type { SearchItem } from "@/lib/tools/registry";
 import { loadBookmarks } from "@/lib/tools/preferences";
+import { useSession } from "@/lib/auth-client";
 
 function getIcon(name: string) {
   const Icon = (
@@ -40,6 +41,8 @@ export function ToolLauncher() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const { data: session } = useSession();
+  const loggedIn = !!session;
   const router = useRouter();
   const allItems = useMemo(() => getSearchItems(), []);
 
@@ -186,10 +189,11 @@ export function ToolLauncher() {
                         item.name
                       )}
                       {item.requiresAuth && (
-                        <span className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[9px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0">
-                          <Icons.Lock className="h-2 w-2" />
-                          Sign in
-                        </span>
+                        loggedIn ? (
+                          <Icons.UserCheck className="h-3 w-3 text-green-600 dark:text-green-400 shrink-0" />
+                        ) : (
+                          <Icons.Lock className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                        )
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground/70 truncate mt-0.5">

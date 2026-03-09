@@ -32,6 +32,7 @@ import {
   loadToolOrder,
   saveToolOrder,
 } from "@/lib/tools/preferences";
+import { useSession } from "@/lib/auth-client";
 
 function getIcon(name: string) {
   const Icon = (
@@ -40,14 +41,25 @@ function getIcon(name: string) {
   return Icon || Icons.Wrench;
 }
 
+function AuthBadge({ requiresAuth, loggedIn }: { requiresAuth?: boolean; loggedIn: boolean }) {
+  if (!requiresAuth) return null;
+  return loggedIn ? (
+    <Icons.UserCheck className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />
+  ) : (
+    <Icons.Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+  );
+}
+
 function SortableToolCard({
   tool,
   bookmarked,
   onToggleBookmark,
+  loggedIn,
 }: {
   tool: ToolDefinition;
   bookmarked: boolean;
   onToggleBookmark: (slug: string) => void;
+  loggedIn: boolean;
 }) {
   const {
     attributes,
@@ -83,12 +95,7 @@ function SortableToolCard({
               <Badge variant="outline" className="text-xs">
                 {categoryLabels[tool.category]}
               </Badge>
-              {tool.requiresAuth && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                  <Icons.Lock className="h-2.5 w-2.5" />
-                  Sign in
-                </span>
-              )}
+              <AuthBadge requiresAuth={tool.requiresAuth} loggedIn={loggedIn} />
             </div>
             <CardTitle className="text-lg">{tool.name}</CardTitle>
             <CardDescription>{tool.description}</CardDescription>
@@ -130,6 +137,8 @@ function SortableToolCard({
 }
 
 export function ToolGrid() {
+  const { data: session } = useSession();
+  const loggedIn = !!session;
   const [mounted, setMounted] = useState(false);
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [order, setOrder] = useState<string[]>([]);
@@ -228,12 +237,7 @@ export function ToolGrid() {
                     <Badge variant="outline" className="text-xs">
                       {categoryLabels[tool.category]}
                     </Badge>
-                    {tool.requiresAuth && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                        <Icons.Lock className="h-2.5 w-2.5" />
-                        Sign in
-                      </span>
-                    )}
+                    <AuthBadge requiresAuth={tool.requiresAuth} loggedIn={false} />
                   </div>
                   <CardTitle className="text-lg">{tool.name}</CardTitle>
                   <CardDescription>{tool.description}</CardDescription>
@@ -263,6 +267,7 @@ export function ToolGrid() {
               tool={tool}
               bookmarked={bookmarks.has(tool.slug)}
               onToggleBookmark={toggleBookmark}
+              loggedIn={loggedIn}
             />
           ))}
         </div>
