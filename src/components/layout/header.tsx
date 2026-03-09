@@ -39,6 +39,7 @@ export function Header() {
             href="https://github.com/n1rna/1two"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="GitHub repository"
             className="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 w-8 hover:bg-accent hover:text-accent-foreground transition-colors text-muted-foreground"
           >
             <Github className="h-4 w-4" />

@@ -210,6 +210,23 @@ export const tools: ToolDefinition[] = [
     keywords: ["dns", "lookup", "domain", "nameserver", "mx", "cname", "txt", "a record", "aaaa", "ns", "soa", "dig", "nslookup"],
   },
   {
+    slug: "sqlite",
+    name: "SQLite Browser",
+    description: "Open and explore SQLite databases in the browser — browse tables, run SQL queries, sort, filter, and export data",
+    category: "data",
+    icon: "Database",
+    keywords: ["sqlite", "database", "sql", "query", "table", "browse", "db", "data", "explorer", "schema"],
+  },
+  {
+    slug: "paste",
+    name: "Paste Bin",
+    description: "Create and share text snippets with short, shareable links",
+    category: "text",
+    icon: "ClipboardPaste",
+    keywords: ["paste", "pastebin", "snippet", "share", "text", "code", "gist"],
+    requiresAuth: true,
+  },
+  {
     slug: "upload",
     name: "File Upload",
     description: "Upload, manage, and share files securely with your account",
