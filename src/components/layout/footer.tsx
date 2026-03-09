@@ -11,7 +11,7 @@ export function Footer() {
   if (isToolPage) {
     return (
       <footer className="border-t shrink-0">
-        <div className="flex items-center justify-between px-4 py-1 text-[10px] text-muted-foreground/60">
+        <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground/60">
           <div className="flex items-center gap-1.5">
             <Image
               src="/logo.svg"
