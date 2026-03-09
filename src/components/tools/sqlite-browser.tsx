@@ -23,6 +23,9 @@ import {
   Loader2,
   Search,
   FileDown,
+  Plus,
+  Pencil,
+  Save,
 } from "lucide-react";
 import type { Database as SqlJsDatabase } from "sql.js";
 
@@ -53,10 +56,17 @@ interface QueryResult {
   rows: unknown[][];
   rowCount: number;
   time: number;
-  error?: string;
 }
 
 type SortDir = "asc" | "desc" | null;
+
+interface RowDrawerState {
+  open: boolean;
+  mode: "create" | "edit";
+  values: Record<string, string>;
+  /** For edit mode: original PK values to identify the row */
+  originalPk: Record<string, unknown>;
+}
 
 // ─── Constants ─────────────────────────────────────────────────────
 
@@ -75,19 +85,21 @@ function SqlEditor({
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<import("@codemirror/view").EditorView | null>(null);
+  const onRunRef = useRef(onRun);
+  onRunRef.current = onRun;
 
   useEffect(() => {
     if (!editorRef.current) return;
     let destroyed = false;
 
     (async () => {
-      const { EditorView, keymap, placeholder } = await import("@codemirror/view");
+      const { EditorView, keymap, placeholder, lineNumbers } = await import("@codemirror/view");
       const { EditorState } = await import("@codemirror/state");
       const { sql, SQLite } = await import("@codemirror/lang-sql");
       const { defaultKeymap, history, historyKeymap } = await import("@codemirror/commands");
-      const { oneDark } = await import("@codemirror/theme-one-dark");
       const { autocompletion, completionKeymap } = await import("@codemirror/autocomplete");
-      const { syntaxHighlighting, defaultHighlightStyle } = await import("@codemirror/language");
+      const { syntaxHighlighting, HighlightStyle } = await import("@codemirror/language");
+      const { tags } = await import("@lezer/highlight");
 
       if (destroyed || !editorRef.current) return;
 
@@ -95,36 +107,79 @@ function SqlEditor({
         {
           key: "Mod-Enter",
           run: () => {
-            onRun();
+            onRunRef.current();
             return true;
           },
         },
+      ]);
+
+      // Custom highlight style matching app theme
+      const highlight = HighlightStyle.define([
+        { tag: tags.keyword, color: "#c792ea" },
+        { tag: tags.operatorKeyword, color: "#c792ea" },
+        { tag: tags.string, color: "#c3e88d" },
+        { tag: tags.number, color: "#f78c6c" },
+        { tag: tags.bool, color: "#ff5370" },
+        { tag: tags.null, color: "#ff5370", fontStyle: "italic" },
+        { tag: tags.comment, color: "#697098", fontStyle: "italic" },
+        { tag: tags.typeName, color: "#ffcb6b" },
+        { tag: tags.function(tags.variableName), color: "#82aaff" },
+        { tag: tags.propertyName, color: "#f07178" },
+        { tag: tags.punctuation, color: "#89ddff" },
+        { tag: tags.paren, color: "#89ddff" },
+        { tag: tags.squareBracket, color: "#89ddff" },
+        { tag: tags.separator, color: "#89ddff" },
+        { tag: tags.special(tags.string), color: "#f07178" },
       ]);
 
       const theme = EditorView.theme({
         "&": {
           fontSize: "13px",
           height: "100%",
+          backgroundColor: "color-mix(in srgb, var(--background) 95%, var(--foreground) 5%)",
+          color: "var(--foreground)",
         },
         ".cm-content": {
           fontFamily: "var(--font-geist-mono), monospace",
           padding: "8px 0",
+          caretColor: "var(--foreground)",
         },
         ".cm-gutters": {
           backgroundColor: "transparent",
+          color: "var(--muted-foreground)",
           borderRight: "1px solid var(--border)",
         },
+        ".cm-activeLineGutter": {
+          backgroundColor: "transparent",
+          color: "var(--foreground)",
+        },
         ".cm-activeLine": {
-          backgroundColor: "color-mix(in srgb, var(--accent) 30%, transparent)",
+          backgroundColor: "color-mix(in srgb, var(--accent) 40%, transparent)",
         },
         ".cm-selectionBackground": {
-          backgroundColor: "color-mix(in srgb, var(--primary) 20%, transparent) !important",
+          backgroundColor: "color-mix(in srgb, var(--primary) 25%, transparent) !important",
         },
         "&.cm-focused .cm-cursor": {
           borderLeftColor: "var(--foreground)",
         },
         "&.cm-focused": {
           outline: "none",
+        },
+        ".cm-tooltip": {
+          backgroundColor: "var(--popover)",
+          color: "var(--popover-foreground)",
+          border: "1px solid var(--border)",
+          borderRadius: "6px",
+        },
+        ".cm-tooltip-autocomplete ul li[aria-selected]": {
+          backgroundColor: "var(--accent)",
+          color: "var(--accent-foreground)",
+        },
+        ".cm-completionIcon": {
+          display: "none",
+        },
+        ".cm-placeholder": {
+          color: "var(--muted-foreground)",
         },
       });
 
@@ -134,10 +189,10 @@ function SqlEditor({
           runKeymap,
           keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
           history(),
+          lineNumbers(),
           sql({ dialect: SQLite }),
           autocompletion(),
-          syntaxHighlighting(defaultHighlightStyle),
-          oneDark,
+          syntaxHighlighting(highlight),
           theme,
           placeholder("Write SQL here... (Ctrl+Enter to run)"),
           EditorView.updateListener.of((update) => {
@@ -168,6 +223,110 @@ function SqlEditor({
   return <div ref={editorRef} className="h-full overflow-hidden" />;
 }
 
+// ─── Row Drawer ────────────────────────────────────────────────────
+
+function RowDrawer({
+  state,
+  columns,
+  onClose,
+  onSave,
+}: {
+  state: RowDrawerState;
+  columns: ColumnInfo[];
+  onClose: () => void;
+  onSave: (values: Record<string, string>) => void;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(state.values);
+
+  useEffect(() => {
+    setValues(state.values);
+  }, [state.values]);
+
+  if (!state.open) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Drawer */}
+      <div className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-md bg-background border-l shadow-xl flex flex-col animate-in slide-in-from-right duration-200">
+        <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+          {state.mode === "create" ? (
+            <Plus className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <Pencil className="h-4 w-4 text-muted-foreground" />
+          )}
+          <h3 className="font-semibold text-sm">
+            {state.mode === "create" ? "New Row" : "Edit Row"}
+          </h3>
+          <div className="flex-1" />
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 hover:bg-accent text-muted-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 space-y-3">
+          {columns.map((col) => {
+            const isPk = col.pk && state.mode === "edit";
+            return (
+              <div key={col.cid}>
+                <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1">
+                  <span>{col.name}</span>
+                  <span className="font-mono text-[10px] opacity-60">{col.type}</span>
+                  {col.pk && (
+                    <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded">PK</span>
+                  )}
+                  {col.notnull && (
+                    <span className="text-[10px] bg-destructive/10 text-destructive px-1.5 rounded">NOT NULL</span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={values[col.name] ?? ""}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, [col.name]: e.target.value }))
+                  }
+                  disabled={isPk}
+                  placeholder={
+                    col.dflt_value != null
+                      ? `Default: ${col.dflt_value}`
+                      : col.notnull
+                        ? "Required"
+                        : "NULL"
+                  }
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 px-4 py-3 border-t shrink-0">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-accent transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave(values)}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {state.mode === "create" ? "Insert" : "Update"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Main Component ────────────────────────────────────────────────
 
 export function SqliteBrowser() {
@@ -189,14 +348,22 @@ export function SqliteBrowser() {
 
   // Query editor
   const [editorOpen, setEditorOpen] = useState(false);
-  const [sql, setSql] = useState("SELECT * FROM ");
+  const [sqlText, setSqlText] = useState("SELECT * FROM ");
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
+
+  // Row drawer
+  const [drawer, setDrawer] = useState<RowDrawerState>({
+    open: false,
+    mode: "create",
+    values: {},
+    originalPk: {},
+  });
 
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(220);
-  const [editorHeight, setEditorHeight] = useState(200);
+  const [editorHeight, setEditorHeight] = useState(220);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizingRef = useRef(false);
   const editorResizingRef = useRef(false);
@@ -217,7 +384,6 @@ export function SqliteBrowser() {
       });
       setFileName(name);
 
-      // Get tables
       const result = newDb.exec(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
       );
@@ -230,8 +396,6 @@ export function SqliteBrowser() {
         };
       });
       setTables(tableInfos);
-
-      // Reset state
       setSelectedTable(null);
       setColumns([]);
       setIndexes([]);
@@ -244,7 +408,6 @@ export function SqliteBrowser() {
       setQueryResult(null);
       setQueryError(null);
 
-      // Auto-select first table
       if (tableNames.length > 0) {
         selectTable(newDb, tableNames[0]);
       }
@@ -267,7 +430,6 @@ export function SqliteBrowser() {
       setFilters({});
       setShowFilters(false);
 
-      // Get schema
       try {
         const pragmaResult = database.exec(`PRAGMA table_info("${tableName}")`);
         const cols: ColumnInfo[] = (pragmaResult[0]?.values ?? []).map((r) => ({
@@ -280,7 +442,6 @@ export function SqliteBrowser() {
         }));
         setColumns(cols);
 
-        // Get indexes
         const idxResult = database.exec(`PRAGMA index_list("${tableName}")`);
         const idxs: IndexInfo[] = (idxResult[0]?.values ?? []).map((r) => {
           const idxName = String(r[1]);
@@ -293,7 +454,6 @@ export function SqliteBrowser() {
         });
         setIndexes(idxs);
 
-        // Get data
         fetchData(database, tableName, 0, null, null, {});
       } catch (e) {
         setQueryError(`Error loading table: ${e instanceof Error ? e.message : e}`);
@@ -315,7 +475,6 @@ export function SqliteBrowser() {
       filterMap: Record<string, string>
     ) => {
       try {
-        // Build WHERE
         const whereClauses: string[] = [];
         for (const [col, val] of Object.entries(filterMap)) {
           if (val.trim()) {
@@ -324,14 +483,12 @@ export function SqliteBrowser() {
         }
         const whereStr = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(" AND ")}` : "";
 
-        // Total count
         const countResult = database.exec(
           `SELECT COUNT(*) FROM "${tableName}"${whereStr}`
         );
         const total = Number(countResult[0]?.values[0]?.[0] ?? 0);
         setTotalRows(total);
 
-        // Build ORDER BY
         const orderStr = sortColumn && sortDirection
           ? ` ORDER BY "${sortColumn}" ${sortDirection.toUpperCase()}`
           : "";
@@ -348,6 +505,24 @@ export function SqliteBrowser() {
     },
     []
   );
+
+  // ─── Refresh current view ──────────────────────────────────────
+
+  const refreshTable = useCallback(() => {
+    if (!db || !selectedTable) return;
+    fetchData(db, selectedTable, page, sortCol, sortDir, filters);
+    // Refresh row counts
+    const result = db.exec(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    );
+    const tableNames = (result[0]?.values ?? []).map((r) => String(r[0]));
+    setTables(
+      tableNames.map((t) => {
+        const countResult = db.exec(`SELECT COUNT(*) FROM "${t}"`);
+        return { name: t, rowCount: Number(countResult[0]?.values[0]?.[0] ?? 0) };
+      })
+    );
+  }, [db, selectedTable, page, sortCol, sortDir, filters, fetchData]);
 
   // ─── Handlers ───────────────────────────────────────────────────
 
@@ -416,11 +591,11 @@ export function SqliteBrowser() {
   );
 
   const runQuery = useCallback(() => {
-    if (!db || !sql.trim()) return;
+    if (!db || !sqlText.trim()) return;
     setQueryError(null);
     const start = performance.now();
     try {
-      const results = db.exec(sql);
+      const results = db.exec(sqlText);
       const elapsed = performance.now() - start;
       if (results.length > 0) {
         const r = results[0];
@@ -438,11 +613,16 @@ export function SqliteBrowser() {
           time: elapsed,
         });
       }
+      // Refresh table data if it was a write query
+      const trimmed = sqlText.trim().toUpperCase();
+      if (trimmed.startsWith("INSERT") || trimmed.startsWith("UPDATE") || trimmed.startsWith("DELETE") || trimmed.startsWith("DROP") || trimmed.startsWith("ALTER")) {
+        refreshTable();
+      }
     } catch (e) {
       setQueryError(e instanceof Error ? e.message : String(e));
       setQueryResult(null);
     }
-  }, [db, sql]);
+  }, [db, sqlText, refreshTable]);
 
   const exportCsv = useCallback(() => {
     const data = queryResult ?? { columns: colNames, rows };
@@ -475,6 +655,91 @@ export function SqliteBrowser() {
     setTimeout(() => setCopied(false), 1200);
   }, []);
 
+  // ─── Row drawer handlers ───────────────────────────────────────
+
+  const openCreateDrawer = useCallback(() => {
+    const defaultValues: Record<string, string> = {};
+    for (const col of columns) {
+      defaultValues[col.name] = col.dflt_value ?? "";
+    }
+    setDrawer({
+      open: true,
+      mode: "create",
+      values: defaultValues,
+      originalPk: {},
+    });
+  }, [columns]);
+
+  const openEditDrawer = useCallback(
+    (rowIndex: number) => {
+      const row = rows[rowIndex];
+      if (!row) return;
+      const values: Record<string, string> = {};
+      const originalPk: Record<string, unknown> = {};
+      colNames.forEach((col, i) => {
+        values[col] = row[i] == null ? "" : String(row[i]);
+      });
+      for (const col of columns) {
+        if (col.pk) {
+          const idx = colNames.indexOf(col.name);
+          if (idx >= 0) originalPk[col.name] = row[idx];
+        }
+      }
+      setDrawer({ open: true, mode: "edit", values, originalPk });
+    },
+    [rows, colNames, columns]
+  );
+
+  const handleDrawerSave = useCallback(
+    (values: Record<string, string>) => {
+      if (!db || !selectedTable) return;
+
+      try {
+        if (drawer.mode === "create") {
+          const cols = Object.keys(values).filter((k) => values[k] !== "");
+          if (cols.length === 0) return;
+          const placeholders = cols.map(() => "?").join(", ");
+          const vals = cols.map((k) => values[k] === "" ? null : values[k]);
+          const stmt = db.prepare(
+            `INSERT INTO "${selectedTable}" (${cols.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders})`
+          );
+          stmt.run(vals);
+          stmt.free();
+        } else {
+          // Edit mode — update by PK
+          const pkCols = columns.filter((c) => c.pk);
+          if (pkCols.length === 0) {
+            setQueryError("Cannot edit: table has no primary key");
+            return;
+          }
+          const setClauses = columns
+            .filter((c) => !c.pk)
+            .map((c) => `"${c.name}" = ?`);
+          const setValues = columns
+            .filter((c) => !c.pk)
+            .map((c) => values[c.name] === "" ? null : values[c.name]);
+          const whereClauses = pkCols.map((c) => `"${c.name}" = ?`);
+          const whereValues = pkCols.map((c) => {
+            const v = drawer.originalPk[c.name];
+            return v == null ? null : String(v);
+          });
+
+          const stmt = db.prepare(
+            `UPDATE "${selectedTable}" SET ${setClauses.join(", ")} WHERE ${whereClauses.join(" AND ")}`
+          );
+          stmt.run([...setValues, ...whereValues] as (string | null)[]);
+          stmt.free();
+        }
+
+        setDrawer((prev) => ({ ...prev, open: false }));
+        refreshTable();
+      } catch (e) {
+        setQueryError(`${drawer.mode === "create" ? "Insert" : "Update"} failed: ${e instanceof Error ? e.message : e}`);
+      }
+    },
+    [db, selectedTable, columns, drawer.mode, drawer.originalPk, refreshTable]
+  );
+
   // ─── Sidebar resize ────────────────────────────────────────────
 
   const handleSidebarResize = useCallback((e: React.MouseEvent) => {
@@ -485,8 +750,7 @@ export function SqliteBrowser() {
 
     const onMove = (ev: MouseEvent) => {
       if (!resizingRef.current) return;
-      const w = Math.max(160, Math.min(400, startWidth + ev.clientX - startX));
-      setSidebarWidth(w);
+      setSidebarWidth(Math.max(160, Math.min(400, startWidth + ev.clientX - startX)));
     };
     const onUp = () => {
       resizingRef.current = false;
@@ -508,8 +772,7 @@ export function SqliteBrowser() {
 
     const onMove = (ev: MouseEvent) => {
       if (!editorResizingRef.current) return;
-      const h = Math.max(100, Math.min(500, startH - (ev.clientY - startY)));
-      setEditorHeight(h);
+      setEditorHeight(Math.max(120, Math.min(600, startH - (ev.clientY - startY))));
     };
     const onUp = () => {
       editorResizingRef.current = false;
@@ -521,14 +784,14 @@ export function SqliteBrowser() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorHeight]);
 
-  // ─── Pagination ─────────────────────────────────────────────────
+  // ─── Derived ────────────────────────────────────────────────────
 
   const totalPages = Math.ceil(totalRows / PAGE_SIZE);
-
   const activeFilters = useMemo(
     () => Object.values(filters).filter((v) => v.trim()).length,
     [filters]
   );
+  const hasPk = useMemo(() => columns.some((c) => c.pk), [columns]);
 
   // ─── No database loaded ─────────────────────────────────────────
 
@@ -590,6 +853,16 @@ export function SqliteBrowser() {
           {tables.length} table{tables.length !== 1 ? "s" : ""}
         </span>
         <div className="ml-auto flex items-center gap-1">
+          {selectedTable && (
+            <button
+              onClick={openCreateDrawer}
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium hover:bg-accent text-muted-foreground transition-colors"
+              title="Insert new row"
+            >
+              <Plus className="h-3 w-3" />
+              Row
+            </button>
+          )}
           <button
             onClick={() => setEditorOpen(!editorOpen)}
             className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
@@ -641,7 +914,6 @@ export function SqliteBrowser() {
           className="flex flex-col border-r shrink-0 overflow-hidden"
           style={{ width: sidebarWidth }}
         >
-          {/* Tables list */}
           <div className="flex-1 overflow-auto">
             <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Tables
@@ -683,13 +955,8 @@ export function SqliteBrowser() {
               {schemaOpen && (
                 <div className="overflow-auto max-h-48 px-1 pb-1.5">
                   {columns.map((col) => (
-                    <div
-                      key={col.cid}
-                      className="flex items-center gap-1 px-1.5 py-0.5 text-xs"
-                    >
-                      <span
-                        className={`truncate flex-1 ${col.pk ? "font-semibold" : ""}`}
-                      >
+                    <div key={col.cid} className="flex items-center gap-1 px-1.5 py-0.5 text-xs">
+                      <span className={`truncate flex-1 ${col.pk ? "font-semibold" : ""}`}>
                         {col.pk ? "\u{1F511}" : ""} {col.name}
                       </span>
                       <span className="text-[10px] text-muted-foreground font-mono shrink-0">
@@ -703,12 +970,8 @@ export function SqliteBrowser() {
                         Indexes
                       </div>
                       {indexes.map((idx) => (
-                        <div
-                          key={idx.name}
-                          className="px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                        >
-                          {idx.unique ? "UNIQUE " : ""}
-                          {idx.name} ({idx.columns.join(", ")})
+                        <div key={idx.name} className="px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {idx.unique ? "UNIQUE " : ""}{idx.name} ({idx.columns.join(", ")})
                         </div>
                       ))}
                     </div>
@@ -753,6 +1016,9 @@ export function SqliteBrowser() {
                         </span>
                       </th>
                     ))}
+                    {hasPk && (
+                      <th className="px-2 py-1.5 border-b border-r w-8" />
+                    )}
                   </tr>
                   {showFilters && (
                     <tr className="bg-muted/50">
@@ -768,15 +1034,13 @@ export function SqliteBrowser() {
                           />
                         </td>
                       ))}
+                      {hasPk && <td className="border-b border-r" />}
                     </tr>
                   )}
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
-                    <tr
-                      key={i}
-                      className="hover:bg-accent/30 transition-colors"
-                    >
+                    <tr key={i} className="hover:bg-accent/30 transition-colors group">
                       <td className="px-2 py-1 text-[10px] text-muted-foreground border-b border-r tabular-nums">
                         {page * PAGE_SIZE + i + 1}
                       </td>
@@ -794,12 +1058,23 @@ export function SqliteBrowser() {
                           )}
                         </td>
                       ))}
+                      {hasPk && (
+                        <td className="px-1 py-1 border-b border-r">
+                          <button
+                            onClick={() => openEditDrawer(i)}
+                            className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
+                            title="Edit row"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {rows.length === 0 && (
                     <tr>
                       <td
-                        colSpan={colNames.length + 1}
+                        colSpan={colNames.length + 1 + (hasPk ? 1 : 0)}
                         className="px-4 py-8 text-center text-sm text-muted-foreground"
                       >
                         No rows found.
@@ -865,13 +1140,15 @@ export function SqliteBrowser() {
           {/* SQL Editor panel */}
           {editorOpen && (
             <>
-              {/* Editor resize handle */}
+              {/* Editor resize handle — thicker grab area */}
               <div
-                className="h-px bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0"
+                className="h-1.5 bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0 flex items-center justify-center"
                 onMouseDown={handleEditorResize}
-              />
+              >
+                <div className="w-8 h-0.5 rounded-full bg-muted-foreground/30" />
+              </div>
               <div
-                className="flex flex-col shrink-0 border-t"
+                className="flex flex-col shrink-0"
                 style={{ height: editorHeight }}
               >
                 <div className="flex items-center gap-1 px-2 py-1 border-b shrink-0">
@@ -894,11 +1171,9 @@ export function SqliteBrowser() {
                   </button>
                 </div>
                 <div className="flex flex-1 min-h-0">
-                  {/* Editor */}
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    <SqlEditor value={sql} onChange={setSql} onRun={runQuery} />
+                    <SqlEditor value={sqlText} onChange={setSqlText} onRun={runQuery} />
                   </div>
-                  {/* Query results */}
                   {(queryResult || queryError) && (
                     <div className="w-1/2 border-l overflow-auto min-w-0">
                       {queryError ? (
@@ -910,10 +1185,7 @@ export function SqliteBrowser() {
                           <thead className="sticky top-0">
                             <tr className="bg-muted/80">
                               {queryResult.columns.map((c) => (
-                                <th
-                                  key={c}
-                                  className="px-2 py-1 text-left font-semibold border-b border-r whitespace-nowrap"
-                                >
+                                <th key={c} className="px-2 py-1 text-left font-semibold border-b border-r whitespace-nowrap">
                                   {c}
                                 </th>
                               ))}
@@ -929,9 +1201,7 @@ export function SqliteBrowser() {
                                     title={cell == null ? "NULL" : String(cell)}
                                   >
                                     {cell == null ? (
-                                      <span className="text-muted-foreground/50 italic">
-                                        NULL
-                                      </span>
+                                      <span className="text-muted-foreground/50 italic">NULL</span>
                                     ) : (
                                       String(cell)
                                     )}
@@ -954,6 +1224,14 @@ export function SqliteBrowser() {
           )}
         </div>
       </div>
+
+      {/* Row editor drawer */}
+      <RowDrawer
+        state={drawer}
+        columns={columns}
+        onClose={() => setDrawer((prev) => ({ ...prev, open: false }))}
+        onSave={handleDrawerSave}
+      />
 
       {/* Copied toast */}
       {copied && (
