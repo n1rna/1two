@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,7 +22,7 @@ import {
 
 // ─── Types ──────────────────────────────────────────
 
-type ViewMode = "3day" | "week" | "month" | "3month" | "year";
+type ViewMode = "day" | "week" | "month" | "quarter" | "year";
 
 interface Marker {
   id: string;
@@ -40,30 +46,26 @@ const COLORS = [
 ];
 
 const VIEW_OPTIONS: { value: ViewMode; label: string }[] = [
-  { value: "3day", label: "3 Days" },
+  { value: "day", label: "Day" },
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
-  { value: "3month", label: "Quarter" },
+  { value: "quarter", label: "Quarter" },
   { value: "year", label: "Year" },
 ];
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// Mon-first day names
+const DAY_NAMES_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES_LETTER = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 
 const STORAGE_KEY = "1two:calendar-markers";
+
+// 24 hours for the time grid
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const HOUR_HEIGHT = 56; // px per hour
 
 // ─── Helpers ────────────────────────────────────────
 
@@ -137,7 +139,6 @@ function randomColor(): string {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
 
-/** Build a set of date keys for every day between two keys (inclusive). */
 function rangeBetween(a: string, b: string): Set<string> {
   const set = new Set<string>();
   const start = a < b ? a : b;
@@ -151,7 +152,81 @@ function rangeBetween(a: string, b: string): Set<string> {
   return set;
 }
 
-// ─── Component ──────────────────────────────────────
+// Returns Mon-first day index (0=Mon … 6=Sun)
+function monFirstDayIndex(d: Date): number {
+  return (d.getDay() + 6) % 7;
+}
+
+// Build the cells array for a month grid (Mon-first, padded)
+function buildMonthCells(year: number, month: number) {
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstDay = new Date(year, month, 1);
+  const startOffset = monFirstDayIndex(firstDay);
+  const cells: { date: Date; inMonth: boolean }[] = [];
+  for (let i = startOffset - 1; i >= 0; i--) {
+    cells.push({ date: new Date(year, month, -i), inMonth: false });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ date: new Date(year, month, d), inMonth: true });
+  }
+  const remaining = (7 - (cells.length % 7)) % 7;
+  for (let d = 1; d <= remaining; d++) {
+    cells.push({ date: new Date(year, month + 1, d), inMonth: false });
+  }
+  return cells;
+}
+
+// ─── Shared types ────────────────────────────────────
+
+interface DayCellCallbacks {
+  onDayMouseDown: (dk: string, e: React.MouseEvent) => void;
+  onDayMouseEnter: (dk: string) => void;
+}
+
+// ─── Event layout helpers for month view ─────────────
+
+interface MarkerSlot {
+  marker: Marker;
+  /** position of this slot within the cell (0-indexed) */
+  slot: number;
+  /** visual appearance relative to this cell */
+  position: "single" | "start" | "middle" | "end";
+}
+
+function getMarkerSlotsForDay(
+  dk: string,
+  cells: { date: Date; inMonth: boolean }[],
+  markers: Marker[]
+): MarkerSlot[] {
+  // Build a stable slot assignment per marker per row so spanning works
+  // For each marker that covers this day, figure out position
+  const dayMarkers = markers.filter((m) => markerIncludesDay(m, dk));
+
+  return dayMarkers.map((m, idx) => {
+    const startKey = m.start;
+    const endKey = m.end;
+    let position: MarkerSlot["position"] = "single";
+    if (startKey === endKey) {
+      position = "single";
+    } else if (dk === startKey) {
+      position = "start";
+    } else if (dk === endKey) {
+      position = "end";
+    } else {
+      position = "middle";
+    }
+    return { marker: m, slot: idx, position };
+  });
+}
+
+// ─── Time grid helpers ───────────────────────────────
+
+function getCurrentTimePercent(): number {
+  const now = new Date();
+  return (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
+}
+
+// ─── Main Component ──────────────────────────────────
 
 export function CalendarTool() {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
@@ -160,8 +235,8 @@ export function CalendarTool() {
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [nowPercent, setNowPercent] = useState(getCurrentTimePercent());
 
-  // Drag-select state kept in refs to avoid re-renders mid-drag
   const dragRef = useRef<{ active: boolean; origin: string; prev: Set<string> }>({
     active: false,
     origin: "",
@@ -173,11 +248,14 @@ export function CalendarTool() {
     setMounted(true);
   }, []);
 
-  // Global mouseup to end drag
+  // Update live time indicator every minute
   useEffect(() => {
-    const onUp = () => {
-      dragRef.current.active = false;
-    };
+    const id = setInterval(() => setNowPercent(getCurrentTimePercent()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onUp = () => { dragRef.current.active = false; };
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
   }, []);
@@ -197,8 +275,8 @@ export function CalendarTool() {
       setAnchor((prev) => {
         const d = new Date(prev);
         switch (viewMode) {
-          case "3day":
-            d.setDate(d.getDate() + dir * 3);
+          case "day":
+            d.setDate(d.getDate() + dir);
             break;
           case "week":
             d.setDate(d.getDate() + dir * 7);
@@ -206,7 +284,7 @@ export function CalendarTool() {
           case "month":
             d.setMonth(d.getMonth() + dir);
             break;
-          case "3month":
+          case "quarter":
             d.setMonth(d.getMonth() + dir * 3);
             break;
           case "year":
@@ -225,7 +303,7 @@ export function CalendarTool() {
 
   const onDayMouseDown = useCallback(
     (dk: string, e: React.MouseEvent) => {
-      e.preventDefault(); // prevent text selection
+      e.preventDefault();
       const prev = e.shiftKey ? new Set(selectedDays) : new Set<string>();
       dragRef.current = { active: true, origin: dk, prev };
       setSelectedDays(new Set([...prev, dk]));
@@ -240,9 +318,7 @@ export function CalendarTool() {
     setSelectedDays(new Set([...drag.prev, ...range]));
   }, []);
 
-  const clearSelection = useCallback(() => {
-    setSelectedDays(new Set());
-  }, []);
+  const clearSelection = useCallback(() => setSelectedDays(new Set()), []);
 
   // ─── Selection Info ─────────────
 
@@ -331,10 +407,11 @@ export function CalendarTool() {
 
   const title = useMemo(() => {
     switch (viewMode) {
-      case "3day":
+      case "day":
+        return `${MONTH_NAMES[anchor.getMonth()]} ${anchor.getDate()}, ${anchor.getFullYear()}`;
       case "week": {
-        const s = viewMode === "3day" ? anchor : startOfWeek(anchor);
-        const e = addDays(s, viewMode === "3day" ? 2 : 6);
+        const s = startOfWeek(anchor);
+        const e = addDays(s, 6);
         if (s.getMonth() === e.getMonth()) {
           return `${MONTH_NAMES[s.getMonth()]} ${s.getDate()}–${e.getDate()}, ${s.getFullYear()}`;
         }
@@ -342,9 +419,9 @@ export function CalendarTool() {
       }
       case "month":
         return `${MONTH_NAMES[anchor.getMonth()]} ${anchor.getFullYear()}`;
-      case "3month": {
-        const startMonth = Math.floor(anchor.getMonth() / 3) * 3;
-        return `${MONTH_NAMES[startMonth].slice(0, 3)} – ${MONTH_NAMES[startMonth + 2].slice(0, 3)} ${anchor.getFullYear()}`;
+      case "quarter": {
+        const sm = Math.floor(anchor.getMonth() / 3) * 3;
+        return `${MONTH_NAMES[sm].slice(0, 3)} – ${MONTH_NAMES[sm + 2].slice(0, 3)} ${anchor.getFullYear()}`;
       }
       case "year":
         return `${anchor.getFullYear()}`;
@@ -354,7 +431,7 @@ export function CalendarTool() {
   if (!mounted) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-        Loading...
+        Loading…
       </div>
     );
   }
@@ -366,17 +443,19 @@ export function CalendarTool() {
         <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-sm font-semibold shrink-0">Calendar</span>
 
-        <div className="ml-4 flex items-center gap-0.5">
+        <div className="ml-4 flex items-center rounded-md border overflow-hidden">
           {VIEW_OPTIONS.map((v) => (
-            <Button
+            <button
               key={v.value}
-              size="sm"
-              variant={viewMode === v.value ? "default" : "ghost"}
-              className="text-xs h-7 px-2.5"
+              className={`text-xs h-7 px-3 border-r last:border-r-0 transition-colors cursor-pointer
+                ${viewMode === v.value
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                }`}
               onClick={() => setViewMode(v.value)}
             >
               {v.label}
-            </Button>
+            </button>
           ))}
         </div>
 
@@ -412,7 +491,7 @@ export function CalendarTool() {
       {/* Body */}
       <div className="flex-1 flex min-h-0">
         {/* Calendar area */}
-        <div className="flex-1 overflow-auto p-4 min-w-0">
+        <div className="flex-1 overflow-auto min-w-0">
           {viewMode === "month" && (
             <MonthGrid
               year={anchor.getFullYear()}
@@ -423,8 +502,8 @@ export function CalendarTool() {
               onDayMouseEnter={onDayMouseEnter}
             />
           )}
-          {viewMode === "3month" && (
-            <ThreeMonthGrid
+          {viewMode === "quarter" && (
+            <QuarterGrid
               year={anchor.getFullYear()}
               startMonth={Math.floor(anchor.getMonth() / 3) * 3}
               selectedDays={selectedDays}
@@ -442,12 +521,24 @@ export function CalendarTool() {
               onDayMouseEnter={onDayMouseEnter}
             />
           )}
-          {(viewMode === "week" || viewMode === "3day") && (
-            <DayColumnsView
-              start={viewMode === "week" ? startOfWeek(anchor) : anchor}
-              count={viewMode === "week" ? 7 : 3}
+          {viewMode === "week" && (
+            <TimeGrid
+              start={startOfWeek(anchor)}
+              count={7}
               selectedDays={selectedDays}
               markers={markers}
+              nowPercent={nowPercent}
+              onDayMouseDown={onDayMouseDown}
+              onDayMouseEnter={onDayMouseEnter}
+            />
+          )}
+          {viewMode === "day" && (
+            <TimeGrid
+              start={anchor}
+              count={1}
+              selectedDays={selectedDays}
+              markers={markers}
+              nowPercent={nowPercent}
               onDayMouseDown={onDayMouseDown}
               onDayMouseEnter={onDayMouseEnter}
             />
@@ -605,7 +696,7 @@ export function CalendarTool() {
   );
 }
 
-// ─── Marker Editor (inline) ─────────────────────────
+// ─── Marker Editor ───────────────────────────────────
 
 function MarkerEditor({
   marker,
@@ -631,9 +722,7 @@ function MarkerEditor({
       />
       <div className="flex gap-2">
         <div className="flex-1">
-          <label className="text-[10px] text-muted-foreground mb-0.5 block">
-            Start
-          </label>
+          <label className="text-[10px] text-muted-foreground mb-0.5 block">Start</label>
           <Input
             type="date"
             value={draft.start}
@@ -642,9 +731,7 @@ function MarkerEditor({
           />
         </div>
         <div className="flex-1">
-          <label className="text-[10px] text-muted-foreground mb-0.5 block">
-            End
-          </label>
+          <label className="text-[10px] text-muted-foreground mb-0.5 block">End</label>
           <Input
             type="date"
             value={draft.end}
@@ -654,14 +741,12 @@ function MarkerEditor({
         </div>
       </div>
       <div>
-        <label className="text-[10px] text-muted-foreground mb-0.5 block">
-          Color
-        </label>
+        <label className="text-[10px] text-muted-foreground mb-0.5 block">Color</label>
         <div className="flex gap-1.5">
           {COLORS.map((c) => (
             <button
               key={c}
-              className={`w-6 h-6 rounded-sm border-2 transition-all ${
+              className={`w-6 h-6 rounded-sm border-2 transition-all cursor-pointer ${
                 draft.color === c
                   ? "border-foreground scale-110"
                   : "border-transparent hover:border-muted-foreground/30"
@@ -701,14 +786,9 @@ function MarkerEditor({
   );
 }
 
-// ─── Shared day-cell props ──────────────────────────
-
-interface DayCellCallbacks {
-  onDayMouseDown: (dk: string, e: React.MouseEvent) => void;
-  onDayMouseEnter: (dk: string) => void;
-}
-
-// ─── Month Grid ─────────────────────────────────────
+// ─── Month Grid ──────────────────────────────────────
+// Uses border-l + border-t on each cell, container has border-r + border-b.
+// No gap – borders are shared/adjacent.
 
 function MonthGrid({
   year,
@@ -717,144 +797,95 @@ function MonthGrid({
   markers,
   onDayMouseDown,
   onDayMouseEnter,
-  mini,
 }: {
   year: number;
   month: number;
   selectedDays: Set<string>;
   markers: Marker[];
-  mini?: boolean;
 } & DayCellCallbacks) {
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDay = new Date(year, month, 1).getDay();
-  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
-
-  const cells: { date: Date; inMonth: boolean }[] = [];
-
-  for (let i = startOffset - 1; i >= 0; i--) {
-    cells.push({ date: new Date(year, month, -i), inMonth: false });
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ date: new Date(year, month, d), inMonth: true });
-  }
-  const remaining = 7 - (cells.length % 7);
-  if (remaining < 7) {
-    for (let d = 1; d <= remaining; d++) {
-      cells.push({ date: new Date(year, month + 1, d), inMonth: false });
-    }
-  }
-
-  if (mini) {
-    return (
-      <div>
-        <p className="text-xs font-semibold text-center mb-1.5">
-          {MONTH_NAMES[month]}
-        </p>
-        <div className="grid grid-cols-7 gap-0">
-          {DAY_NAMES.map((d) => (
-            <div
-              key={d}
-              className="text-[9px] text-muted-foreground text-center pb-0.5"
-            >
-              {d[0]}
-            </div>
-          ))}
-          {cells.map((c, i) => {
-            const dk = dateKey(c.date);
-            const isSelected = selectedDays.has(dk);
-            const dayMarkers = markers.filter((m) => markerIncludesDay(m, dk));
-            const today = isToday(c.date);
-            return (
-              <div
-                key={i}
-                className={`text-[10px] h-5 w-full relative transition-colors flex items-center justify-center cursor-default
-                  ${!c.inMonth ? "text-muted-foreground/30" : ""}
-                  ${isSelected ? "bg-primary text-primary-foreground" : ""}
-                  ${today && !isSelected ? "font-bold text-primary" : ""}
-                  ${isWeekend(c.date) && c.inMonth && !isSelected ? "text-muted-foreground" : ""}
-                  hover:bg-accent`}
-                onMouseDown={(e) => onDayMouseDown(dk, e)}
-                onMouseEnter={() => onDayMouseEnter(dk)}
-              >
-                {c.date.getDate()}
-                {dayMarkers.length > 0 && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-px">
-                    {dayMarkers.slice(0, 3).map((m, j) => (
-                      <span
-                        key={j}
-                        className="w-1 h-1 rounded-full"
-                        style={{ backgroundColor: m.color }}
-                      />
-                    ))}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+  const cells = buildMonthCells(year, month);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="grid grid-cols-7 border-b">
-        {DAY_NAMES.map((d) => (
+    <div className="flex flex-col h-full border-r border-b">
+      {/* Day headers */}
+      <div className="grid grid-cols-7 border-l border-t">
+        {DAY_NAMES_SHORT.map((d, i) => (
           <div
             key={d}
-            className="text-xs font-medium text-muted-foreground text-center py-1.5 border-r last:border-r-0"
+            className={`text-xs font-medium text-center py-2 border-l border-t
+              ${i >= 5 ? "text-muted-foreground" : "text-muted-foreground"}`}
           >
             {d}
           </div>
         ))}
       </div>
-      <div
-        className="grid grid-cols-7 flex-1"
-        style={{ gridAutoRows: "1fr" }}
-      >
+
+      {/* Cells */}
+      <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: "1fr" }}>
         {cells.map((c, i) => {
           const dk = dateKey(c.date);
           const isSelected = selectedDays.has(dk);
-          const dayMarkers = markers.filter((m) => markerIncludesDay(m, dk));
           const today = isToday(c.date);
+          const weekend = isWeekend(c.date);
+          const slots = getMarkerSlotsForDay(dk, cells, markers);
+          const MAX_SLOTS = 3;
+          const visibleSlots = slots.slice(0, MAX_SLOTS);
+          const overflow = slots.length - MAX_SLOTS;
+
           return (
             <div
               key={i}
-              className={`border-r border-b p-1.5 text-left transition-colors flex flex-col min-h-[72px] cursor-default
-                ${!c.inMonth ? "bg-muted/20 text-muted-foreground/40" : ""}
-                ${isSelected ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""}
-                ${isWeekend(c.date) && c.inMonth && !isSelected ? "bg-muted/10" : ""}
-                hover:bg-accent/40`}
+              className={`border-l border-t p-1 flex flex-col min-h-16 cursor-default transition-colors
+                ${!c.inMonth ? "bg-muted/20" : weekend ? "bg-muted/10" : ""}
+                ${isSelected ? "bg-primary/10" : "hover:bg-accent/30"}`}
               onMouseDown={(e) => onDayMouseDown(dk, e)}
               onMouseEnter={() => onDayMouseEnter(dk)}
             >
-              <span
-                className={`text-xs leading-none inline-flex items-center justify-center ${
-                  today
-                    ? "bg-primary text-primary-foreground w-5 h-5 rounded-full"
-                    : "w-5 h-5"
-                }`}
-              >
-                {c.date.getDate()}
-              </span>
-              {dayMarkers.length > 0 && (
-                <div className="mt-auto flex flex-col gap-0.5 w-full">
-                  {dayMarkers.slice(0, 2).map((m) => (
+              {/* Date number */}
+              <div className="flex items-start justify-between mb-0.5">
+                <span
+                  className={`text-xs leading-none inline-flex items-center justify-center w-5 h-5 rounded-full font-medium
+                    ${today
+                      ? "bg-primary text-primary-foreground"
+                      : !c.inMonth
+                      ? "text-muted-foreground/40"
+                      : isSelected
+                      ? "text-primary font-semibold"
+                      : "text-foreground"
+                    }`}
+                >
+                  {c.date.getDate()}
+                </span>
+              </div>
+
+              {/* Markers */}
+              <div className="flex flex-col gap-px mt-0.5">
+                {visibleSlots.map(({ marker: m, position }) => {
+                  const isStart = position === "start" || position === "single";
+                  const isEnd = position === "end" || position === "single";
+                  return (
                     <div
                       key={m.id}
-                      className="text-[9px] leading-tight truncate px-1 py-px rounded-sm text-white font-medium"
+                      className={`text-[9px] leading-tight px-1 py-px font-medium text-white overflow-hidden whitespace-nowrap
+                        ${isStart && isEnd ? "rounded" : ""}
+                        ${isStart && !isEnd ? "rounded-l rounded-r-none" : ""}
+                        ${!isStart && isEnd ? "rounded-r rounded-l-none" : ""}
+                        ${!isStart && !isEnd ? "rounded-none" : ""}
+                        ${position === "middle" || position === "end" ? "-ml-px" : ""}
+                        ${position === "start" || position === "middle" ? "-mr-px" : ""}
+                      `}
                       style={{ backgroundColor: m.color }}
                     >
-                      {m.label}
+                      {isStart ? m.label : "\u00A0"}
                     </div>
-                  ))}
-                  {dayMarkers.length > 2 && (
-                    <span className="text-[9px] text-muted-foreground pl-1">
-                      +{dayMarkers.length - 2} more
-                    </span>
-                  )}
-                </div>
-              )}
+                  );
+                })}
+                {overflow > 0 && (
+                  <span className="text-[9px] text-muted-foreground pl-1">
+                    +{overflow} more
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
@@ -863,9 +894,11 @@ function MonthGrid({
   );
 }
 
-// ─── 3 Month Grid ───────────────────────────────────
+// ─── Quarter Grid (3 months, no gaps) ────────────────
+// Renders a continuous 21-column grid (3 months × 7 days)
+// with month headers above each 7-column section.
 
-function ThreeMonthGrid({
+function QuarterGrid({
   year,
   startMonth,
   selectedDays,
@@ -878,27 +911,121 @@ function ThreeMonthGrid({
   selectedDays: Set<string>;
   markers: Marker[];
 } & DayCellCallbacks) {
+  const months = [0, 1, 2].map((offset) => {
+    const rawMonth = startMonth + offset;
+    const y = year + Math.floor(rawMonth / 12);
+    const m = ((rawMonth % 12) + 12) % 12;
+    return { year: y, month: m };
+  });
+
   return (
-    <div className="grid grid-cols-3 gap-6 h-full">
-      {[0, 1, 2].map((i) => {
-        const m = startMonth + i;
-        const y = year + Math.floor(m / 12);
-        const mo = ((m % 12) + 12) % 12;
-        return (
-          <div key={i} className="flex flex-col">
-            <h3 className="text-sm font-semibold text-center mb-2">
-              {MONTH_NAMES[mo]} {y}
-            </h3>
-            <div className="flex-1">
-              <MonthGrid
-                year={y}
-                month={mo}
-                selectedDays={selectedDays}
-                markers={markers}
-                onDayMouseDown={onDayMouseDown}
-                onDayMouseEnter={onDayMouseEnter}
-              />
+    <div className="flex flex-col h-full">
+      {/* Month name headers */}
+      <div className="grid grid-cols-3 border-l border-t border-r">
+        {months.map(({ year: y, month: m }, i) => (
+          <div
+            key={i}
+            className="text-xs font-semibold text-center py-1.5 border-l border-t first:border-l-0 text-muted-foreground"
+          >
+            {MONTH_NAMES[m]} {y}
+          </div>
+        ))}
+      </div>
+
+      {/* 3 side-by-side month grids sharing borders */}
+      <div className="flex flex-1 border-r border-b">
+        {months.map(({ year: y, month: m }, i) => (
+          <div key={i} className="flex-1 flex flex-col border-l">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-t">
+              {DAY_NAMES_LETTER.map((d, j) => (
+                <div
+                  key={j}
+                  className="text-[9px] font-medium text-muted-foreground text-center py-1.5 border-l first:border-l-0"
+                >
+                  {d}
+                </div>
+              ))}
             </div>
+
+            {/* Cells */}
+            <QuarterMonthCells
+              year={y}
+              month={m}
+              selectedDays={selectedDays}
+              markers={markers}
+              onDayMouseDown={onDayMouseDown}
+              onDayMouseEnter={onDayMouseEnter}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuarterMonthCells({
+  year,
+  month,
+  selectedDays,
+  markers,
+  onDayMouseDown,
+  onDayMouseEnter,
+}: {
+  year: number;
+  month: number;
+  selectedDays: Set<string>;
+  markers: Marker[];
+} & DayCellCallbacks) {
+  const cells = buildMonthCells(year, month);
+
+  return (
+    <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: "1fr" }}>
+      {cells.map((c, i) => {
+        const dk = dateKey(c.date);
+        const isSelected = selectedDays.has(dk);
+        const today = isToday(c.date);
+        const weekend = isWeekend(c.date);
+        const dayMarkers = markers.filter((m) => markerIncludesDay(m, dk));
+
+        return (
+          <div
+            key={i}
+            className={`border-l border-t first:border-l-0 p-0.5 flex flex-col min-h-10 cursor-default transition-colors text-center
+              ${!c.inMonth ? "bg-muted/20" : weekend ? "bg-muted/10" : ""}
+              ${isSelected ? "bg-primary/10" : "hover:bg-accent/30"}`}
+            onMouseDown={(e) => onDayMouseDown(dk, e)}
+            onMouseEnter={() => onDayMouseEnter(dk)}
+          >
+            <span
+              className={`text-[10px] leading-none inline-flex items-center justify-center mx-auto w-4 h-4 rounded-full font-medium
+                ${today
+                  ? "bg-primary text-primary-foreground"
+                  : !c.inMonth
+                  ? "text-muted-foreground/30"
+                  : isSelected
+                  ? "text-primary font-semibold"
+                  : "text-foreground"
+                }`}
+            >
+              {c.date.getDate()}
+            </span>
+            {dayMarkers.length > 0 && (
+              <div className="flex flex-wrap gap-px justify-center mt-px">
+                {dayMarkers.slice(0, 2).map((m) => (
+                  <span
+                    key={m.id}
+                    className="w-1 h-1 rounded-full shrink-0"
+                    style={{ backgroundColor: m.color }}
+                  />
+                ))}
+                {dayMarkers.length > 2 && (
+                  <span
+                    className="w-1 h-1 rounded-full shrink-0 bg-muted-foreground/40"
+                  />
+                )}
+              </div>
+            )}
           </div>
         );
       })}
@@ -906,7 +1033,9 @@ function ThreeMonthGrid({
   );
 }
 
-// ─── Year Grid ──────────────────────────────────────
+// ─── Year Grid ───────────────────────────────────────
+// Seamless 4×3 grid — months share borders, no gaps.
+// Each month has a tiny 3-letter label on the first row instead of a header bar.
 
 function YearGrid({
   year,
@@ -920,30 +1049,124 @@ function YearGrid({
   markers: Marker[];
 } & DayCellCallbacks) {
   return (
-    <div className="grid grid-cols-4 gap-x-6 gap-y-4">
-      {Array.from({ length: 12 }, (_, i) => (
-        <MonthGrid
-          key={i}
-          year={year}
-          month={i}
-          selectedDays={selectedDays}
-          markers={markers}
-          onDayMouseDown={onDayMouseDown}
-          onDayMouseEnter={onDayMouseEnter}
-          mini
-        />
-      ))}
+    <div className="h-full flex flex-col">
+      {/* Day-letter header row — shared across all 4 columns */}
+      <div className="grid grid-cols-4 shrink-0 border-b">
+        {Array.from({ length: 4 }, (_, col) => (
+          <div key={col} className={`grid grid-cols-7 ${col > 0 ? "border-l" : ""}`}>
+            {DAY_NAMES_LETTER.map((d, j) => (
+              <div
+                key={j}
+                className="text-[8px] text-muted-foreground text-center py-1"
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* 3 rows × 4 columns of months */}
+      <div className="grid grid-cols-4 grid-rows-3 flex-1 min-h-0">
+        {Array.from({ length: 12 }, (_, i) => {
+          const row = Math.floor(i / 4);
+          const col = i % 4;
+          return (
+            <YearMonth
+              key={i}
+              year={year}
+              month={i}
+              selectedDays={selectedDays}
+              markers={markers}
+              onDayMouseDown={onDayMouseDown}
+              onDayMouseEnter={onDayMouseEnter}
+              borderTop={row > 0}
+              borderLeft={col > 0}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// ─── Day Columns View (3-day / Week) ────────────────
+function YearMonth({
+  year,
+  month,
+  selectedDays,
+  markers,
+  onDayMouseDown,
+  onDayMouseEnter,
+  borderTop,
+  borderLeft,
+}: {
+  year: number;
+  month: number;
+  selectedDays: Set<string>;
+  markers: Marker[];
+  borderTop: boolean;
+  borderLeft: boolean;
+} & DayCellCallbacks) {
+  const cells = buildMonthCells(year, month);
 
-function DayColumnsView({
+  return (
+    <div className={`flex flex-col ${borderTop ? "border-t" : ""} ${borderLeft ? "border-l" : ""}`}>
+      {/* Cells grid */}
+      <div className="grid grid-cols-7 flex-1" style={{ gridAutoRows: "1fr" }}>
+        {cells.map((c, i) => {
+          const dk = dateKey(c.date);
+          const isSelected = selectedDays.has(dk);
+          const today = isToday(c.date);
+          const dayMarkers = markers.filter((m) => markerIncludesDay(m, dk));
+          // Show month label on first cell of the month
+          const isFirst = c.inMonth && c.date.getDate() === 1;
+
+          return (
+            <div
+              key={i}
+              className={`relative text-[10px] flex items-center justify-center cursor-default transition-colors
+                ${!c.inMonth ? "text-muted-foreground/20" : ""}
+                ${isSelected ? "bg-primary/15" : "hover:bg-accent/40"}`}
+              onMouseDown={(e) => onDayMouseDown(dk, e)}
+              onMouseEnter={() => onDayMouseEnter(dk)}
+            >
+              {/* Inline month label — replaces the day number on the 1st */}
+              {isFirst ? (
+                <span className="text-[9px] font-semibold text-muted-foreground">
+                  {MONTH_NAMES[month].slice(0, 3)}
+                </span>
+              ) : (
+                <span
+                  className={`inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[10px]
+                    ${today ? "bg-primary text-primary-foreground text-[9px] font-semibold" : ""}
+                    ${isSelected && !today ? "font-bold text-primary" : ""}
+                  `}
+                >
+                  {c.date.getDate()}
+                </span>
+              )}
+              {dayMarkers.length > 0 && !isFirst && (
+                <span
+                  className="absolute bottom-px left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                  style={{ backgroundColor: dayMarkers[0].color }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Time Grid (Day + Week views) ───────────────────
+
+function TimeGrid({
   start,
   count,
   selectedDays,
   markers,
+  nowPercent,
   onDayMouseDown,
   onDayMouseEnter,
 }: {
@@ -951,60 +1174,146 @@ function DayColumnsView({
   count: number;
   selectedDays: Set<string>;
   markers: Marker[];
+  nowPercent: number;
 } & DayCellCallbacks) {
   const days = Array.from({ length: count }, (_, i) => addDays(start, i));
+  const totalHours = 24;
+  const gridHeight = totalHours * HOUR_HEIGHT;
+
+  // Markers that touch any of the visible days → show in all-day row
+  const allDayMarkers = markers.filter((m) =>
+    days.some((d) => markerIncludesDay(m, dateKey(d)))
+  );
 
   return (
-    <div
-      className="grid h-full gap-2"
-      style={{ gridTemplateColumns: `repeat(${count}, 1fr)` }}
-    >
-      {days.map((d) => {
-        const dk = dateKey(d);
-        const isSelected = selectedDays.has(dk);
-        const dayMarkers = markers.filter((m) => markerIncludesDay(m, dk));
-        const today = isToday(d);
-        return (
-          <div
-            key={dk}
-            className={`border rounded p-4 text-left flex flex-col transition-colors cursor-default
-              ${isSelected ? "bg-primary/10 ring-1 ring-primary/30" : ""}
-              ${isWeekend(d) && !isSelected ? "bg-muted/20" : ""}
-              hover:bg-accent/40`}
-            onMouseDown={(e) => onDayMouseDown(dk, e)}
-            onMouseEnter={() => onDayMouseEnter(dk)}
-          >
-            <div className="text-center mb-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                {DAY_NAMES[(d.getDay() + 6) % 7]}
+    <div className="flex flex-col h-full">
+      {/* Sticky column headers */}
+      <div className="flex shrink-0 border-b">
+        {/* Gutter */}
+        <div className="w-14 shrink-0 border-r" />
+
+        {/* Day columns */}
+        {days.map((d, i) => {
+          const dk = dateKey(d);
+          const today = isToday(d);
+          const weekend = isWeekend(d);
+          return (
+            <div
+              key={dk}
+              className={`flex-1 border-r last:border-r-0 py-2 text-center cursor-default select-none transition-colors
+                ${weekend ? "bg-muted/20" : ""}
+                ${selectedDays.has(dk) ? "bg-primary/10" : ""}
+              `}
+              onMouseDown={(e) => onDayMouseDown(dk, e)}
+              onMouseEnter={() => onDayMouseEnter(dk)}
+            >
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                {DAY_NAMES_SHORT[(d.getDay() + 6) % 7]}
               </p>
               <p
-                className={`text-3xl font-light mt-1 ${
-                  today ? "text-primary font-semibold" : ""
-                }`}
+                className={`text-lg font-light mt-0.5 leading-none inline-flex items-center justify-center w-8 h-8 rounded-full
+                  ${today ? "bg-primary text-primary-foreground font-semibold text-base" : ""}
+                `}
               >
                 {d.getDate()}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {MONTH_NAMES[d.getMonth()].slice(0, 3)} {d.getFullYear()}
-              </p>
             </div>
-            {dayMarkers.length > 0 && (
-              <div className="mt-auto space-y-1.5 w-full">
-                {dayMarkers.map((m) => (
+          );
+        })}
+      </div>
+
+      {/* All-day row */}
+      {allDayMarkers.length > 0 && (
+        <div className="flex shrink-0 border-b min-h-7">
+          <div className="w-14 shrink-0 border-r flex items-center justify-end pr-1">
+            <span className="text-[9px] text-muted-foreground">all day</span>
+          </div>
+          {days.map((d) => {
+            const dk = dateKey(d);
+            const dayMark = allDayMarkers.filter((m) => markerIncludesDay(m, dk));
+            return (
+              <div key={dk} className="flex-1 border-r last:border-r-0 p-0.5 flex flex-col gap-px">
+                {dayMark.map((m) => (
                   <div
                     key={m.id}
-                    className="text-xs truncate px-2 py-1 rounded text-white font-medium"
+                    className="text-[9px] px-1 py-px rounded text-white font-medium leading-tight truncate"
                     style={{ backgroundColor: m.color }}
                   >
                     {m.label}
                   </div>
                 ))}
               </div>
-            )}
+            );
+          })}
+        </div>
+      )}
+
+      {/* Scrollable time area */}
+      <div className="flex-1 overflow-auto">
+        <div className="flex" style={{ height: gridHeight }}>
+          {/* Hour labels gutter */}
+          <div className="w-14 shrink-0 border-r relative">
+            {HOURS.map((h) => (
+              <div
+                key={h}
+                className="absolute w-full flex justify-end pr-1"
+                style={{ top: h * HOUR_HEIGHT - 7 }}
+              >
+                {h > 0 && (
+                  <span className="text-[9px] text-muted-foreground">
+                    {String(h).padStart(2, "0")}:00
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
-        );
-      })}
+
+          {/* Day columns with time grid */}
+          {days.map((d, colIdx) => {
+            const dk = dateKey(d);
+            const weekend = isWeekend(d);
+            const showNow = isToday(d);
+
+            return (
+              <div
+                key={dk}
+                className={`flex-1 border-r last:border-r-0 relative
+                  ${weekend ? "bg-muted/10" : ""}
+                `}
+                style={{ height: gridHeight }}
+              >
+                {/* Hour lines */}
+                {HOURS.map((h) => (
+                  <div
+                    key={h}
+                    className="absolute w-full border-t border-border/60"
+                    style={{ top: h * HOUR_HEIGHT }}
+                  >
+                    {/* Half-hour dashed line */}
+                    <div
+                      className="absolute w-full border-t border-dashed border-border/30"
+                      style={{ top: HOUR_HEIGHT / 2 }}
+                    />
+                  </div>
+                ))}
+
+                {/* Live time indicator */}
+                {showNow && (
+                  <div
+                    className="absolute left-0 right-0 z-10 pointer-events-none"
+                    style={{ top: nowPercent * gridHeight }}
+                  >
+                    <div className="relative flex items-center">
+                      <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shrink-0" />
+                      <div className="flex-1 h-px bg-red-500" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

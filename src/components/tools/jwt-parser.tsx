@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,11 +34,33 @@ function HighlightedToken({ token }: { token: string }) {
   );
 }
 
+// Example JWT (HS256, non-secret demo token)
+const EXAMPLE_JWT =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkphbmUgRG9lIiwiZW1haWwiOiJqYW5lQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzE2MjM5MDIyLCJleHAiOjE3MTYzMjU0MjJ9.abc123signatureplaceholder";
+
 export function JwtParser() {
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(EXAMPLE_JWT);
   const [copied, setCopied] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const decoded = token ? decodeJwt(token) : null;
+
+  // Auto-resize textarea to fit content
+  const autoResize = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.max(200, ta.scrollHeight) + "px";
+  }, []);
+
+  // Auto-select on mount so user can immediately paste
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) {
+      autoResize();
+      ta.focus();
+      ta.select();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(token);
@@ -82,7 +104,7 @@ export function JwtParser() {
             )}
           </div>
         </div>
-        <div className="relative min-h-[300px] rounded-lg border border-input bg-transparent">
+        <div className="relative rounded-lg border border-input bg-transparent">
           {/* Highlight overlay */}
           <div
             aria-hidden
@@ -98,8 +120,12 @@ export function JwtParser() {
           <textarea
             ref={textareaRef}
             value={token}
-            onChange={(e) => setToken(e.target.value)}
-            className="relative w-full h-full min-h-[300px] resize-none bg-transparent p-3 font-mono text-sm text-transparent caret-foreground outline-none selection:bg-primary/20"
+            onChange={(e) => {
+              setToken(e.target.value);
+              // Defer resize so the value is committed first
+              requestAnimationFrame(autoResize);
+            }}
+            className="relative w-full min-h-[200px] resize-none bg-transparent p-3 font-mono text-sm text-transparent caret-foreground outline-none selection:bg-primary/20"
             spellCheck={false}
           />
         </div>
