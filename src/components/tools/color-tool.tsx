@@ -40,6 +40,12 @@ import {
   Activity,
 } from "lucide-react";
 import {
+  SVPicker,
+  HueSlider,
+  OpacitySlider,
+  COLOR_PICKER_SLIDER_STYLES,
+} from "@/components/ui/color-picker";
+import {
   type HSVA,
   type ThemeTokens,
   type ThemeTokenKey,
@@ -66,9 +72,7 @@ import {
   adjustSaturation,
   shiftHue,
   contrastTextHex,
-  drawSVCanvas,
   hsvaTocss,
-  hsvaToSolidCss,
   loadSavedColors,
   saveSavedColors,
   loadSavedThemes,
@@ -109,91 +113,6 @@ function FormatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ── SV Picker ──────────────────────────────────────────
-
-function SVPicker({ hsva, onChange }: { hsva: HSVA; onChange: (s: number, v: number) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    drawSVCanvas(ctx, hsva.h, canvas.width, canvas.height);
-  }, [hsva.h]);
-
-  const pick = useCallback(
-    (clientX: number, clientY: number) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      onChange(
-        Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
-        Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height))
-      );
-    },
-    [onChange]
-  );
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative w-full aspect-square rounded-lg overflow-hidden cursor-crosshair border border-border/50"
-      onPointerDown={(e) => {
-        dragging.current = true;
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-        pick(e.clientX, e.clientY);
-      }}
-      onPointerMove={(e) => dragging.current && pick(e.clientX, e.clientY)}
-      onPointerUp={() => { dragging.current = false; }}
-    >
-      <canvas ref={canvasRef} width={256} height={256} className="w-full h-full" />
-      <div
-        className="absolute w-4 h-4 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.3)] pointer-events-none -translate-x-1/2 -translate-y-1/2"
-        style={{ left: `${hsva.s * 100}%`, top: `${(1 - hsva.v) * 100}%` }}
-      />
-    </div>
-  );
-}
-
-// ── Sliders ────────────────────────────────────────────
-
-function HueSlider({ hue, onChange }: { hue: number; onChange: (h: number) => void }) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Hue</span>
-        <span className="text-xs font-mono tabular-nums">{Math.round(hue)}</span>
-      </div>
-      <input
-        type="range" min={0} max={360} step={1} value={hue}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="color-slider w-full h-3 rounded-lg appearance-none cursor-pointer"
-        style={{ background: `linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))` }}
-      />
-    </div>
-  );
-}
-
-function OpacitySlider({ hsva, onChange }: { hsva: HSVA; onChange: (a: number) => void }) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Opacity</span>
-        <span className="text-xs font-mono tabular-nums">{Math.round(hsva.a * 100)}%</span>
-      </div>
-      <div className="relative h-3 rounded-lg overflow-hidden" style={{ background: checkerboard() }}>
-        <input
-          type="range" min={0} max={100} step={1} value={Math.round(hsva.a * 100)}
-          onChange={(e) => onChange(Number(e.target.value) / 100)}
-          className="color-slider absolute inset-0 w-full h-full appearance-none cursor-pointer"
-          style={{ background: `linear-gradient(to right, transparent, ${hsvaToSolidCss(hsva)})` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 // ── Dashboard Preview ──────────────────────────────────
 
@@ -228,7 +147,7 @@ function DashboardPreview({ tokens }: { tokens: ThemeTokens }) {
         </div>
       </div>
 
-      {/* Stat cards — alternate between card, secondary, accent, muted backgrounds */}
+      {/* Stat cards - alternate between card, secondary, accent, muted backgrounds */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { title: "Total Revenue", val: "$45,231.89", sub: "+20.1% from last month", icon: DollarSign, bg: "var(--card)", fg: "var(--card-foreground)" },
@@ -730,7 +649,7 @@ export function ColorTool() {
           <SheetHeader>
             <SheetTitle className="text-sm">
               {editingToken !== null
-                ? `Editing — ${THEME_TOKEN_META.find((m) => m.key === editingToken)?.label || editingToken}`
+                ? `Editing - ${THEME_TOKEN_META.find((m) => m.key === editingToken)?.label || editingToken}`
                 : "Color Builder"}
             </SheetTitle>
             <SheetDescription className="text-xs">
@@ -871,38 +790,7 @@ export function ColorTool() {
         </SheetContent>
       </Sheet>
 
-      {/* Slider styles */}
-      <style>{`
-        .color-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          outline: none;
-          border-radius: 0.5rem;
-        }
-        .color-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: white;
-          border: 2px solid rgba(0,0,0,0.3);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-          cursor: pointer;
-        }
-        .color-slider::-moz-range-thumb {
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: white;
-          border: 2px solid rgba(0,0,0,0.3);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-          cursor: pointer;
-        }
-        .color-slider::-moz-range-track {
-          background: transparent;
-          border: none;
-        }
-      `}</style>
+      <style>{COLOR_PICKER_SLIDER_STYLES}</style>
     </div>
   );
 }

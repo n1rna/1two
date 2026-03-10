@@ -4,7 +4,7 @@ export const tools: ToolDefinition[] = [
   {
     slug: "jwt",
     name: "JWT Parser",
-    description: "Decode and inspect JWT tokens — view header, payload, and verify signatures",
+    description: "Decode and inspect JWT tokens - view header, payload, and verify signatures",
     category: "parsing",
     icon: "KeyRound",
     keywords: ["jwt", "token", "decode", "json web token", "auth", "bearer"],
@@ -180,7 +180,7 @@ export const tools: ToolDefinition[] = [
   {
     slug: "image",
     name: "Image Tool",
-    description: "Convert and resize images in the browser — PNG, JPEG, WebP, AVIF with quality control and aspect-ratio locking",
+    description: "Convert and resize images in the browser - PNG, JPEG, WebP, AVIF with quality control and aspect-ratio locking",
     category: "media",
     icon: "Image",
     keywords: ["image", "convert", "resize", "png", "jpeg", "jpg", "webp", "avif", "compress", "format", "canvas", "width", "height"],
@@ -204,7 +204,7 @@ export const tools: ToolDefinition[] = [
   {
     slug: "dns",
     name: "DNS Lookup",
-    description: "Look up DNS records for any domain — A, AAAA, MX, CNAME, TXT, NS, and more",
+    description: "Look up DNS records for any domain - A, AAAA, MX, CNAME, TXT, NS, and more",
     category: "web",
     icon: "Search",
     keywords: ["dns", "lookup", "domain", "nameserver", "mx", "cname", "txt", "a record", "aaaa", "ns", "soa", "dig", "nslookup"],
@@ -212,7 +212,7 @@ export const tools: ToolDefinition[] = [
   {
     slug: "sqlite",
     name: "SQLite Browser",
-    description: "Open and explore SQLite databases in the browser — browse tables, run SQL queries, sort, filter, and export data",
+    description: "Open and explore SQLite databases in the browser - browse tables, run SQL queries, sort, filter, and export data",
     category: "data",
     icon: "Database",
     keywords: ["sqlite", "database", "sql", "query", "table", "browse", "db", "data", "explorer", "schema"],
@@ -228,7 +228,7 @@ export const tools: ToolDefinition[] = [
   {
     slug: "htpasswd",
     name: "htpasswd Generator",
-    description: "Generate htpasswd password hashes for basic auth — bcrypt, SHA-256, SHA-512, MD5, SSHA",
+    description: "Generate htpasswd password hashes for basic auth - bcrypt, SHA-256, SHA-512, MD5, SSHA",
     category: "crypto",
     icon: "Lock",
     keywords: ["htpasswd", "basic auth", "password", "bcrypt", "sha256", "sha512", "md5", "ssha", "apache", "nginx", "http auth"],
@@ -240,6 +240,14 @@ export const tools: ToolDefinition[] = [
     category: "generators",
     icon: "Table",
     keywords: ["markdown", "table", "md", "csv", "generator", "columns", "rows", "paste", "align"],
+  },
+  {
+    slug: "og",
+    name: "OG Image Builder",
+    description: "Create Open Graph images for social media with multiple layouts, sizes, and customizable themes",
+    category: "generators",
+    icon: "Image",
+    keywords: ["og image", "open graph", "social media", "meta image", "twitter card", "facebook", "linkedin", "og builder", "social preview"],
   },
   {
     slug: "paste",
@@ -328,7 +336,7 @@ export function getSearchItems(): SearchItem[] {
 }
 
 /**
- * Fuzzy match score — higher is better, 0 means no match.
+ * Fuzzy match score - higher is better, 0 means no match.
  * Rewards: exact match > word-start match > substring > fuzzy char sequence.
  */
 export function fuzzyScore(query: string, text: string): number {
