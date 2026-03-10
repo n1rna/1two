@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { X, Plus, Search, Clock, MapPin, CalendarDays, Eye } from "lucide-react";
+import { useSyncedState } from "@/lib/sync";
+import { SyncToggle } from "@/components/ui/sync-toggle";
 
 // ── Types ────────────────────────────────────────────
 
@@ -11,6 +13,13 @@ interface ClockEntry {
 }
 
 type CalendarType = "gregorian" | "shamsi" | "qamari";
+
+interface WorldclockState {
+  favorites: ClockEntry[];
+  overlap: ClockEntry[];
+  calendars: CalendarType[];
+  showRelative: boolean;
+}
 
 // ── Helpers ──────────────────────────────────────────
 
@@ -512,67 +521,58 @@ function getLocalTz(): string {
   }
 }
 
-export function WorldClockTool({ focusMode = false }: { focusMode?: boolean }) {
-  const [now,             setNow]            = useState(() => new Date());
-  const [favorites,       setFavorites]      = useState<ClockEntry[]>([]);
-  const [overlapTzs,      setOverlapTzs]     = useState<ClockEntry[]>([]);
-  const [enabledCalendars, setEnabledCalendars] = useState<CalendarType[]>([]);
-  const [showRelative,    setShowRelative]   = useState(false);
-  const [localTz,         setLocalTz]        = useState("UTC");
-  const [hydrated,        setHydrated]       = useState(false);
+const DEFAULT_WC_STATE: WorldclockState = {
+  favorites: DEFAULT_FAVORITES,
+  overlap: DEFAULT_OVERLAP,
+  calendars: ["gregorian"],
+  showRelative: false,
+};
 
-  // Hydrate from localStorage after mount
+export function WorldClockTool({ focusMode = false, wcState, setWcState }: {
+  focusMode?: boolean;
+  wcState: WorldclockState;
+  setWcState: (value: WorldclockState | ((prev: WorldclockState) => WorldclockState)) => void;
+}) {
+  const [now,     setNow]   = useState(() => new Date());
+  const [localTz, setLocalTz] = useState("UTC");
+
+  const favorites = wcState.favorites;
+  const overlapTzs = wcState.overlap;
+  const enabledCalendars = wcState.calendars;
+  const showRelative = wcState.showRelative;
+
+  const setFavorites = useCallback((fn: ClockEntry[] | ((prev: ClockEntry[]) => ClockEntry[])) => {
+    setWcState((prev) => ({
+      ...prev,
+      favorites: typeof fn === "function" ? fn(prev.favorites) : fn,
+    }));
+  }, [setWcState]);
+
+  const setOverlapTzs = useCallback((fn: ClockEntry[] | ((prev: ClockEntry[]) => ClockEntry[])) => {
+    setWcState((prev) => ({
+      ...prev,
+      overlap: typeof fn === "function" ? fn(prev.overlap) : fn,
+    }));
+  }, [setWcState]);
+
+  const setEnabledCalendars = useCallback((fn: CalendarType[] | ((prev: CalendarType[]) => CalendarType[])) => {
+    setWcState((prev) => ({
+      ...prev,
+      calendars: typeof fn === "function" ? fn(prev.calendars) : fn,
+    }));
+  }, [setWcState]);
+
+  const setShowRelative = useCallback((fn: boolean | ((prev: boolean) => boolean)) => {
+    setWcState((prev) => ({
+      ...prev,
+      showRelative: typeof fn === "function" ? fn(prev.showRelative) : fn,
+    }));
+  }, [setWcState]);
+
+  // Detect local timezone after mount
   useEffect(() => {
-    const detectedTz = getLocalTz();
-    setLocalTz(detectedTz);
-    try {
-      const fav = localStorage.getItem("worldclock-favorites");
-      setFavorites(fav ? JSON.parse(fav) : DEFAULT_FAVORITES);
-    } catch {
-      setFavorites(DEFAULT_FAVORITES);
-    }
-    try {
-      const ol = localStorage.getItem("worldclock-overlap");
-      setOverlapTzs(ol ? JSON.parse(ol) : DEFAULT_OVERLAP);
-    } catch {
-      setOverlapTzs(DEFAULT_OVERLAP);
-    }
-    try {
-      const cals = localStorage.getItem("worldclock-calendars");
-      setEnabledCalendars(cals ? JSON.parse(cals) : ["gregorian"]);
-    } catch {
-      setEnabledCalendars(["gregorian"]);
-    }
-    try {
-      const rel = localStorage.getItem("worldclock-show-relative");
-      if (rel !== null) setShowRelative(JSON.parse(rel));
-    } catch { /* ignore */ }
-    setHydrated(true);
+    setLocalTz(getLocalTz());
   }, []);
-
-  // Persist favorites
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem("worldclock-favorites", JSON.stringify(favorites));
-  }, [favorites, hydrated]);
-
-  // Persist overlap
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem("worldclock-overlap", JSON.stringify(overlapTzs));
-  }, [overlapTzs, hydrated]);
-
-  // Persist relative toggle
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem("worldclock-show-relative", JSON.stringify(showRelative));
-  }, [showRelative, hydrated]);
-
-  // Persist calendar selection
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem("worldclock-calendars", JSON.stringify(enabledCalendars));
-  }, [enabledCalendars, hydrated]);
 
   // Tick every second
   useEffect(() => {
@@ -609,15 +609,6 @@ export function WorldClockTool({ focusMode = false }: { focusMode?: boolean }) {
 
   const favSet     = new Set(displayFavorites.map((e) => e.tz));
   const overlapSet = new Set(overlapTzs.map((e) => e.tz));
-
-  if (!hydrated) {
-    return (
-      <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-        <Clock className="h-4 w-4 mr-2 animate-spin" />
-        Loading…
-      </div>
-    );
-  }
 
   const hide = focusMode ? "hidden" : "";
 
@@ -762,24 +753,32 @@ export function WorldClockTool({ focusMode = false }: { focusMode?: boolean }) {
 
 import { ToolLayout } from "@/components/layout/tool-layout";
 
-export function WorldClockPage({ jsonLd }: { jsonLd: Record<string, unknown>[] | null }) {
+export function WorldClockPage({ jsonLd, children }: { jsonLd: Record<string, unknown>[] | null; children?: React.ReactNode }) {
   const [focusMode, setFocusMode] = useState(false);
+  const {
+    data: wcState,
+    setData: setWcState,
+    syncToggleProps,
+  } = useSyncedState<WorldclockState>("worldclock-state", DEFAULT_WC_STATE);
 
   return (
     <ToolLayout
       slug="worldclock"
       toolbar={
-        <button
-          onClick={() => setFocusMode((v) => !v)}
-          className={`flex items-center justify-center gap-1.5 w-[70px] py-1 text-[10px] font-medium rounded-md border transition-colors ${
-            focusMode
-              ? "bg-foreground text-background border-foreground"
-              : "text-muted-foreground hover:text-foreground border-input"
-          }`}
-        >
-          <Eye className="h-3 w-3" />
-          Focus
-        </button>
+        <>
+          <SyncToggle {...syncToggleProps} />
+          <button
+            onClick={() => setFocusMode((v) => !v)}
+            className={`flex items-center justify-center gap-1.5 w-[70px] py-1 text-[10px] font-medium rounded-md border transition-colors ${
+              focusMode
+                ? "bg-foreground text-background border-foreground"
+                : "text-muted-foreground hover:text-foreground border-input"
+            }`}
+          >
+            <Eye className="h-3 w-3" />
+            Focus
+          </button>
+        </>
       }
     >
       {jsonLd?.map((item, i) => (
@@ -789,7 +788,8 @@ export function WorldClockPage({ jsonLd }: { jsonLd: Record<string, unknown>[] |
           dangerouslySetInnerHTML={{ __html: JSON.stringify(item) }}
         />
       ))}
-      <WorldClockTool focusMode={focusMode} />
+      <WorldClockTool focusMode={focusMode} wcState={wcState} setWcState={setWcState} />
+      {children}
     </ToolLayout>
   );
 }

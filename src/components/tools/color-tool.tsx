@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useSyncedState } from "@/lib/sync";
+import { SyncToggle } from "@/components/ui/sync-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -73,10 +75,6 @@ import {
   shiftHue,
   contrastTextHex,
   hsvaTocss,
-  loadSavedColors,
-  saveSavedColors,
-  loadSavedThemes,
-  saveSavedThemes,
   themeTokensToCssVars,
 } from "@/lib/tools/color";
 
@@ -342,22 +340,36 @@ export function ColorTool() {
   const [hsva, setHsva] = useState<HSVA>({ h: 210, s: 0.8, v: 0.9, a: 1 });
   const [bitDepth, setBitDepth] = useState(8);
   const [hexInput, setHexInput] = useState("");
-  const [savedColors, setSavedColors] = useState<SavedColor[]>([]);
   const [themeMode, setThemeMode] = useState<"light" | "dark">("dark");
   const [harmony, setHarmony] = useState<HarmonyType>("analogous");
   const [tokens, setTokens] = useState<ThemeTokens>(() => THEME_PRESETS[0].dark);
   const [editingToken, setEditingToken] = useState<ThemeTokenKey | null>(null);
   const [builderOpen, setBuilderOpen] = useState(false);
-  const [savedThemes, setSavedThemes] = useState<SavedTheme[]>([]);
   const [themesDropdown, setThemesDropdown] = useState(false);
   const [presetsDropdown, setPresetsDropdown] = useState(false);
   const [mounted, setMounted] = useState(false);
   const selectingRef = useRef(false);
 
+  const colorsSync = useSyncedState<SavedColor[]>("1two-saved-colors", []);
+  const themesSync = useSyncedState<SavedTheme[]>("1two-saved-themes", []);
+
+  const savedColors = colorsSync.data;
+  const savedThemes = themesSync.data;
+
+  const colorSyncToggleProps = {
+    syncMode: colorsSync.syncMode,
+    onSyncModeChange: (mode: "local" | "cloud") => {
+      colorsSync.setSyncMode(mode);
+      themesSync.setSyncMode(mode);
+    },
+    onPushToCloud: () => { colorsSync.pushToCloud(); themesSync.pushToCloud(); },
+    isSyncing: colorsSync.isSyncing || themesSync.isSyncing,
+    lastSyncedAt: colorsSync.lastSyncedAt ?? themesSync.lastSyncedAt,
+    isLoggedIn: colorsSync.isLoggedIn,
+  };
+
   useEffect(() => {
     setMounted(true);
-    setSavedColors(loadSavedColors());
-    setSavedThemes(loadSavedThemes());
   }, []);
 
   useEffect(() => {
@@ -402,18 +414,14 @@ export function ColorTool() {
 
   const handleSaveColor = useCallback(() => {
     const color: SavedColor = { id: crypto.randomUUID(), hsva, name: formatHex(hsvaToRgba(hsva)) };
-    const updated = [...savedColors, color];
-    setSavedColors(updated);
-    saveSavedColors(updated);
-  }, [hsva, savedColors]);
+    colorsSync.setData((prev) => [...prev, color]);
+  }, [hsva, colorsSync]);
 
   const handleDeleteColor = useCallback(
     (id: string) => {
-      const updated = savedColors.filter((c) => c.id !== id);
-      setSavedColors(updated);
-      saveSavedColors(updated);
+      colorsSync.setData((prev) => prev.filter((c) => c.id !== id));
     },
-    [savedColors]
+    [colorsSync]
   );
 
   const handleApplySaved = useCallback(
@@ -478,10 +486,8 @@ export function ColorTool() {
       tokens: { ...tokens },
       mode: themeMode,
     };
-    const updated = [...savedThemes, theme];
-    setSavedThemes(updated);
-    saveSavedThemes(updated);
-  }, [tokens, themeMode, savedThemes]);
+    themesSync.setData((prev) => [...prev, theme]);
+  }, [tokens, themeMode, savedThemes, themesSync]);
 
   const handleLoadTheme = useCallback((theme: SavedTheme) => {
     setTokens(theme.tokens);
@@ -493,11 +499,9 @@ export function ColorTool() {
 
   const handleDeleteTheme = useCallback(
     (id: string) => {
-      const updated = savedThemes.filter((t) => t.id !== id);
-      setSavedThemes(updated);
-      saveSavedThemes(updated);
+      themesSync.setData((prev) => prev.filter((t) => t.id !== id));
     },
-    [savedThemes]
+    [themesSync]
   );
 
   const handleCopyCSS = useCallback(async () => {
@@ -630,7 +634,8 @@ export function ColorTool() {
           )}
         </div>
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          <SyncToggle {...colorSyncToggleProps} />
           <Button size="sm" className="h-7 px-3 gap-1.5 text-xs" onClick={() => { setEditingToken(null); setBuilderOpen(true); }}>
             <Paintbrush className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Color Builder</span>

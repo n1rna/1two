@@ -3,11 +3,13 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Search, Loader2, AlertCircle, ChevronDown, X, RefreshCw, Clock } from "lucide-react";
 import { Turnstile, type TurnstileRef } from "@/components/ui/turnstile";
+import { useSyncedState } from "@/lib/sync";
+import { SyncToggle } from "@/components/ui/sync-toggle";
+import { ToolLayout } from "@/components/layout/tool-layout";
 
 const RECORD_TYPES = ["A", "AAAA", "CNAME", "MX", "TXT", "NS", "SOA", "SRV", "CAA", "PTR"] as const;
 type RecordType = (typeof RECORD_TYPES)[number];
 
-const HISTORY_KEY = "dns-lookup-history";
 
 // Backend response shape
 interface DnsResponse {
@@ -52,22 +54,6 @@ interface CaaRecord {
   value: string;
 }
 
-function loadHistory(): HistoryEntry[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(entries: HistoryEntry[]) {
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
-  } catch {
-    // ignore
-  }
-}
 
 function ResultsTable({ data }: { data: DnsResponse }) {
   const { type, records, ttl } = data;
@@ -231,7 +217,7 @@ function timeAgo(ts: number): string {
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
-export function DnsTool() {
+export function DnsTool({ children }: { children?: React.ReactNode }) {
   const [domain, setDomain] = useState("");
   const [recordType, setRecordType] = useState<RecordType>("A");
   const [loading, setLoading] = useState(false);
@@ -239,14 +225,11 @@ export function DnsTool() {
   const [result, setResult] = useState<DnsResponse | null>(null);
   const [selectOpen, setSelectOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const historySync = useSyncedState<HistoryEntry[]>("dns-lookup-history", []);
+  const history = historySync.data;
+  const setHistory = historySync.setData;
   const selectRef = useRef<HTMLDivElement>(null);
   const turnstileRef = useRef<TurnstileRef>(null);
-
-  // Load history from localStorage on mount
-  useEffect(() => {
-    setHistory(loadHistory());
-  }, []);
 
   // Close custom select on outside click
   useEffect(() => {
@@ -313,7 +296,6 @@ export function DnsTool() {
             });
           }
           updated.sort((a, b) => b.lastLookup - a.lastLookup);
-          saveHistory(updated);
           return updated;
         });
       } catch (err) {
@@ -336,12 +318,8 @@ export function DnsTool() {
   );
 
   const removeHistory = useCallback((domainToRemove: string) => {
-    setHistory(prev => {
-      const updated = prev.filter(h => h.domain !== domainToRemove);
-      saveHistory(updated);
-      return updated;
-    });
-  }, []);
+    setHistory(prev => prev.filter(h => h.domain !== domainToRemove));
+  }, [setHistory]);
 
   const relookup = useCallback(
     (historyDomain: string) => {
@@ -362,6 +340,7 @@ export function DnsTool() {
   }, [recordType]);
 
   return (
+    <ToolLayout slug="dns" toolbar={<SyncToggle {...historySync.syncToggleProps} />}>
     <div className="space-y-6">
       {/* Input row */}
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
@@ -513,5 +492,7 @@ export function DnsTool() {
         </div>
       )}
     </div>
+    {children}
+    </ToolLayout>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { useSyncedState } from "@/lib/sync";
+import { SyncToggle } from "@/components/ui/sync-toggle";
 import {
   Dialog,
   DialogContent,
@@ -93,43 +95,34 @@ function todayKey(): string {
   return new Date().toISOString().split("T")[0];
 }
 
-function loadState(): PersistedState {
-  const defaults: PersistedState = {
-    goals: [],
-    completedToday: 0,
-    settings: DEFAULT_SETTINGS,
-    date: todayKey(),
-    timerEndTime: null,
-    timerRemaining: null,
-    timerType: "work",
-    timerStatus: "idle",
-    totalSeconds: DEFAULT_SETTINGS.workMinutes * 60,
-    workSessionCount: 0,
-    activeGoalId: null,
-    sessionLog: [],
-  };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = { ...defaults, ...JSON.parse(raw) } as PersistedState;
-      if (parsed.date !== todayKey()) {
-        parsed.completedToday = 0;
-        parsed.date = todayKey();
-        parsed.workSessionCount = 0;
-        parsed.sessionLog = [];
-        for (const g of parsed.goals) {
-          g.pomodorosCompleted = 0;
-          g.completed = false;
-        }
-      }
-      return parsed;
-    }
-  } catch {}
-  return defaults;
-}
+const DEFAULT_PERSISTED: PersistedState = {
+  goals: [],
+  completedToday: 0,
+  settings: DEFAULT_SETTINGS,
+  date: todayKey(),
+  timerEndTime: null,
+  timerRemaining: null,
+  timerType: "work",
+  timerStatus: "idle",
+  totalSeconds: DEFAULT_SETTINGS.workMinutes * 60,
+  workSessionCount: 0,
+  activeGoalId: null,
+  sessionLog: [],
+};
 
-function saveState(state: PersistedState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+/** Apply daily-reset migration to a loaded PersistedState. */
+function applyDailyReset(s: PersistedState): PersistedState {
+  if (s.date !== todayKey()) {
+    return {
+      ...s,
+      completedToday: 0,
+      date: todayKey(),
+      workSessionCount: 0,
+      sessionLog: [],
+      goals: s.goals.map((g) => ({ ...g, pomodorosCompleted: 0, completed: false })),
+    };
+  }
+  return s;
 }
 
 function formatTime(seconds: number): string {
@@ -149,6 +142,12 @@ function getDurationForType(type: TimerType, settings: PomodoroSettings): number
 // ── Component ──────────────────────────────────────────
 
 export function PomodoroTool() {
+  const {
+    data: syncedData,
+    setData,
+    syncToggleProps,
+  } = useSyncedState<PersistedState>(STORAGE_KEY, DEFAULT_PERSISTED);
+
   const [settings, setSettings] = useState<PomodoroSettings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -181,13 +180,9 @@ export function PomodoroTool() {
 
   const persistTimerState = useCallback(
     (overrides: Partial<Pick<PersistedState, "timerEndTime" | "timerRemaining" | "timerType" | "timerStatus" | "totalSeconds" | "workSessionCount" | "activeGoalId" | "completedToday" | "goals">>) => {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const current = raw ? JSON.parse(raw) : {};
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...overrides }));
-      } catch {}
+      setData((prev) => ({ ...prev, ...overrides }));
     },
-    []
+    [setData]
   );
 
   const addLogEntry = useCallback(
@@ -201,22 +196,33 @@ export function PomodoroTool() {
       };
       setSessionLog((prev) => {
         const next = [entry, ...prev];
-        // Persist immediately so it survives races with persistTimerState
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          const current = raw ? JSON.parse(raw) : {};
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, sessionLog: next }));
-        } catch {}
+        setData((s) => ({ ...s, sessionLog: next }));
         return next;
       });
     },
-    []
+    [setData]
   );
 
   // ── Load persisted state & restore timer ──
+  // syncedData is populated by useSyncedState from localStorage (and optionally cloud).
+  // We only run this once after the hook's initial load settles.
+
+  const didRestoreRef = useRef(false);
 
   useEffect(() => {
-    const s = loadState();
+    if (didRestoreRef.current) return;
+    // syncedData starts as DEFAULT_PERSISTED on first render then updates via useSyncedState.
+    // We wait until it's been read from storage (isSyncing might still be true for cloud fetch,
+    // but local data is always available immediately after the first render cycle).
+    didRestoreRef.current = true;
+
+    const s = applyDailyReset({ ...DEFAULT_PERSISTED, ...syncedData });
+
+    // If date changed, persist the reset
+    if (s.date !== syncedData.date) {
+      setData(s);
+    }
+
     setGoals(s.goals);
     setCompletedToday(s.completedToday);
     setSettings(s.settings);
@@ -237,19 +243,12 @@ export function PomodoroTool() {
         intervalRef.current = setInterval(() => {
           const r = Math.max(0, Math.ceil((endTimeRef.current! - Date.now()) / 1000));
           setRemaining(r);
-          if (r <= 0) {
-            // Will be handled by the main interval via handleTimerDone
-            // but we need the ref set up first, so we just clear here
-            // and let the normal flow handle it in the next tick
-          }
         }, 250);
       } else {
         // Timer expired while away - treat as completed
-        // We'll handle this after mount via a separate effect
         setTotalSeconds(s.totalSeconds);
         setRemaining(0);
         setStatus("idle");
-        // Mark the timer done
         persistTimerState({ timerStatus: "idle", timerEndTime: null, timerRemaining: null });
       }
     } else if (s.timerStatus === "paused" && s.timerRemaining != null) {
@@ -263,26 +262,23 @@ export function PomodoroTool() {
     }
 
     mountedRef.current = true;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [syncedData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Persist goals, settings, sessions on change
+  // Persist meaningful state changes (goals, settings, completedToday, activeGoalId).
+  // Timer-tick fields (remaining, endTime) are persisted surgically via persistTimerState
+  // to avoid cloud writes on every 250ms interval tick.
   useEffect(() => {
     if (!mountedRef.current) return;
-    saveState({
+    setData((prev) => ({
+      ...prev,
       goals,
       completedToday,
       settings,
       date: todayKey(),
-      timerEndTime: endTimeRef.current,
-      timerRemaining: status === "paused" ? remaining : null,
-      timerType,
-      timerStatus: status,
-      totalSeconds,
       workSessionCount,
       activeGoalId,
-      sessionLog,
-    });
-  }, [goals, completedToday, settings, timerType, status, remaining, totalSeconds, workSessionCount, activeGoalId, sessionLog]);
+    }));
+  }, [goals, completedToday, settings, workSessionCount, activeGoalId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Service Worker ────────────────────
 
@@ -639,6 +635,8 @@ export function PomodoroTool() {
                 className={`h-3 w-3 ml-0.5 transition-transform ${showSettings ? "rotate-180" : ""}`}
               />
             </Button>
+
+            <SyncToggle {...syncToggleProps} />
           </div>
         </div>
       </div>

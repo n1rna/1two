@@ -19,6 +19,8 @@ import {
   Check,
   CalendarDays,
 } from "lucide-react";
+import { useSyncedState } from "@/lib/sync";
+import { SyncToggle } from "@/components/ui/sync-toggle";
 
 // ─── Types ──────────────────────────────────────────
 
@@ -232,7 +234,11 @@ export function CalendarTool() {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [anchor, setAnchor] = useState(new Date());
   const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set());
-  const [markers, setMarkers] = useState<Marker[]>([]);
+  const {
+    data: markers,
+    setData: setMarkers,
+    syncToggleProps,
+  } = useSyncedState<Marker[]>(STORAGE_KEY, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [nowPercent, setNowPercent] = useState(getCurrentTimePercent());
@@ -244,7 +250,6 @@ export function CalendarTool() {
   });
 
   useEffect(() => {
-    setMarkers(loadMarkers());
     setMounted(true);
   }, []);
 
@@ -261,12 +266,8 @@ export function CalendarTool() {
   }, []);
 
   const updateMarkers = useCallback((fn: (prev: Marker[]) => Marker[]) => {
-    setMarkers((prev) => {
-      const next = fn(prev);
-      saveMarkersToStorage(next);
-      return next;
-    });
-  }, []);
+    setMarkers(fn);
+  }, [setMarkers]);
 
   // ─── Navigation ─────────────────
 
@@ -442,6 +443,7 @@ export function CalendarTool() {
       <div className="border-b px-4 py-2 flex items-center gap-2 shrink-0 flex-wrap">
         <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-sm font-semibold shrink-0">Calendar</span>
+        <SyncToggle {...syncToggleProps} />
 
         <div className="ml-4 flex items-center rounded-md border overflow-hidden">
           {VIEW_OPTIONS.map((v) => (

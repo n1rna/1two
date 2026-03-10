@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useSyncedState } from "@/lib/sync";
+import { SyncToggle } from "@/components/ui/sync-toggle";
 import { ToolLayout } from "@/components/layout/tool-layout";
 import {
   Select,
@@ -257,17 +259,6 @@ interface SavedLogo {
   name: string;
   config: SerializableConfig;
   createdAt: number;
-}
-
-function loadSavedLogos(): SavedLogo[] {
-  try {
-    const data = localStorage.getItem(SAVED_LOGOS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
-}
-
-function persistSavedLogos(logos: SavedLogo[]) {
-  localStorage.setItem(SAVED_LOGOS_KEY, JSON.stringify(logos));
 }
 
 // ── Color Presets ──────────────────────────────────────
@@ -1032,13 +1023,16 @@ export function LogoGenerator() {
   const [exporting, setExporting] = useState<string | null>(null);
   const [textLocked, setTextLocked] = useState(false);
   const [bgLocked, setBgLocked] = useState(false);
-  const [savedLogos, setSavedLogos] = useState<SavedLogo[]>([]);
+  const {
+    data: savedLogos,
+    setData: setSavedLogos,
+    syncToggleProps,
+  } = useSyncedState<SavedLogo[]>(SAVED_LOGOS_KEY, []);
   const [mounted, setMounted] = useState(false);
 
-  // Load saved logos + URL config on mount
+  // Load URL config on mount
   useEffect(() => {
     setMounted(true);
-    setSavedLogos(loadSavedLogos());
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get("c");
     if (encoded) {
@@ -1150,20 +1144,16 @@ export function LogoGenerator() {
       config: serializeConfig(config),
       createdAt: Date.now(),
     };
-    const updated = [saved, ...savedLogos];
-    setSavedLogos(updated);
-    persistSavedLogos(updated);
-  }, [config, savedLogos]);
+    setSavedLogos((prev) => [saved, ...prev]);
+  }, [config, setSavedLogos]);
 
   const handleLoadLogo = useCallback((saved: SavedLogo) => {
     setConfig(deserializeConfig(saved.config));
   }, []);
 
   const handleDeleteLogo = useCallback((id: string) => {
-    const updated = savedLogos.filter((l) => l.id !== id);
-    setSavedLogos(updated);
-    persistSavedLogos(updated);
-  }, [savedLogos]);
+    setSavedLogos((prev) => prev.filter((l) => l.id !== id));
+  }, [setSavedLogos]);
 
   const handleShareLink = useCallback(async () => {
     const encoded = encodeConfig(config);
@@ -1188,7 +1178,11 @@ export function LogoGenerator() {
   }, [config.fontWeight]);
 
   return (
-    <ToolLayout slug="logo">
+    <ToolLayout slug="logo" toolbar={
+      <SyncToggle
+        {...syncToggleProps}
+      />
+    }>
       <div className="flex flex-col lg:flex-row h-full gap-0 overflow-hidden">
         {/* ── Left: Export + Preview ─────────────────────── */}
         <div className="flex flex-col lg:flex-1 min-w-0 border-b lg:border-b-0 lg:border-r">

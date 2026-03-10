@@ -7,6 +7,8 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { useSyncedState } from "@/lib/sync";
+import { SyncToggle } from "@/components/ui/sync-toggle";
 import {
   Image as ImageIcon,
   Download,
@@ -97,19 +99,6 @@ interface SavedCustomLayout {
 }
 
 const SAVED_LAYOUTS_KEY = "og-custom-layouts";
-
-function loadSavedLayouts(): SavedCustomLayout[] {
-  try {
-    const raw = localStorage.getItem(SAVED_LAYOUTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveSavedLayouts(layouts: SavedCustomLayout[]) {
-  localStorage.setItem(SAVED_LAYOUTS_KEY, JSON.stringify(layouts));
-}
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -963,9 +952,11 @@ interface ImageCardProps {
   onUpdate: (patch: Partial<OgImage>) => void;
   onExport: () => void;
   onDelete: () => void;
+  savedLayouts: SavedCustomLayout[];
+  setSavedLayouts: (value: SavedCustomLayout[] | ((prev: SavedCustomLayout[]) => SavedCustomLayout[])) => void;
 }
 
-function ImageCard({ img, theme, onUpdate, onExport, onDelete }: ImageCardProps) {
+function ImageCard({ img, theme, onUpdate, onExport, onDelete, savedLayouts, setSavedLayouts }: ImageCardProps) {
   const [open, setOpen] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
   const previewW = 340;
@@ -1117,6 +1108,8 @@ function ImageCard({ img, theme, onUpdate, onExport, onDelete }: ImageCardProps)
           theme={theme}
           onUpdate={onUpdate}
           onClose={() => setCustomDialogOpen(false)}
+          savedLayouts={savedLayouts}
+          setSavedLayouts={setSavedLayouts}
         />
       )}
     </div>
@@ -1130,17 +1123,20 @@ function CustomLayoutDialog({
   theme,
   onUpdate,
   onClose,
+  savedLayouts,
+  setSavedLayouts,
 }: {
   img: OgImage;
   theme: Theme;
   onUpdate: (patch: Partial<OgImage>) => void;
   onClose: () => void;
+  savedLayouts: SavedCustomLayout[];
+  setSavedLayouts: (value: SavedCustomLayout[] | ((prev: SavedCustomLayout[]) => SavedCustomLayout[])) => void;
 }) {
   const elements = img.customElements ?? defaultCustomElements(img.title, img.subtitle, theme);
   const [selectedId, setSelectedId] = useState<string | null>(elements[0]?.id ?? null);
   const [colorBuilderOpen, setColorBuilderOpen] = useState(false);
   const [colorBuilderElId, setColorBuilderElId] = useState<string | null>(null);
-  const [savedLayouts, setSavedLayouts] = useState<SavedCustomLayout[]>(() => loadSavedLayouts());
   const [showSaved, setShowSaved] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
@@ -1188,17 +1184,17 @@ function CustomLayoutDialog({
   };
 
   const saveLayout = () => {
-    const name = `Layout ${savedLayouts.length + 1}`;
     // Strip text content - store as template with placeholder text
     const templateElements = elements.map((el, i) => ({
       ...el,
       id: crypto.randomUUID(),
       text: el.text || `Text ${i + 1}`,
     }));
-    const layout: SavedCustomLayout = { id: crypto.randomUUID(), name, elements: templateElements };
-    const updated = [...savedLayouts, layout];
-    setSavedLayouts(updated);
-    saveSavedLayouts(updated);
+    setSavedLayouts((prev) => {
+      const name = `Layout ${prev.length + 1}`;
+      const layout: SavedCustomLayout = { id: crypto.randomUUID(), name, elements: templateElements };
+      return [...prev, layout];
+    });
   };
 
   const loadLayout = (layout: SavedCustomLayout) => {
@@ -1210,9 +1206,7 @@ function CustomLayoutDialog({
   };
 
   const deleteLayout = (id: string) => {
-    const updated = savedLayouts.filter((l) => l.id !== id);
-    setSavedLayouts(updated);
-    saveSavedLayouts(updated);
+    setSavedLayouts((prev) => prev.filter((l) => l.id !== id));
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, id: string) => {
@@ -1692,6 +1686,11 @@ function CustomSizeDialog({ onAdd, onClose }: CustomSizeDialogProps) {
 // ── Main component ─────────────────────────────────────────
 
 export function OgImageBuilder() {
+  const {
+    data: savedLayouts,
+    setData: setSavedLayouts,
+    syncToggleProps,
+  } = useSyncedState<SavedCustomLayout[]>(SAVED_LAYOUTS_KEY, []);
   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
   const [images, setImages] = useState<OgImage[]>(() =>
     DEFAULT_PRESETS.map((p) => ({
@@ -1845,6 +1844,9 @@ export function OgImageBuilder() {
             <Download className="h-3 w-3" />
             Export All
           </Button>
+          <SyncToggle
+            {...syncToggleProps}
+          />
         </div>
       </div>
 
@@ -2043,6 +2045,8 @@ export function OgImageBuilder() {
                   onUpdate={(patch) => updateImage(img.id, patch)}
                   onExport={() => exportImage(img)}
                   onDelete={() => deleteImage(img.id)}
+                  savedLayouts={savedLayouts}
+                  setSavedLayouts={setSavedLayouts}
                 />
               ))}
             </div>
