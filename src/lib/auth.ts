@@ -6,7 +6,7 @@ import * as schema from "./auth-schema";
 
 // Use Neon's stateless HTTP API + Drizzle adapter to avoid
 // Cloudflare Workers' cross-request I/O restrictions.
-// Each query is a standalone HTTP request — no WebSocket
+// Each query is a standalone HTTP request - no WebSocket
 // connections, no persistent I/O objects between requests.
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle({ client: sql, schema });

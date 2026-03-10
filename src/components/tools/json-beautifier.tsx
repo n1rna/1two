@@ -335,7 +335,7 @@ export function JsonBeautifier() {
                       )}
                       {result.corrections && result.corrections.length > 0 && (
                         <p className="mt-1 text-xs text-muted-foreground italic">
-                          Attempted fixes: {result.corrections.join(", ")} — but the input still has errors.
+                          Attempted fixes: {result.corrections.join(", ")} - but the input still has errors.
                         </p>
                       )}
                     </div>

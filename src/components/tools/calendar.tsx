@@ -1034,7 +1034,7 @@ function QuarterMonthCells({
 }
 
 // ─── Year Grid ───────────────────────────────────────
-// Seamless 4×3 grid — months share borders, no gaps.
+// Seamless 4×3 grid - months share borders, no gaps.
 // Each month has a tiny 3-letter label on the first row instead of a header bar.
 
 function YearGrid({
@@ -1050,7 +1050,7 @@ function YearGrid({
 } & DayCellCallbacks) {
   return (
     <div className="h-full flex flex-col">
-      {/* Day-letter header row — shared across all 4 columns */}
+      {/* Day-letter header row - shared across all 4 columns */}
       <div className="grid grid-cols-4 shrink-0 border-b">
         {Array.from({ length: 4 }, (_, col) => (
           <div key={col} className={`grid grid-cols-7 ${col > 0 ? "border-l" : ""}`}>
@@ -1130,7 +1130,7 @@ function YearMonth({
               onMouseDown={(e) => onDayMouseDown(dk, e)}
               onMouseEnter={() => onDayMouseEnter(dk)}
             >
-              {/* Inline month label — replaces the day number on the 1st */}
+              {/* Inline month label - replaces the day number on the 1st */}
               {isFirst ? (
                 <span className="text-[9px] font-semibold text-muted-foreground">
                   {MONTH_NAMES[month].slice(0, 3)}

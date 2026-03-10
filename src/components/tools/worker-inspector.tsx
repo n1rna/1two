@@ -51,7 +51,7 @@ export function WorkerInspector() {
       setRegistrations(regs);
       setCaches(entries);
     } catch {
-      // Silently handle — may not have permission
+      // Silently handle - may not have permission
     }
     setLoading(false);
   }, []);

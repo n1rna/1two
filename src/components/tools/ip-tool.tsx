@@ -195,7 +195,7 @@ export function IpTool() {
 
   return (
     <div className="space-y-6">
-      {/* Section A — Your IP Address */}
+      {/* Section A - Your IP Address */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Your IP Address
@@ -236,7 +236,7 @@ export function IpTool() {
         )}
       </section>
 
-      {/* Section B — Location & Network Info */}
+      {/* Section B - Location & Network Info */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Location &amp; Network Info
@@ -260,7 +260,7 @@ export function IpTool() {
         )}
       </section>
 
-      {/* Section C — Use from Terminal */}
+      {/* Section C - Use from Terminal */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
           <Terminal className="h-3.5 w-3.5" />

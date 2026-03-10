@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <div className="prose prose-sm dark:prose-invert text-muted-foreground space-y-4">
         <p>
           1two.dev is designed with privacy in mind. All tools run entirely in
-          your browser — no data is sent to any server.
+          your browser - no data is sent to any server.
         </p>
         <h2 className="text-lg font-semibold text-foreground">Data Collection</h2>
         <p>

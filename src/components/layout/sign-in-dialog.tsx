@@ -41,14 +41,14 @@ export function SignInDialog({
         <div className="flex flex-col gap-3 pt-2">
           <button
             className="flex items-center justify-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg border bg-card hover:bg-accent transition-colors"
-            onClick={() => { signIn.social({ provider: "github" }); onOpenChange(false); }}
+            onClick={() => { signIn.social({ provider: "github", callbackURL: window.location.href }); onOpenChange(false); }}
           >
             <Github className="h-5 w-5" />
             Continue with GitHub
           </button>
           <button
             className="flex items-center justify-center gap-3 w-full px-4 py-2.5 text-sm font-medium rounded-lg border bg-card hover:bg-accent transition-colors"
-            onClick={() => { signIn.social({ provider: "google" }); onOpenChange(false); }}
+            onClick={() => { signIn.social({ provider: "google", callbackURL: window.location.href }); onOpenChange(false); }}
           >
             <GoogleIcon className="h-5 w-5" />
             Continue with Google

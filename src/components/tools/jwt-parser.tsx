@@ -116,7 +116,7 @@ export function JwtParser() {
               <span className="text-muted-foreground">Paste your JWT token here...</span>
             )}
           </div>
-          {/* Actual textarea — transparent text so highlight shows through */}
+          {/* Actual textarea - transparent text so highlight shows through */}
           <textarea
             ref={textareaRef}
             value={token}

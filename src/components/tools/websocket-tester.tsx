@@ -148,7 +148,7 @@ export function WebSocketTester() {
         setStatus("error");
         addMessage(
           "system",
-          "Connection error — check the URL and ensure the server allows cross-origin connections"
+          "Connection error - check the URL and ensure the server allows cross-origin connections"
         );
       };
 

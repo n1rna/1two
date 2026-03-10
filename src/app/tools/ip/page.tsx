@@ -4,7 +4,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "ip",
-  title: "What Is My IP Address — Geolocation & Network Info",
+  title: "What Is My IP Address - Geolocation & Network Info",
   description:
     "View your public IP address, geolocation, ISP, and network details. Also available via curl 1two.dev/ip from your terminal.",
   keywords: [

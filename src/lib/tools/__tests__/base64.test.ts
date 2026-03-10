@@ -17,8 +17,8 @@ describe("encodeBase64", () => {
   });
 
   it("produces URL-safe output when flag is set", () => {
-    // btoa("n>~") = "bj5+" — contains +
-    // btoa("n~?") = "bn4/" — contains /
+    // btoa("n>~") = "bj5+" - contains +
+    // btoa("n~?") = "bn4/" - contains /
     const standard1 = encodeBase64("n>~", false);
     expect(standard1).toContain("+");
 

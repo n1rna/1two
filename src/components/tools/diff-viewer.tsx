@@ -379,7 +379,7 @@ function DiffPane({ pane, allPanes, onUpdate, onRemove }: DiffPaneProps) {
       <div className="flex flex-1 min-h-0">
         <div className="relative flex-1 min-w-0 overflow-auto hide-scrollbar" ref={scrollContainerRef}>
           <div className="relative min-h-full" style={{ height: `${lines.length * 24}px` }}>
-            {/* Line highlight background — full width rows */}
+            {/* Line highlight background - full width rows */}
             <div aria-hidden className="absolute inset-0 pointer-events-none">
               {lines.map((_, i) => {
                 const lineNum = i + 1;
@@ -458,7 +458,7 @@ function DiffScrollbar({
   const viewportRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
 
-  // Update viewport indicator via direct DOM — no React re-renders
+  // Update viewport indicator via direct DOM - no React re-renders
   useEffect(() => {
     const container = scrollContainerRef.current;
     const viewport = viewportRef.current;
@@ -537,12 +537,12 @@ function DiffScrollbar({
       onMouseDown={handleMouseDown}
       className="relative w-3 shrink-0 border-l border-border/50 bg-muted/20 cursor-pointer"
     >
-      {/* Viewport indicator — updated via ref, not state */}
+      {/* Viewport indicator - updated via ref, not state */}
       <div
         ref={viewportRef}
         className="absolute left-0 right-0 bg-foreground/8 border-y border-foreground/10"
       />
-      {/* Diff markers — consecutive lines merged into ranges */}
+      {/* Diff markers - consecutive lines merged into ranges */}
       {(() => {
         const ranges: { start: number; end: number; activeInRange: boolean }[] = [];
         for (let i = 0; i < diffLines.length; i++) {

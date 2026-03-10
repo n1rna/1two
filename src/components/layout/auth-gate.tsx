@@ -33,7 +33,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 variant="outline"
                 size="sm"
                 className="w-full gap-2"
-                onClick={() => signIn.social({ provider: "github" })}
+                onClick={() => signIn.social({ provider: "github", callbackURL: window.location.href })}
               >
                 <Github className="h-4 w-4" />
                 Continue with GitHub
@@ -42,7 +42,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 variant="outline"
                 size="sm"
                 className="w-full gap-2"
-                onClick={() => signIn.social({ provider: "google" })}
+                onClick={() => signIn.social({ provider: "google", callbackURL: window.location.href })}
               >
                 <Chrome className="h-4 w-4" />
                 Continue with Google

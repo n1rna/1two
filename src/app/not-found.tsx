@@ -78,7 +78,7 @@ export default function NotFound() {
           </p>
         </motion.div>
 
-        {/* Featured tools — compact inline list */}
+        {/* Featured tools - compact inline list */}
         <motion.div
           variants={itemVariants}
           className="flex flex-wrap items-center justify-center gap-2"

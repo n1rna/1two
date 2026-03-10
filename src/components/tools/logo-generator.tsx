@@ -195,7 +195,7 @@ const DEFAULT_CONFIG: LogoConfig = {
 
 // ── Serialization & Persistence ────────────────────────
 
-/** Compact config for serialization — strips gradient stop ids */
+/** Compact config for serialization - strips gradient stop ids */
 interface SerializableGradientStop { p: number; h: string }
 interface SerializableGradient { t: GradientType; a: number; s: SerializableGradientStop[] }
 interface SerializableColor { m: ColorMode; h: string; g: SerializableGradient }
@@ -497,7 +497,7 @@ function buildSvg(config: LogoConfig, exportW?: number, exportH?: number): strin
     naturalW = Math.max(naturalW, naturalH * 2);
     naturalH = Math.ceil(naturalW / 2);
   } else {
-    // 1:1 — make a square from the larger dimension
+    // 1:1 - make a square from the larger dimension
     const sq = Math.max(naturalW, naturalH);
     naturalW = sq;
     naturalH = sq;
@@ -605,7 +605,7 @@ async function svgToPngBlob(config: LogoConfig, size: number): Promise<Blob> {
       const ctx = canvas.getContext("2d")!;
 
       // The SVG already contains the correct shape (rounded rect, circle clip, etc.)
-      // so we just draw it directly — no extra canvas clipping needed.
+      // so we just draw it directly - no extra canvas clipping needed.
       ctx.drawImage(img, 0, 0, canvasW, canvasH);
 
       canvas.toBlob(
@@ -938,7 +938,7 @@ function ColorControl({
           <button
             onClick={onLockToggle}
             className={`p-1 rounded transition-colors ${locked ? "text-amber-500 hover:bg-amber-500/10" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted"}`}
-            title={locked ? "Locked — won't change on generate" : "Unlocked — will change on generate"}
+            title={locked ? "Locked - won't change on generate" : "Unlocked - will change on generate"}
           >
             {locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
           </button>
@@ -1339,19 +1339,19 @@ export function LogoGenerator() {
                 </div>
 
                 <SliderField
-                  label={`Weight — ${weightLabel}`}
+                  label={`Weight - ${weightLabel}`}
                   min={100} max={900} step={100}
                   value={config.fontWeight}
                   onChange={(v) => update("fontWeight", v)}
                 />
                 <SliderField
-                  label={`Size — ${config.fontSize}px`}
+                  label={`Size - ${config.fontSize}px`}
                   min={16} max={300} step={1}
                   value={config.fontSize}
                   onChange={(v) => update("fontSize", v)}
                 />
                 <SliderField
-                  label={`Spacing — ${config.letterSpacing}px`}
+                  label={`Spacing - ${config.letterSpacing}px`}
                   min={-20} max={40} step={1}
                   value={config.letterSpacing}
                   onChange={(v) => update("letterSpacing", v)}
@@ -1404,20 +1404,20 @@ export function LogoGenerator() {
             <Section label="Padding & Radius">
               <div className="space-y-3">
                 <SliderField
-                  label={`Pad X — ${config.paddingX}px`}
+                  label={`Pad X - ${config.paddingX}px`}
                   min={0} max={200} step={1}
                   value={config.paddingX}
                   onChange={(v) => update("paddingX", v)}
                 />
                 <SliderField
-                  label={`Pad Y — ${config.paddingY}px`}
+                  label={`Pad Y - ${config.paddingY}px`}
                   min={0} max={200} step={1}
                   value={config.paddingY}
                   onChange={(v) => update("paddingY", v)}
                 />
                 {config.shape !== "circle" && (
                   <SliderField
-                    label={`Radius — ${config.borderRadius}px`}
+                    label={`Radius - ${config.borderRadius}px`}
                     min={0} max={200} step={1}
                     value={config.borderRadius}
                     onChange={(v) => update("borderRadius", v)}

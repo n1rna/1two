@@ -178,7 +178,7 @@ export function NotificationTester() {
       setVapidPublic(keys.publicKey);
       setVapidPrivate(keys.privateKey);
     } catch {
-      // Fallback — shouldn't fail in modern browsers
+      // Fallback - shouldn't fail in modern browsers
     } finally {
       setGeneratingKeys(false);
     }
@@ -314,7 +314,7 @@ export function NotificationTester() {
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        {/* Left panel — Controls */}
+        {/* Left panel - Controls */}
         <div className="lg:w-96 shrink-0 border-b lg:border-b-0 lg:border-r overflow-auto">
           <div className="p-4 space-y-5">
             {/* 1. Permission */}
@@ -388,7 +388,7 @@ export function NotificationTester() {
                       <CopyBtn text={vapidPrivate} />
                     </div>
                     <p className="text-[10px] text-amber-500/80">
-                      Keep this secret — only use it server-side.
+                      Keep this secret - only use it server-side.
                     </p>
                   </div>
                 )}
@@ -468,7 +468,7 @@ export function NotificationTester() {
           </div>
         </div>
 
-        {/* Right panel — Log + Guide */}
+        {/* Right panel - Log + Guide */}
         <div className="flex-1 min-h-0 relative">
           {/* Guide overlay */}
           {showGuide && (
@@ -488,7 +488,7 @@ export function NotificationTester() {
                     <ol className="list-decimal pl-4 space-y-1">
                       <li>Grant notification permission in your browser</li>
                       <li>Generate a VAPID key pair (or use your own)</li>
-                      <li>Subscribe to push — this creates a push subscription with an endpoint URL and keys</li>
+                      <li>Subscribe to push - this creates a push subscription with an endpoint URL and keys</li>
                       <li>Use the subscription JSON to send pushes from your server</li>
                     </ol>
                   </div>
@@ -545,10 +545,10 @@ webpush(
                   <div className="space-y-2">
                     <p className="font-medium text-foreground">Troubleshooting</p>
                     <ul className="list-disc pl-4 space-y-1">
-                      <li><strong>Permission denied</strong> — reset in browser settings (Site Settings → Notifications)</li>
-                      <li><strong>Subscription fails</strong> — check that the VAPID key is valid URL-safe base64</li>
-                      <li><strong>No notification shown</strong> — ensure browser tab is not focused (some browsers suppress notifications for active tabs)</li>
-                      <li><strong>Service worker error</strong> — check the browser console for registration errors</li>
+                      <li><strong>Permission denied</strong> - reset in browser settings (Site Settings → Notifications)</li>
+                      <li><strong>Subscription fails</strong> - check that the VAPID key is valid URL-safe base64</li>
+                      <li><strong>No notification shown</strong> - ensure browser tab is not focused (some browsers suppress notifications for active tabs)</li>
+                      <li><strong>Service worker error</strong> - check the browser console for registration errors</li>
                     </ul>
                   </div>
                 </div>

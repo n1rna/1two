@@ -193,7 +193,7 @@ function ResultsTable({ data }: { data: DnsResponse }) {
     );
   }
 
-  // A, AAAA, CNAME, TXT, NS, PTR — simple string arrays
+  // A, AAAA, CNAME, TXT, NS, PTR - simple string arrays
   const stringRecords = records as string[];
   return (
     <div className="rounded-lg border border-border overflow-hidden">

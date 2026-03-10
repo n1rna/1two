@@ -3,7 +3,7 @@ import { Heart } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Support",
-  description: "Support 1two.dev — free, open-source developer tools.",
+  description: "Support 1two.dev - free, open-source developer tools.",
 };
 
 export default function SupportPage() {

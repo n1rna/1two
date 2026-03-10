@@ -506,7 +506,7 @@ export function SqliteBrowser() {
         setRows(dataResult[0]?.values ?? []);
         setFilterError(null);
       } catch {
-        setFilterError("Filter error — check that your filter values match the column types");
+        setFilterError("Filter error - check that your filter values match the column types");
       }
     },
     []
@@ -712,7 +712,7 @@ export function SqliteBrowser() {
           stmt.run(vals);
           stmt.free();
         } else {
-          // Edit mode — update by PK
+          // Edit mode - update by PK
           const pkCols = columns.filter((c) => c.pk);
           if (pkCols.length === 0) {
             setQueryError("Cannot edit: table has no primary key");
@@ -1057,7 +1057,7 @@ export function SqliteBrowser() {
                         </th>
                       );
                     })}
-                    {/* Edit column header — sticky right */}
+                    {/* Edit column header - sticky right */}
                     {hasPk && (
                       <th className="px-2 py-1.5 border-b w-8 sticky right-0 z-20 bg-muted backdrop-blur-sm shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.1)]">
                         <Pencil className="h-3 w-3 text-muted-foreground mx-auto" />
@@ -1085,7 +1085,7 @@ export function SqliteBrowser() {
                           )}
                         </td>
                       ))}
-                      {/* Edit button — sticky right */}
+                      {/* Edit button - sticky right */}
                       {hasPk && (
                         <td className="px-1 py-1 border-b sticky right-0 z-[1] bg-muted group-hover:bg-accent shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.1)]">
                           <button
@@ -1168,7 +1168,7 @@ export function SqliteBrowser() {
           {/* SQL Editor panel */}
           {editorOpen && (
             <>
-              {/* Editor resize handle — thicker grab area */}
+              {/* Editor resize handle - thicker grab area */}
               <div
                 className="h-1.5 bg-border hover:bg-primary/50 cursor-row-resize transition-colors shrink-0 flex items-center justify-center"
                 onMouseDown={handleEditorResize}

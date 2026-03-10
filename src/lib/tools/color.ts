@@ -280,7 +280,7 @@ export const THEME_PRESETS: ThemePreset[] = [
   },
 ];
 
-// Core tokens the user directly picks — the rest are derived
+// Core tokens the user directly picks - the rest are derived
 export const CORE_TOKENS: ThemeTokenKey[] = [
   "primary", "secondary", "accent", "destructive",
 ];

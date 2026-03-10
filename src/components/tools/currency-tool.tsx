@@ -187,7 +187,7 @@ export function CurrencyTool() {
     for (const id of CRYPTO_CONVERTER_IDS) {
       const info = CRYPTO_SYMBOLS[id];
       if (info) {
-        opts.push({ value: `CRYPTO:${id}`, label: `${info.symbol} — ${info.name}`, group: "crypto" });
+        opts.push({ value: `CRYPTO:${id}`, label: `${info.symbol} - ${info.name}`, group: "crypto" });
       }
     }
     // Popular fiat first, then rest
@@ -195,13 +195,13 @@ export function CurrencyTool() {
     for (const code of POPULAR_CURRENCIES) {
       const c = currencies.find((c) => c.code === code);
       if (c) {
-        opts.push({ value: c.code, label: `${c.code} — ${c.name}`, group: "fiat" });
+        opts.push({ value: c.code, label: `${c.code} - ${c.name}`, group: "fiat" });
         added.add(c.code);
       }
     }
     for (const c of currencies) {
       if (!added.has(c.code)) {
-        opts.push({ value: c.code, label: `${c.code} — ${c.name}`, group: "fiat" });
+        opts.push({ value: c.code, label: `${c.code} - ${c.name}`, group: "fiat" });
       }
     }
     return opts;

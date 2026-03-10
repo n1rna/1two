@@ -15,7 +15,7 @@ import { Lock, Copy, Check, Download, Eye, EyeOff, RefreshCw, Dices } from "luci
 type HashMode = "bcrypt" | "sha256" | "sha512" | "md5" | "ssha";
 
 const HASH_MODES: { value: HashMode; label: string; description: string }[] = [
-  { value: "bcrypt", label: "bcrypt", description: "Recommended — $2y$ prefix" },
+  { value: "bcrypt", label: "bcrypt", description: "Recommended - $2y$ prefix" },
   { value: "sha256", label: "SHA-256 (apr1-style)", description: "$5$ prefix, salted" },
   { value: "sha512", label: "SHA-512", description: "$6$ prefix, salted" },
   { value: "md5", label: "MD5 (apr1)", description: "$apr1$ prefix, Apache MD5" },

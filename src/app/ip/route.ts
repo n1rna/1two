@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/tools/ip", req.url));
   }
 
-  // Forward to Go backend — cf-connecting-ip has the real client IP on Cloudflare
+  // Forward to Go backend - cf-connecting-ip has the real client IP on Cloudflare
   const clientIp = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
   try {
     const res = await apiFetch("/api/v1/ip", {

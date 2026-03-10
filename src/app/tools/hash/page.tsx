@@ -3,7 +3,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "hash",
-  title: "Hash Generator — MD5, SHA-1, SHA-256, SHA-384, SHA-512",
+  title: "Hash Generator - MD5, SHA-1, SHA-256, SHA-384, SHA-512",
   description:
     "Generate cryptographic hashes for text or files using MD5, SHA-1, SHA-256, SHA-384, and SHA-512. Compute all algorithms at once, copy results, and verify file integrity.",
   keywords: [

@@ -17,7 +17,7 @@ export function EditorScrollbar({
   const viewportRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
 
-  // Update viewport indicator via direct DOM — no React re-renders
+  // Update viewport indicator via direct DOM - no React re-renders
   useEffect(() => {
     const container = scrollContainerRef.current;
     const viewport = viewportRef.current;

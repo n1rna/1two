@@ -714,7 +714,7 @@ export function VideoPlayer() {
     setPlaying(false);
   }, [pause]);
 
-  // ── No source — landing ─────────────────────────────
+  // ── No source - landing ─────────────────────────────
 
   if (!source) {
     return (

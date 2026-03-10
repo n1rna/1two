@@ -15,7 +15,7 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
     url.searchParams.set(key, value);
   });
 
-  // Get session from better-auth (non-critical — don't block proxy on auth failure)
+  // Get session from better-auth (non-critical - don't block proxy on auth failure)
   let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
   try {
     session = await auth.api.getSession({ headers: await headers() });

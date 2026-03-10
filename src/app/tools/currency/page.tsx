@@ -3,7 +3,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "currency",
-  title: "Finance Tool — Crypto, Gold & Currency Converter",
+  title: "Finance Tool - Crypto, Gold & Currency Converter",
   description:
     "Live crypto prices (Bitcoin, Ethereum), gold tracking via PAXG, exchange rates for 30+ currencies, and a two-sided currency converter. Market data with sparkline charts powered by CoinGecko and ECB.",
   keywords: [

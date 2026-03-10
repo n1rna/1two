@@ -305,7 +305,7 @@ function markdownToHtml(md: string): string {
     .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
     // Blockquote
     .replace(/^> (.+)$/gm, '<blockquote class="border-l-2 border-muted-foreground/30 pl-4 text-muted-foreground italic">$1</blockquote>')
-    // Paragraphs — wrap lines that aren't already HTML tags
+    // Paragraphs - wrap lines that aren't already HTML tags
     .replace(/^(?!<[a-z]|\s*$)(.+)$/gm, "<p>$1</p>");
 
   // Wrap consecutive <li> in <ul>

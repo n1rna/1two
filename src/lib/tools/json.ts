@@ -117,7 +117,7 @@ export function smartParseJson(input: string): JsonParseResult {
       corrections,
     };
   } catch {
-    // Corrections weren't enough — extract error info from original
+    // Corrections weren't enough - extract error info from original
     return {
       valid: false,
       error: extractJsonError(trimmed),

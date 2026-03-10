@@ -6,7 +6,7 @@ export const metadata = toolMetadata({
   slug: "dns",
   title: "DNS Lookup",
   description:
-    "Look up DNS records for any domain — A, AAAA, MX, CNAME, TXT, NS, SOA, SRV, CAA, and PTR.",
+    "Look up DNS records for any domain - A, AAAA, MX, CNAME, TXT, NS, SOA, SRV, CAA, and PTR.",
   keywords: [
     "dns lookup",
     "dns records",

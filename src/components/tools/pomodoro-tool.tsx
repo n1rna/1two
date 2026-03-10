@@ -228,7 +228,7 @@ export function PomodoroTool() {
     if (s.timerStatus === "running" && s.timerEndTime) {
       const left = Math.max(0, Math.ceil((s.timerEndTime - Date.now()) / 1000));
       if (left > 0) {
-        // Timer still active — restore running state
+        // Timer still active - restore running state
         setTotalSeconds(s.totalSeconds);
         setRemaining(left);
         endTimeRef.current = s.timerEndTime;
@@ -244,7 +244,7 @@ export function PomodoroTool() {
           }
         }, 250);
       } else {
-        // Timer expired while away — treat as completed
+        // Timer expired while away - treat as completed
         // We'll handle this after mount via a separate effect
         setTotalSeconds(s.totalSeconds);
         setRemaining(0);
@@ -342,7 +342,7 @@ export function PomodoroTool() {
       const body =
         type === "work"
           ? "Great work! Time for a break."
-          : "Break's over — ready to focus?";
+          : "Break's over - ready to focus?";
 
       if (swRef.current?.active) {
         swRef.current.active.postMessage({
@@ -517,12 +517,12 @@ export function PomodoroTool() {
   // Update document title
   useEffect(() => {
     if (status === "running" || status === "paused") {
-      document.title = `${formatTime(remaining)} — Pomodoro`;
+      document.title = `${formatTime(remaining)} - Pomodoro`;
     } else {
-      document.title = "Pomodoro Timer — 1two";
+      document.title = "Pomodoro Timer - 1two";
     }
     return () => {
-      document.title = "Pomodoro Timer — 1two";
+      document.title = "Pomodoro Timer - 1two";
     };
   }, [remaining, status]);
 

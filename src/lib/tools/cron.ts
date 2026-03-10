@@ -41,7 +41,7 @@ export function parseCron(
     };
   }
 
-  // If 6 fields, first is seconds — we only support 5-field cron
+  // If 6 fields, first is seconds - we only support 5-field cron
   const fiveParts = parts.length === 6 ? parts.slice(1) : parts;
   const expr = fiveParts.join(" ");
 

@@ -1128,7 +1128,7 @@ export function CsvViewer() {
                     </th>
                   );
                 })}
-                {/* Edit column header — sticky right */}
+                {/* Edit column header - sticky right */}
                 <th className="px-2 py-1.5 border-b w-8 sticky right-0 z-20 bg-muted backdrop-blur-sm shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.1)]">
                   <Pencil className="h-3 w-3 text-muted-foreground mx-auto" />
                 </th>
@@ -1155,7 +1155,7 @@ export function CsvViewer() {
                         </td>
                       );
                     })}
-                    {/* Edit button — sticky right */}
+                    {/* Edit button - sticky right */}
                     <td className="px-1 py-1 border-b sticky right-0 z-[1] bg-muted group-hover:bg-accent shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.1)]">
                       <button
                         onClick={() => openEditDrawer(i)}

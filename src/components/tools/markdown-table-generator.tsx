@@ -451,7 +451,7 @@ export function MarkdownTableGenerator() {
                         onChange={(e) => updateCell(ri, ci, e.target.value)}
                         onPaste={(e) => handlePaste(e, { area: "body", ri, ci })}
                         className="w-full bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring rounded-sm"
-                        placeholder="—"
+                        placeholder="-"
                       />
                     </td>
                   ))}

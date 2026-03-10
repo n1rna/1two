@@ -373,7 +373,7 @@ function OverlapTimeline({
   const nowUtcHour = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
   const nowPct = (nowUtcHour / 24) * 100;
 
-  // Hairpin follows cursor on hover — fractional UTC hour (0–24), null when not hovering
+  // Hairpin follows cursor on hover - fractional UTC hour (0–24), null when not hovering
   const [hairpinUtc, setHairpinUtc] = useState<number | null>(null);
   const timelineAreaRef = useRef<HTMLDivElement>(null);
 

@@ -18,7 +18,7 @@ export function toolMetadata({ slug, title, description, keywords }: ToolSeoOpti
     keywords,
     alternates: { canonical: url },
     openGraph: {
-      title: `${title} — 1two.dev`,
+      title: `${title} - 1two.dev`,
       description,
       url,
       type: "website",
@@ -26,7 +26,7 @@ export function toolMetadata({ slug, title, description, keywords }: ToolSeoOpti
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} — 1two.dev`,
+      title: `${title} - 1two.dev`,
       description,
     },
   };
@@ -104,7 +104,7 @@ export function homepageJsonLd() {
       "@type": "WebSite",
       name: "1two.dev",
       url: SITE_URL,
-      description: "Tools that just work — the developer tools you actually need.",
+      description: "Tools that just work - the developer tools you actually need.",
       potentialAction: {
         "@type": "SearchAction",
         target: {

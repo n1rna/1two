@@ -139,7 +139,7 @@ export function CronBuilder() {
         </div>
       </div>
 
-      {/* Main content — centered, scrollable */}
+      {/* Main content - centered, scrollable */}
       <div className="flex-1 min-h-0 overflow-auto">
         <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
           {/* Expression input */}
@@ -299,15 +299,15 @@ export function CronBuilder() {
             <div className="text-xs text-muted-foreground/60 space-y-0.5">
               <div>
                 <span className="font-mono text-foreground/50">*/15</span>{" "}
-                — every 15 units
+                - every 15 units
               </div>
               <div>
                 <span className="font-mono text-foreground/50">1,15</span>{" "}
-                — at 1 and 15
+                - at 1 and 15
               </div>
               <div>
                 <span className="font-mono text-foreground/50">1-5</span>{" "}
-                — from 1 through 5
+                - from 1 through 5
               </div>
             </div>
           </div>

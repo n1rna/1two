@@ -70,7 +70,7 @@ export function formatChange(pct: number | null): {
   text: string;
   positive: boolean;
 } {
-  if (pct == null) return { text: "—", positive: true };
+  if (pct == null) return { text: "-", positive: true };
   const positive = pct >= 0;
   return {
     text: `${positive ? "+" : ""}${pct.toFixed(2)}%`,

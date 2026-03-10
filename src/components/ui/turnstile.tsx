@@ -56,7 +56,7 @@ function loadTurnstileScript(): Promise<void> {
 
     const existing = document.getElementById(TURNSTILE_SCRIPT_ID);
     if (existing) {
-      // Script already injected — wait for onload callback
+      // Script already injected - wait for onload callback
       const prev = window.onTurnstileLoad;
       window.onTurnstileLoad = () => {
         prev?.();

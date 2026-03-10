@@ -4,7 +4,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "random",
-  title: "Random Generator — UUID, Password & More",
+  title: "Random Generator - UUID, Password & More",
   description:
     "Generate random UUIDs (v4 & v7), secure passwords, secret keys, hex strings, Base64 tokens, numbers, and lorem ipsum text. Cryptographically secure generation.",
   keywords: [

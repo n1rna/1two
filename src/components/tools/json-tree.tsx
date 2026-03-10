@@ -147,7 +147,7 @@ const JsonNode = memo(function JsonNode({
 
   const matchesSearch = keyMatches || valueMatches;
 
-  // Check if any descendant matches — only when searching and node is expandable
+  // Check if any descendant matches - only when searching and node is expandable
   const descendantMatches = useMemo(() => {
     if (!searchQuery || !isExpandable) return false;
     return hasMatchInSubtree(value, searchQuery, 10);
@@ -242,7 +242,7 @@ const JsonNode = memo(function JsonNode({
             onClick={() => setVisibleCount((c) => c + CHILDREN_PAGE_SIZE)}
             className="leading-6 text-xs text-muted-foreground hover:text-foreground px-1"
           >
-            ··· {remaining.toLocaleString()} more — click to load
+            ··· {remaining.toLocaleString()} more - click to load
           </button>
         );
       }
@@ -253,7 +253,7 @@ const JsonNode = memo(function JsonNode({
           onClick={() => setVisibleCount((c) => c + CHILDREN_PAGE_SIZE)}
           className="leading-6 text-xs text-muted-foreground hover:text-foreground px-1"
         >
-          ··· {remaining.toLocaleString()} more {remaining === 1 ? "item" : "items"} — click to show
+          ··· {remaining.toLocaleString()} more {remaining === 1 ? "item" : "items"} - click to show
         </button>
       );
     }

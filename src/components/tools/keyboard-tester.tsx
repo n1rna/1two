@@ -64,7 +64,7 @@ export function KeyboardTester() {
           const nextStep = detectStep + 1;
           setDetectStep(nextStep);
           if (nextStep >= DETECT_KEYS.length) {
-            // Done — compute results
+            // Done - compute results
             setDetectResults(detectLayout(newSamples));
           }
         }
@@ -230,7 +230,7 @@ export function KeyboardTester() {
 
       {/* Keyboard visual */}
       <div className="flex-1 min-h-0 overflow-auto flex flex-col items-center justify-center p-6 gap-6">
-        {/* Key info bar — always takes space to prevent layout shift */}
+        {/* Key info bar - always takes space to prevent layout shift */}
         <div className="flex items-center gap-4 text-xs text-muted-foreground h-5">
           {lastEvent && (
             <>

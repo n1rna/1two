@@ -7,7 +7,7 @@ const API_BACKEND_URL = process.env.API_BACKEND_URL || "http://localhost:8080";
  * when running on Workers, falls back to direct fetch in dev.
  *
  * When API_BACKEND_URL is explicitly set (local dev), always use
- * direct fetch — the OpenNext dev server provides a mock service
+ * direct fetch - the OpenNext dev server provides a mock service
  * binding that doesn't actually proxy to the Go backend.
  */
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {

@@ -126,7 +126,7 @@ const QUALITY_PRESETS: Record<QualityPreset, { label: string; description: strin
 // ── Helpers ───────────────────────────────────────────
 
 function formatDuration(seconds: number | null): string {
-  if (seconds === null || !isFinite(seconds)) return "—";
+  if (seconds === null || !isFinite(seconds)) return "-";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
@@ -367,7 +367,7 @@ export function VideoConverter() {
         });
 
         if (!conversion.isValid) {
-          setProcessError("Cannot process this file — codec or format combination not supported.");
+          setProcessError("Cannot process this file - codec or format combination not supported.");
           setProcessing(false);
           return;
         }
@@ -428,7 +428,7 @@ export function VideoConverter() {
     }
   }, [convertSettings.outputFormat, convertSettings.videoCodec, convertSettings.audioCodec]);
 
-  // No file — show landing
+  // No file - show landing
   if (!file) {
     return (
       <div className="flex flex-col h-full overflow-hidden">

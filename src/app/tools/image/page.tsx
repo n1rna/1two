@@ -3,7 +3,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "image",
-  title: "Image Converter & Resizer — PNG, JPEG, WebP, AVIF",
+  title: "Image Converter & Resizer - PNG, JPEG, WebP, AVIF",
   description:
     "Convert and resize images entirely in your browser. Supports PNG, JPEG, WebP, AVIF output with quality control, aspect-ratio locking, and fit or fill resize modes. No upload required.",
   keywords: [

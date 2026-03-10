@@ -6,7 +6,7 @@ export const metadata = toolMetadata({
   slug: "mdtable",
   title: "Markdown Table Generator",
   description:
-    "Build markdown tables visually — add rows and columns, edit cells inline, paste CSV data, and generate clean aligned markdown output.",
+    "Build markdown tables visually - add rows and columns, edit cells inline, paste CSV data, and generate clean aligned markdown output.",
   keywords: [
     "markdown table",
     "markdown table generator",
