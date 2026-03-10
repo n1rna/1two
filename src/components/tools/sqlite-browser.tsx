@@ -343,7 +343,8 @@ export function SqliteBrowser() {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterOpenCol, setFilterOpenCol] = useState<string | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
   const [schemaOpen, setSchemaOpen] = useState(false);
 
   // Query editor
@@ -405,6 +406,7 @@ export function SqliteBrowser() {
       setSortCol(null);
       setSortDir(null);
       setFilters({});
+      setFilterError(null);
       setQueryResult(null);
       setQueryError(null);
 
@@ -428,7 +430,8 @@ export function SqliteBrowser() {
       setSortCol(null);
       setSortDir(null);
       setFilters({});
-      setShowFilters(false);
+      setFilterError(null);
+      setFilterOpenCol(null);
 
       try {
         const pragmaResult = database.exec(`PRAGMA table_info("${tableName}")`);
@@ -497,10 +500,13 @@ export function SqliteBrowser() {
           `SELECT * FROM "${tableName}"${whereStr}${orderStr} LIMIT ${PAGE_SIZE} OFFSET ${pageNum * PAGE_SIZE}`
         );
 
-        setColNames(dataResult[0]?.columns ?? []);
+        if (dataResult[0]?.columns) {
+          setColNames(dataResult[0].columns);
+        }
         setRows(dataResult[0]?.values ?? []);
-      } catch (e) {
-        setQueryError(`Query error: ${e instanceof Error ? e.message : e}`);
+        setFilterError(null);
+      } catch {
+        setFilterError("Filter error — check that your filter values match the column types");
       }
     },
     []
@@ -993,55 +999,76 @@ export function SqliteBrowser() {
           {/* Data grid */}
           <div className="flex-1 overflow-auto min-h-0">
             {selectedTable && colNames.length > 0 ? (
-              <table className="w-full text-sm border-collapse">
+              <table className="text-sm border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-muted/80 backdrop-blur-sm">
-                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-muted-foreground border-b border-r w-10 tabular-nums">
+                    <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-muted-foreground border-b border-r tabular-nums sticky left-0 z-20 bg-muted backdrop-blur-sm shadow-[2px_0_4px_-1px_rgba(0,0,0,0.1)]">
                       #
                     </th>
-                    {colNames.map((col) => (
-                      <th
-                        key={col}
-                        className="px-2 py-1.5 text-left text-xs font-semibold border-b border-r cursor-pointer hover:bg-accent/50 transition-colors select-none whitespace-nowrap"
-                        onClick={() => handleSort(col)}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          {col}
-                          {sortCol === col && sortDir === "asc" && (
-                            <ArrowUp className="h-3 w-3 text-primary" />
+                    {colNames.map((col) => {
+                      const hasFilter = (filters[col] ?? "").trim().length > 0;
+                      const isFilterOpen = filterOpenCol === col;
+                      return (
+                        <th
+                          key={col}
+                          className="px-2 py-1.5 text-left text-xs font-semibold border-b border-r select-none whitespace-nowrap relative"
+                        >
+                          <span className="inline-flex items-center gap-1 w-full">
+                            <span
+                              className="cursor-pointer hover:text-primary transition-colors flex-1"
+                              onClick={() => handleSort(col)}
+                            >
+                              {col}
+                            </span>
+                            {sortCol === col && sortDir === "asc" && (
+                              <ArrowUp className="h-3 w-3 text-primary shrink-0" />
+                            )}
+                            {sortCol === col && sortDir === "desc" && (
+                              <ArrowDown className="h-3 w-3 text-primary shrink-0" />
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFilterOpenCol(isFilterOpen ? null : col);
+                              }}
+                              className={`shrink-0 rounded p-0.5 transition-colors cursor-pointer ${
+                                hasFilter || isFilterOpen
+                                  ? "text-primary bg-primary/10"
+                                  : "text-muted-foreground/40 hover:text-muted-foreground"
+                              }`}
+                              title={`Filter ${col}`}
+                            >
+                              <Search className="h-3 w-3" />
+                            </button>
+                          </span>
+                          {isFilterOpen && (
+                            <div className="absolute left-0 right-0 top-full z-20 px-1 py-1 bg-background border border-t-0 border-input rounded-b shadow-md">
+                              <input
+                                type="text"
+                                autoFocus
+                                placeholder={`Filter ${col}...`}
+                                value={filters[col] ?? ""}
+                                onChange={(e) => handleFilterChange(col, e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Escape") setFilterOpenCol(null); }}
+                                className="w-full bg-background border border-input rounded px-1.5 py-0.5 text-xs font-normal focus:outline-none focus:ring-1 focus:ring-ring"
+                              />
+                            </div>
                           )}
-                          {sortCol === col && sortDir === "desc" && (
-                            <ArrowDown className="h-3 w-3 text-primary" />
-                          )}
-                        </span>
-                      </th>
-                    ))}
+                        </th>
+                      );
+                    })}
+                    {/* Edit column header — sticky right */}
                     {hasPk && (
-                      <th className="px-2 py-1.5 border-b border-r w-8" />
+                      <th className="px-2 py-1.5 border-b w-8 sticky right-0 z-20 bg-muted backdrop-blur-sm shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.1)]">
+                        <Pencil className="h-3 w-3 text-muted-foreground mx-auto" />
+                      </th>
                     )}
                   </tr>
-                  {showFilters && (
-                    <tr className="bg-muted/50">
-                      <td className="px-2 py-1 border-b border-r" />
-                      {colNames.map((col) => (
-                        <td key={col} className="px-1 py-1 border-b border-r">
-                          <input
-                            type="text"
-                            placeholder="Filter..."
-                            value={filters[col] ?? ""}
-                            onChange={(e) => handleFilterChange(col, e.target.value)}
-                            className="w-full bg-background border border-input rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                          />
-                        </td>
-                      ))}
-                      {hasPk && <td className="border-b border-r" />}
-                    </tr>
-                  )}
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
                     <tr key={i} className="hover:bg-accent/30 transition-colors group">
-                      <td className="px-2 py-1 text-[10px] text-muted-foreground border-b border-r tabular-nums">
+                      <td className="px-2 py-1 text-[10px] text-muted-foreground border-b border-r tabular-nums sticky left-0 z-[1] bg-background group-hover:bg-accent/30 shadow-[2px_0_4px_-1px_rgba(0,0,0,0.1)]">
                         {page * PAGE_SIZE + i + 1}
                       </td>
                       {row.map((cell, j) => (
@@ -1058,8 +1085,9 @@ export function SqliteBrowser() {
                           )}
                         </td>
                       ))}
+                      {/* Edit button — sticky right */}
                       {hasPk && (
-                        <td className="px-1 py-1 border-b border-r">
+                        <td className="px-1 py-1 border-b sticky right-0 z-[1] bg-muted group-hover:bg-accent shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.1)]">
                           <button
                             onClick={() => openEditDrawer(i)}
                             className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
@@ -1093,22 +1121,22 @@ export function SqliteBrowser() {
           {/* Pagination + filter toggle */}
           {selectedTable && colNames.length > 0 && (
             <div className="flex items-center gap-2 border-t px-3 py-1 shrink-0 text-xs text-muted-foreground">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 transition-colors ${
-                  showFilters || activeFilters > 0
-                    ? "bg-primary/10 text-primary"
-                    : "hover:bg-accent"
-                }`}
-              >
-                <Search className="h-3 w-3" />
-                Filter
-                {activeFilters > 0 && (
-                  <span className="ml-0.5 rounded-full bg-primary text-primary-foreground px-1.5 text-[10px]">
-                    {activeFilters}
-                  </span>
-                )}
-              </button>
+              {activeFilters > 0 && (
+                <button
+                  onClick={() => {
+                    setFilters({});
+                    setFilterOpenCol(null);
+                    setPage(0);
+                    if (db && selectedTable) {
+                      fetchData(db, selectedTable, 0, sortCol, sortDir, {});
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+                >
+                  <X className="h-3 w-3" />
+                  Clear {activeFilters} filter{activeFilters !== 1 ? "s" : ""}
+                </button>
+              )}
               <div className="flex-1" />
               <span className="tabular-nums">
                 {totalRows.toLocaleString()} row{totalRows !== 1 ? "s" : ""}

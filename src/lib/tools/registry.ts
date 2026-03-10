@@ -218,12 +218,28 @@ export const tools: ToolDefinition[] = [
     keywords: ["sqlite", "database", "sql", "query", "table", "browse", "db", "data", "explorer", "schema"],
   },
   {
+    slug: "csv",
+    name: "CSV Viewer",
+    description: "View, edit, search, and export CSV files with data science split presets for train/test data",
+    category: "data",
+    icon: "FileSpreadsheet",
+    keywords: ["csv", "tsv", "viewer", "editor", "spreadsheet", "data", "export", "train", "test", "split", "sample"],
+  },
+  {
     slug: "htpasswd",
     name: "htpasswd Generator",
     description: "Generate htpasswd password hashes for basic auth — bcrypt, SHA-256, SHA-512, MD5, SSHA",
     category: "crypto",
     icon: "Lock",
     keywords: ["htpasswd", "basic auth", "password", "bcrypt", "sha256", "sha512", "md5", "ssha", "apache", "nginx", "http auth"],
+  },
+  {
+    slug: "mdtable",
+    name: "Markdown Table",
+    description: "Build markdown tables visually with inline editing, CSV paste support, and aligned output",
+    category: "generators",
+    icon: "Table",
+    keywords: ["markdown", "table", "md", "csv", "generator", "columns", "rows", "paste", "align"],
   },
   {
     slug: "paste",
