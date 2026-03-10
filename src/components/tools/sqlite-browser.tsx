@@ -804,7 +804,7 @@ export function SqliteBrowser() {
   if (!db) {
     return (
       <div
-        className="flex flex-col items-center justify-center h-full gap-6 px-4"
+        className="flex flex-col items-center justify-center gap-6 px-4 py-24"
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >

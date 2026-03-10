@@ -115,7 +115,7 @@ export function RandomGenerator() {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col overflow-hidden">
       {/* Toolbar */}
       <div className="border-b shrink-0">
         <div className="max-w-6xl mx-auto flex items-center gap-2 px-6 py-2">

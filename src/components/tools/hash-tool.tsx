@@ -224,7 +224,7 @@ export function HashTool() {
   }, []);
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col min-h-0">
       {/* Toolbar */}
       <div className="border-b shrink-0">
         <div className="max-w-6xl mx-auto flex items-center gap-2 px-6 py-2">

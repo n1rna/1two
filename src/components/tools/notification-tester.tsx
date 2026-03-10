@@ -484,6 +484,17 @@ export function NotificationTester() {
                 </div>
                 <div className="space-y-4 text-xs text-muted-foreground">
                   <div className="space-y-2">
+                    <p className="font-medium text-foreground">What are web push notifications?</p>
+                    <p>
+                      Web push notifications allow websites to send messages to users even when the
+                      browser tab is closed. They use the <code className="bg-muted px-1 rounded text-[11px]">Push API</code> and <code className="bg-muted px-1 rounded text-[11px]">Notification API</code> together
+                      with a service worker to deliver real-time alerts. The protocol relies
+                      on <code className="bg-muted px-1 rounded text-[11px]">VAPID</code> (Voluntary Application Server Identification) keys for
+                      authentication between your server and the push service.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
                     <p className="font-medium text-foreground">How it works</p>
                     <ol className="list-decimal pl-4 space-y-1">
                       <li>Grant notification permission in your browser</li>

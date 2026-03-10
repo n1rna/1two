@@ -315,42 +315,67 @@ export function WebSocketTester() {
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted-foreground">
+                <div className="space-y-4 text-xs text-muted-foreground">
                   <div className="space-y-2">
-                    <p className="font-medium text-foreground">
-                      CORS & WebSocket connections
+                    <p className="font-medium text-foreground">What is WebSocket?</p>
+                    <p>
+                      WebSocket is a communication protocol that provides full-duplex, persistent
+                      connections between a client and server over a single TCP connection. Unlike HTTP,
+                      which follows a request-response pattern, WebSocket allows both sides to send
+                      messages at any time after the initial handshake via <code className="bg-muted px-1 rounded text-[11px]">ws://</code> or <code className="bg-muted px-1 rounded text-[11px]">wss://</code> (TLS-encrypted).
                     </p>
                     <p>
-                      Browsers enforce security policies on WebSocket connections
-                      made from web pages. If your server rejects connections, you
-                      may need to configure it.
-                    </p>
-                    <p className="font-medium text-foreground mt-3">
-                      Server-side headers
-                    </p>
-                    <p>
-                      For the initial HTTP upgrade handshake, your server should
-                      accept the <code className="bg-muted px-1 rounded text-[11px]">Origin</code> header
-                      from this domain. Most WebSocket libraries let you configure
-                      allowed origins.
+                      A WebSocket connection starts with an HTTP upgrade request. Once upgraded, the
+                      connection stays open and both client and server can push frames - text or
+                      binary - without the overhead of new HTTP requests. The browser&apos;s <code className="bg-muted px-1 rounded text-[11px]">WebSocket</code> API
+                      handles framing, ping/pong keepalive, and close handshakes automatically.
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <p className="font-medium text-foreground">Example configs</p>
-                    <div className="bg-muted rounded-md p-2.5 font-mono text-[11px] space-y-1">
-                      <p className="text-muted-foreground/60"># Node.js (ws)</p>
-                      <p>{`const wss = new WebSocketServer({`}</p>
-                      <p>{`  verifyClient: (info) => true`}</p>
-                      <p>{`});`}</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <p className="font-medium text-foreground">
+                        CORS & WebSocket connections
+                      </p>
+                      <p>
+                        Browsers enforce security policies on WebSocket connections
+                        made from web pages. If your server rejects connections, you
+                        may need to configure it.
+                      </p>
+                      <p className="font-medium text-foreground mt-3">
+                        Server-side headers
+                      </p>
+                      <p>
+                        For the initial HTTP upgrade handshake, your server should
+                        accept the <code className="bg-muted px-1 rounded text-[11px]">Origin</code> header
+                        from this domain. Most WebSocket libraries let you configure
+                        allowed origins.
+                      </p>
+                      <p className="font-medium text-foreground mt-3">Common use cases</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>Testing WebSocket server endpoints during development</li>
+                        <li>Debugging real-time features like chat, notifications, or live updates</li>
+                        <li>Verifying message formats and server responses</li>
+                        <li>Load-testing WebSocket connections with custom payloads</li>
+                      </ul>
                     </div>
-                    <div className="bg-muted rounded-md p-2.5 font-mono text-[11px] space-y-1">
-                      <p className="text-muted-foreground/60"># Python (websockets)</p>
-                      <p>{`await serve(handler, origins=None)`}</p>
-                    </div>
-                    <div className="bg-muted rounded-md p-2.5 font-mono text-[11px] space-y-1">
-                      <p className="text-muted-foreground/60"># Nginx proxy</p>
-                      <p>{`proxy_set_header Upgrade $http_upgrade;`}</p>
-                      <p>{`proxy_set_header Connection "upgrade";`}</p>
+                    <div className="space-y-2">
+                      <p className="font-medium text-foreground">Example configs</p>
+                      <div className="bg-muted rounded-md p-2.5 font-mono text-[11px] space-y-1">
+                        <p className="text-muted-foreground/60"># Node.js (ws)</p>
+                        <p>{`const wss = new WebSocketServer({`}</p>
+                        <p>{`  verifyClient: (info) => true`}</p>
+                        <p>{`});`}</p>
+                      </div>
+                      <div className="bg-muted rounded-md p-2.5 font-mono text-[11px] space-y-1">
+                        <p className="text-muted-foreground/60"># Python (websockets)</p>
+                        <p>{`await serve(handler, origins=None)`}</p>
+                      </div>
+                      <div className="bg-muted rounded-md p-2.5 font-mono text-[11px] space-y-1">
+                        <p className="text-muted-foreground/60"># Nginx proxy</p>
+                        <p>{`proxy_set_header Upgrade $http_upgrade;`}</p>
+                        <p>{`proxy_set_header Connection "upgrade";`}</p>
+                      </div>
                     </div>
                   </div>
                 </div>

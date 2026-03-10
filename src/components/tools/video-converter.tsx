@@ -431,7 +431,7 @@ export function VideoConverter() {
   // No file - show landing
   if (!file) {
     return (
-      <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex flex-col overflow-hidden">
         <div className="border-b shrink-0">
           <div className="max-w-6xl mx-auto flex items-center gap-2 px-6 py-2">
             <FileVideo className="h-4 w-4 text-muted-foreground" />
@@ -440,7 +440,7 @@ export function VideoConverter() {
         </div>
 
         <div
-          className="flex-1 flex items-center justify-center p-6"
+          className="flex items-center justify-center py-24 px-6"
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
