@@ -4,8 +4,6 @@ import { renderOgImage } from "@/lib/og/render";
 import { loadDefaultFont } from "@/lib/og/font";
 import type { OgCollection, OgImage } from "@/lib/og/types";
 
-export const runtime = "edge";
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string; variant: string }> },

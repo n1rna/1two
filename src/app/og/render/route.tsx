@@ -3,8 +3,6 @@ import { renderOgImage } from "@/lib/og/render";
 import { loadDefaultFont } from "@/lib/og/font";
 import type { OgImage, Theme } from "@/lib/og/types";
 
-export const runtime = "edge";
-
 export async function POST(request: Request) {
   let body: unknown;
   try {
