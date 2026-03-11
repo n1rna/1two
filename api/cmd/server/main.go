@@ -59,15 +59,17 @@ func main() {
 		r.Get("/ip/all", handler.IPAll)
 		r.Get("/ip/info", handler.IPInfo)
 		r.Post("/dns/lookup", handler.DNSLookup(cfg))
+		r.Post("/og-check", handler.OgCheck(cfg))
 
 		// Internal routes (protected by secret)
 		if r2 != nil && db != nil {
 			r.Post("/internal/cleanup", handler.CleanupExpiredFiles(cfg, db, r2))
 		}
 
-		// Public paste route (no auth)
+		// Public routes (no auth)
 		if db != nil {
 			r.Get("/pastes/{id}", handler.GetPaste(db))
+			r.Get("/og/s/{slug}", handler.GetOgCollectionBySlug(db))
 		}
 
 		// Authenticated routes
@@ -89,6 +91,12 @@ func main() {
 				r.Get("/tool-state/summary", handler.SummaryToolState(db))
 				r.Put("/tool-state", handler.PutToolState(db))
 				r.Delete("/tool-state", handler.DeleteToolState(db))
+
+				r.Get("/og/collections", handler.ListOgCollections(db))
+				r.Post("/og/collections", handler.CreateOgCollection(db))
+				r.Get("/og/collections/{id}", handler.GetOgCollection(db))
+				r.Put("/og/collections/{id}", handler.UpdateOgCollection(db))
+				r.Delete("/og/collections/{id}", handler.DeleteOgCollection(db))
 			}
 		})
 	})

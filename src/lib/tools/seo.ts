@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getToolBySlug, tools, categoryLabels } from "./registry";
 
 const SITE_URL = "https://1two.dev";
+const OG_COLLECTION_SLUG = "c9d65497fec3";
+const OG_BASE = `${SITE_URL}/og/s/${OG_COLLECTION_SLUG}`;
 
 interface ToolSeoOptions {
   slug: string;
@@ -12,6 +14,9 @@ interface ToolSeoOptions {
 
 export function toolMetadata({ slug, title, description, keywords }: ToolSeoOptions): Metadata {
   const url = `${SITE_URL}/tools/${slug}`;
+  const subtitle = encodeURIComponent(title);
+  const ogImage = `${OG_BASE}/open-graph.png?subtitle=${subtitle}`;
+  const twImage = `${OG_BASE}/twitter-card.png?subtitle=${subtitle}`;
   return {
     title,
     description,
@@ -23,11 +28,13 @@ export function toolMetadata({ slug, title, description, keywords }: ToolSeoOpti
       url,
       type: "website",
       siteName: "1two.dev",
+      images: [{ url: ogImage, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} - 1two.dev`,
       description,
+      images: [twImage],
     },
   };
 }

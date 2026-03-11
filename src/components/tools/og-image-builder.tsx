@@ -7,6 +7,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { renderOgImage } from "@/lib/og/render";
 import { useSyncedState } from "@/lib/sync";
 import { SyncToggle } from "@/components/ui/sync-toggle";
 import {
@@ -20,7 +21,14 @@ import {
   Type,
   Save,
   FolderOpen,
+  Loader2,
+  Globe,
+  Copy,
+  Check,
+  Code,
 } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -28,77 +36,31 @@ import { ColorBuilderSheet } from "@/components/ui/color-builder-sheet";
 
 // ── Types ────────────────────────────────────────────────
 
-type LayoutTemplate =
-  | "centered"
-  | "editorial"
-  | "headline"
-  | "cards"
-  | "corners"
-  | "minimal"
-  | "custom";
-
-type GradientDirection =
-  | "to-right"
-  | "to-bottom"
-  | "to-bottom-right"
-  | "to-bottom-left"
-  | "radial";
-
-type ExportFormat = "image/png" | "image/jpeg" | "image/webp";
-
-type FontWeight = "300" | "400" | "500" | "600" | "700" | "800";
-
-interface Theme {
-  bgColor: string;
-  useGradient: boolean;
-  gradientColor1: string;
-  gradientColor2: string;
-  gradientDirection: GradientDirection;
-  textColor: string;
-  accentColor: string;
-  fontFamily: string;
-  titleSize: number;
-  subtitleSize: number;
-  titleWeight: FontWeight;
-  padding: number;
-  borderRadius: number;
-}
-
-interface CustomElement {
-  id: string;
-  text: string;
-  x: number; // 0-1
-  y: number; // 0-1
-  fontSize: number;
-  fontWeight: string;
-  color: string; // hex or "theme" to use theme.textColor
-  opacity: number;
-  textAlign: CanvasTextAlign;
-  maxWidth?: number; // 0-1 range, proportion of canvas width; undefined = no wrapping
-}
-
-interface OgImage {
-  id: string;
-  label: string;
-  width: number;
-  height: number;
-  enabled: boolean;
-  isCustom: boolean;
-  title: string;
-  subtitle: string;
-  layout: LayoutTemplate;
-  titleSize?: number;
-  subtitleSize?: number;
-  customElements?: CustomElement[];
-}
-
-interface SavedCustomLayout {
-  id: string;
-  name: string;
-  elements: CustomElement[];
-}
+import type {
+  LayoutTemplate,
+  GradientDirection,
+  ExportFormat,
+  FontWeight,
+  Theme,
+  CustomElement,
+  OgImage,
+  SavedCustomLayout,
+  OgBuilderState,
+  OgCollectionSummary,
+} from "@/lib/og/types";
 
 const SAVED_LAYOUTS_KEY = "og-custom-layouts";
+const BUILDER_STATE_KEY = "og-builder-state";
+
+function loadBuilderState(): Partial<OgBuilderState> | null {
+  try {
+    const raw = localStorage.getItem(BUILDER_STATE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as Partial<OgBuilderState>;
+  } catch {
+    return null;
+  }
+}
 
 // ── Constants ─────────────────────────────────────────────
 
@@ -178,495 +140,8 @@ const DEFAULT_THEME: Theme = {
   borderRadius: 0,
 };
 
-// ── Canvas renderer ────────────────────────────────────────
+// ── Preview component (div-based, matches Satori output) ──
 
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-  lineHeight: number
-): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = test;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
-function applyBackground(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  theme: Theme
-) {
-  if (theme.useGradient) {
-    let grad: CanvasGradient;
-    const d = theme.gradientDirection;
-    if (d === "radial") {
-      grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
-    } else {
-      const coords: Record<GradientDirection, [number, number, number, number]> = {
-        "to-right": [0, 0, w, 0],
-        "to-bottom": [0, 0, 0, h],
-        "to-bottom-right": [0, 0, w, h],
-        "to-bottom-left": [w, 0, 0, h],
-        radial: [0, 0, w, 0],
-      };
-      const [x0, y0, x1, y1] = coords[d];
-      grad = ctx.createLinearGradient(x0, y0, x1, y1);
-    }
-    grad.addColorStop(0, theme.gradientColor1);
-    grad.addColorStop(1, theme.gradientColor2);
-    ctx.fillStyle = grad;
-  } else {
-    ctx.fillStyle = theme.bgColor;
-  }
-  ctx.fillRect(0, 0, w, h);
-}
-
-function renderCanvas(
-  canvas: HTMLCanvasElement,
-  img: OgImage,
-  theme: Theme
-): void {
-  const { width: w, height: h, title, subtitle, layout } = img;
-  const effectiveTheme = {
-    ...theme,
-    titleSize: img.titleSize ?? theme.titleSize,
-    subtitleSize: img.subtitleSize ?? theme.subtitleSize,
-  };
-  const pad = effectiveTheme.padding;
-  canvas.width = w;
-  canvas.height = h;
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  // Rounded clip
-  if (theme.borderRadius > 0) {
-    const r = theme.borderRadius;
-    ctx.beginPath();
-    ctx.moveTo(r, 0);
-    ctx.lineTo(w - r, 0);
-    ctx.quadraticCurveTo(w, 0, w, r);
-    ctx.lineTo(w, h - r);
-    ctx.quadraticCurveTo(w, h, w - r, h);
-    ctx.lineTo(r, h);
-    ctx.quadraticCurveTo(0, h, 0, h - r);
-    ctx.lineTo(0, r);
-    ctx.quadraticCurveTo(0, 0, r, 0);
-    ctx.closePath();
-    ctx.clip();
-  }
-
-  // Background
-  applyBackground(ctx, w, h, effectiveTheme);
-
-  // Layout-specific rendering
-  switch (layout) {
-    case "centered":
-      renderCentered(ctx, w, h, pad, title, subtitle, effectiveTheme);
-      break;
-    case "editorial":
-      renderEditorial(ctx, w, h, pad, title, subtitle, effectiveTheme);
-      break;
-    case "headline":
-      renderHeadline(ctx, w, h, pad, title, subtitle, effectiveTheme);
-      break;
-    case "cards":
-      renderCards(ctx, w, h, pad, title, subtitle, effectiveTheme);
-      break;
-    case "corners":
-      renderCorners(ctx, w, h, pad, title, subtitle, effectiveTheme);
-      break;
-    case "minimal":
-      renderMinimal(ctx, w, h, pad, title, effectiveTheme);
-      break;
-    case "custom":
-      renderCustom(ctx, w, h, effectiveTheme, img.customElements ?? defaultCustomElements(title, subtitle, effectiveTheme));
-      break;
-  }
-}
-
-function renderCentered(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  pad: number,
-  title: string,
-  subtitle: string,
-  theme: Theme
-) {
-  const availW = w - pad * 2;
-  const lineH = theme.titleSize * 1.25;
-  const subLineH = theme.subtitleSize * 1.3;
-
-  ctx.font = `${theme.titleWeight} ${theme.titleSize}px ${theme.fontFamily}`;
-  const titleLines = title ? wrapText(ctx, title, availW, lineH) : [];
-
-  ctx.font = `400 ${theme.subtitleSize}px ${theme.fontFamily}`;
-  const subLines = subtitle ? wrapText(ctx, subtitle, availW, subLineH) : [];
-
-  const gap = subtitle ? theme.titleSize * 0.55 : 0;
-  const totalH =
-    titleLines.length * lineH +
-    (subLines.length > 0 ? gap + subLines.length * subLineH : 0);
-
-  // Thin accent line above title
-  const blockTop = (h - totalH) / 2;
-  const lineY = blockTop - theme.titleSize * 0.5;
-  const lineLen = Math.min(availW * 0.18, 80);
-  ctx.fillStyle = theme.accentColor;
-  ctx.fillRect(w / 2 - lineLen / 2, lineY, lineLen, 2);
-
-  let y = blockTop + lineH * 0.8;
-
-  ctx.fillStyle = theme.textColor;
-  ctx.textAlign = "center";
-
-  ctx.font = `${theme.titleWeight} ${theme.titleSize}px ${theme.fontFamily}`;
-  for (const line of titleLines) {
-    ctx.fillText(line, w / 2, y);
-    y += lineH;
-  }
-
-  if (subLines.length) {
-    y += gap * 0.5;
-    ctx.globalAlpha = 0.6;
-    ctx.font = `400 ${theme.subtitleSize}px ${theme.fontFamily}`;
-    for (const line of subLines) {
-      ctx.fillText(line, w / 2, y);
-      y += subLineH;
-    }
-    ctx.globalAlpha = 1;
-  }
-}
-
-function renderEditorial(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  pad: number,
-  title: string,
-  subtitle: string,
-  theme: Theme
-) {
-  const availW = w - pad * 2;
-  const lineH = theme.titleSize * 1.2;
-  const subLineH = theme.subtitleSize * 1.3;
-  const labelSize = Math.max(theme.subtitleSize * 0.7, 14);
-
-  ctx.font = `${theme.titleWeight} ${theme.titleSize}px ${theme.fontFamily}`;
-  const titleLines = title ? wrapText(ctx, title, availW, lineH) : [];
-
-  const totalTitleH = titleLines.length * lineH;
-  const labelH = subtitle ? labelSize * 2.2 : 0;
-  const totalH = labelH + totalTitleH;
-
-  // Anchor text block to lower-left (bottom 35% of canvas)
-  const blockBottom = h - pad * 1.4;
-  const blockTop = blockBottom - totalH;
-
-  ctx.textAlign = "left";
-
-  // Uppercase label/tag above title
-  if (subtitle) {
-    const labelY = blockTop + labelSize;
-    ctx.font = `600 ${labelSize}px ${theme.fontFamily}`;
-    ctx.fillStyle = theme.accentColor;
-    ctx.fillText(subtitle.toUpperCase(), pad, labelY);
-  }
-
-  ctx.font = `${theme.titleWeight} ${theme.titleSize}px ${theme.fontFamily}`;
-  ctx.fillStyle = theme.textColor;
-  let y = blockTop + labelH + lineH * 0.8;
-  for (const line of titleLines) {
-    ctx.fillText(line, pad, y);
-    y += lineH;
-  }
-}
-
-function renderHeadline(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  pad: number,
-  title: string,
-  subtitle: string,
-  theme: Theme
-) {
-  // Big title fills most of canvas
-  const bigSize = Math.min(theme.titleSize * 1.4, w * 0.14);
-  const availW = w - pad * 2;
-  const lineH = bigSize * 1.15;
-
-  ctx.font = `${theme.titleWeight} ${bigSize}px ${theme.fontFamily}`;
-  const titleLines = title ? wrapText(ctx, title, availW, lineH) : [];
-
-  const totalH = titleLines.length * lineH;
-  let y = (h - totalH) / 2 + lineH * 0.8;
-
-  ctx.fillStyle = theme.textColor;
-  ctx.textAlign = "left";
-
-  for (const line of titleLines) {
-    ctx.fillText(line, pad, y);
-    y += lineH;
-  }
-
-  // Subtitle as small pill in top-right
-  if (subtitle) {
-    const pillSize = Math.max(theme.subtitleSize * 0.7, 14);
-    ctx.font = `500 ${pillSize}px ${theme.fontFamily}`;
-    const textMetrics = ctx.measureText(subtitle);
-    const pillPadX = pillSize * 0.8;
-    const pillPadY = pillSize * 0.5;
-    const pillW = textMetrics.width + pillPadX * 2;
-    const pillH = pillSize + pillPadY * 2;
-    const pillX = w - pad - pillW;
-    const pillY = pad;
-    const pillR = pillH / 2;
-
-    // Pill background
-    ctx.globalAlpha = 0.12;
-    ctx.fillStyle = theme.textColor;
-    ctx.beginPath();
-    ctx.moveTo(pillX + pillR, pillY);
-    ctx.lineTo(pillX + pillW - pillR, pillY);
-    ctx.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + pillR);
-    ctx.lineTo(pillX + pillW, pillY + pillH - pillR);
-    ctx.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - pillR, pillY + pillH);
-    ctx.lineTo(pillX + pillR, pillY + pillH);
-    ctx.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - pillR);
-    ctx.lineTo(pillX, pillY + pillR);
-    ctx.quadraticCurveTo(pillX, pillY, pillX + pillR, pillY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    ctx.fillStyle = theme.textColor;
-    ctx.globalAlpha = 0.65;
-    ctx.textAlign = "left";
-    ctx.fillText(subtitle, pillX + pillPadX, pillY + pillPadY + pillSize * 0.82);
-    ctx.globalAlpha = 1;
-  }
-}
-
-function renderCards(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  pad: number,
-  title: string,
-  subtitle: string,
-  theme: Theme
-) {
-  const cardPadX = pad * 1.2;
-  const cardPadY = pad * 0.9;
-  const availW = w - pad * 4;
-  const lineH = theme.titleSize * 1.25;
-  const subLineH = theme.subtitleSize * 1.3;
-
-  ctx.font = `${theme.titleWeight} ${theme.titleSize}px ${theme.fontFamily}`;
-  const titleLines = title ? wrapText(ctx, title, availW, lineH) : [];
-
-  ctx.font = `400 ${theme.subtitleSize}px ${theme.fontFamily}`;
-  const subLines = subtitle ? wrapText(ctx, subtitle, availW, subLineH) : [];
-
-  const gap = subtitle ? theme.titleSize * 0.45 : 0;
-  const innerH =
-    titleLines.length * lineH +
-    (subLines.length > 0 ? gap + subLines.length * subLineH : 0);
-
-  const cardH = innerH + cardPadY * 2;
-  const cardW = availW + cardPadX * 2;
-  const cardX = (w - cardW) / 2;
-  const cardY = (h - cardH) / 2;
-  const r = Math.max(theme.borderRadius, 12);
-
-  // Frosted-glass card
-  ctx.globalAlpha = 0.12;
-  ctx.fillStyle = theme.textColor;
-  ctx.beginPath();
-  ctx.moveTo(cardX + r, cardY);
-  ctx.lineTo(cardX + cardW - r, cardY);
-  ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + r);
-  ctx.lineTo(cardX + cardW, cardY + cardH - r);
-  ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - r, cardY + cardH);
-  ctx.lineTo(cardX + r, cardY + cardH);
-  ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - r);
-  ctx.lineTo(cardX, cardY + r);
-  ctx.quadraticCurveTo(cardX, cardY, cardX + r, cardY);
-  ctx.closePath();
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  // Card border
-  ctx.globalAlpha = 0.18;
-  ctx.strokeStyle = theme.textColor;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cardX + r, cardY);
-  ctx.lineTo(cardX + cardW - r, cardY);
-  ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + r);
-  ctx.lineTo(cardX + cardW, cardY + cardH - r);
-  ctx.quadraticCurveTo(cardX + cardW, cardY + cardH, cardX + cardW - r, cardY + cardH);
-  ctx.lineTo(cardX + r, cardY + cardH);
-  ctx.quadraticCurveTo(cardX, cardY + cardH, cardX, cardY + cardH - r);
-  ctx.lineTo(cardX, cardY + r);
-  ctx.quadraticCurveTo(cardX, cardY, cardX + r, cardY);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  const textX = cardX + cardPadX;
-  let y = cardY + cardPadY + lineH * 0.8;
-
-  ctx.fillStyle = theme.textColor;
-  ctx.textAlign = "left";
-  ctx.font = `${theme.titleWeight} ${theme.titleSize}px ${theme.fontFamily}`;
-  for (const line of titleLines) {
-    ctx.fillText(line, textX, y);
-    y += lineH;
-  }
-
-  if (subLines.length) {
-    y += gap * 0.5;
-    ctx.globalAlpha = 0.6;
-    ctx.font = `400 ${theme.subtitleSize}px ${theme.fontFamily}`;
-    for (const line of subLines) {
-      ctx.fillText(line, textX, y);
-      y += subLineH;
-    }
-    ctx.globalAlpha = 1;
-  }
-}
-
-function renderCorners(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  pad: number,
-  title: string,
-  subtitle: string,
-  theme: Theme
-) {
-  const markLen = Math.min(pad * 0.9, 48);
-  const markThick = 2;
-
-  // L-shaped corner mark - top-left
-  ctx.fillStyle = theme.accentColor;
-  ctx.fillRect(pad, pad, markLen, markThick);
-  ctx.fillRect(pad, pad, markThick, markLen);
-
-  // L-shaped corner mark - bottom-right
-  ctx.fillRect(w - pad - markLen, h - pad - markThick, markLen, markThick);
-  ctx.fillRect(w - pad - markThick, h - pad - markLen, markThick, markLen);
-
-  const availW = w - pad * 2.5;
-
-  // Title anchored to bottom-left
-  if (title) {
-    const lineH = theme.titleSize * 1.2;
-    ctx.font = `${theme.titleWeight} ${theme.titleSize}px ${theme.fontFamily}`;
-    const titleLines = wrapText(ctx, title, availW, lineH);
-    const totalTitleH = titleLines.length * lineH;
-    let y = h - pad - totalTitleH + lineH * 0.8;
-    ctx.fillStyle = theme.textColor;
-    ctx.textAlign = "left";
-    for (const line of titleLines) {
-      ctx.fillText(line, pad, y);
-      y += lineH;
-    }
-  }
-
-  // Subtitle anchored to top-right
-  if (subtitle) {
-    const subLineH = theme.subtitleSize * 1.3;
-    ctx.font = `400 ${theme.subtitleSize}px ${theme.fontFamily}`;
-    const subLines = wrapText(ctx, subtitle, availW * 0.55, subLineH);
-    let sy = pad + markLen + theme.subtitleSize * 1.2;
-    ctx.fillStyle = theme.textColor;
-    ctx.textAlign = "right";
-    ctx.globalAlpha = 0.6;
-    for (const line of subLines) {
-      ctx.fillText(line, w - pad, sy);
-      sy += subLineH;
-    }
-    ctx.globalAlpha = 1;
-  }
-}
-
-function renderMinimal(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  pad: number,
-  title: string,
-  theme: Theme
-) {
-  const bigSize = Math.min(theme.titleSize * 1.5, w * 0.11);
-  const lineH = bigSize * 1.2;
-  const availW = w - pad * 2;
-
-  ctx.font = `${theme.titleWeight} ${bigSize}px ${theme.fontFamily}`;
-  const lines = title ? wrapText(ctx, title, availW, lineH) : [];
-  const totalH = lines.length * lineH;
-  let y = (h - totalH) / 2 + lineH * 0.8;
-
-  ctx.fillStyle = theme.textColor;
-  ctx.textAlign = "center";
-  ctx.letterSpacing = "0.04em";
-
-  for (const line of lines) {
-    ctx.fillText(line, w / 2, y);
-    y += lineH;
-  }
-
-  ctx.letterSpacing = "0em";
-}
-
-function renderCustom(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  theme: Theme,
-  elements: CustomElement[]
-) {
-  for (const el of elements) {
-    if (!el.text) continue;
-    ctx.save();
-    ctx.font = `${el.fontWeight} ${el.fontSize}px ${theme.fontFamily}`;
-    ctx.fillStyle = el.color === "theme" ? theme.textColor : el.color;
-    ctx.textAlign = el.textAlign;
-    ctx.globalAlpha = el.opacity;
-
-    if (el.maxWidth) {
-      const lineH = el.fontSize * 1.3;
-      const mw = el.maxWidth * w;
-      const lines = wrapText(ctx, el.text, mw, lineH);
-      let y = h * el.y;
-      for (const line of lines) {
-        ctx.fillText(line, w * el.x, y);
-        y += lineH;
-      }
-    } else {
-      ctx.fillText(el.text, w * el.x, h * el.y);
-    }
-
-    ctx.restore();
-  }
-}
 
 function defaultCustomElements(title: string, subtitle: string, theme: Theme): CustomElement[] {
   const els: CustomElement[] = [
@@ -700,36 +175,32 @@ function defaultCustomElements(title: string, subtitle: string, theme: Theme): C
   return els;
 }
 
-// ── Preview canvas component ──────────────────────────────
+// ── Preview component (renders same JSX as Satori) ────────
 
-interface PreviewCanvasProps {
-  img: OgImage;
-  theme: Theme;
-  maxWidth: number;
-}
-
-function PreviewCanvas({ img, theme, maxWidth }: PreviewCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    renderCanvas(canvas, img, theme);
-  }, [img, theme]);
-
+function PreviewImage({ img, theme, maxWidth }: { img: OgImage; theme: Theme; maxWidth: number }) {
   const scale = maxWidth / img.width;
   const displayH = img.height * scale;
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
       style={{
         width: maxWidth,
         height: displayH,
-        display: "block",
-        borderRadius: theme.borderRadius > 0 ? `${Math.min(theme.borderRadius * scale, 12)}px` : undefined,
+        overflow: "hidden",
+        borderRadius: theme.borderRadius > 0 ? Math.min(theme.borderRadius * scale, 12) : undefined,
       }}
-    />
+    >
+      <div
+        style={{
+          width: img.width,
+          height: img.height,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+      >
+        {renderOgImage(img, theme)}
+      </div>
+    </div>
   );
 }
 
@@ -972,7 +443,7 @@ function ImageCard({ img, theme, onUpdate, onExport, onDelete, savedLayouts, set
           className="overflow-hidden shadow-md rounded"
           style={{ width: previewW, height: (img.height / img.width) * previewW }}
         >
-          <PreviewCanvas img={img} theme={theme} maxWidth={previewW} />
+          <PreviewImage img={img} theme={theme} maxWidth={previewW} />
         </div>
       </div>
 
@@ -1146,16 +617,6 @@ function CustomLayoutDialog({
   const aspect = img.width / img.height;
   const previewH = previewW / aspect;
 
-  // Track mounted state for portal-delayed rendering
-  const [canvasNode, setCanvasNode] = useState<HTMLCanvasElement | null>(null);
-
-  // Render canvas whenever node, elements, or theme change
-  useEffect(() => {
-    if (!canvasNode) return;
-    const fakeImg: OgImage = { ...img, customElements: elements };
-    renderCanvas(canvasNode, fakeImg, theme);
-  }, [canvasNode, img, theme, elements]);
-
   const updateElement = (id: string, patch: Partial<CustomElement>) => {
     const updated = elements.map((el) => (el.id === id ? { ...el, ...patch } : el));
     onUpdate({ customElements: updated });
@@ -1258,34 +719,17 @@ function CustomLayoutDialog({
             onPointerUp={handlePointerUp}
             onClick={() => setSelectedId(null)}
           >
-            <canvas
-              ref={setCanvasNode}
-              style={{ width: previewW, height: previewH, display: "block" }}
-            />
-            {/* Drag handles */}
+            <div style={{ width: previewW, height: previewH, overflow: "hidden", pointerEvents: "none" }}>
+              <div style={{ width: img.width, height: img.height, transform: `scale(${previewW / img.width})`, transformOrigin: "top left" }}>
+                {renderOgImage({ ...img, customElements: elements }, theme)}
+              </div>
+            </div>
+            {/* Drag handles - sized by rendering actual text */}
             {elements.map((el) => {
+              const scale = previewW / img.width;
               const px = el.x * previewW;
               const py = el.y * previewH;
               const isSelected = el.id === selectedId;
-              // Measure handle dimensions
-              const scaleX = previewW / img.width;
-              const scaleY = previewH / img.height;
-              const singleLineW = el.text.length * el.fontSize * 0.45 * scaleX;
-              const lineH = el.fontSize * 1.3;
-
-              let approxW: number;
-              let numLines: number;
-              if (el.maxWidth) {
-                approxW = el.maxWidth * img.width * scaleX;
-                const charsPerLine = Math.max(1, Math.floor((el.maxWidth * img.width) / (el.fontSize * 0.45)));
-                numLines = Math.max(1, Math.ceil(el.text.length / charsPerLine));
-              } else {
-                approxW = Math.max(60, singleLineW);
-                numLines = 1;
-              }
-              const approxH = numLines * lineH * scaleY;
-              // Adjust anchor based on textAlign
-              const leftOffset = el.textAlign === "center" ? approxW / 2 : el.textAlign === "right" ? approxW : 0;
 
               return (
                 <div
@@ -1294,18 +738,34 @@ function CustomLayoutDialog({
                   onClick={(e) => { e.stopPropagation(); setSelectedId(el.id); }}
                   style={{
                     position: "absolute",
-                    left: px - leftOffset,
-                    top: py - approxH * 0.8,
-                    width: approxW,
-                    height: approxH,
+                    left: px,
+                    top: py,
+                    transform: `translate(${el.textAlign === "center" ? "-50%" : el.textAlign === "right" ? "-100%" : "0"}, 0)`,
+                    maxWidth: el.maxWidth ? el.maxWidth * previewW : undefined,
                     cursor: "move",
                     border: isSelected ? "1.5px solid rgba(99,102,241,0.8)" : "1px dashed rgba(255,255,255,0.3)",
                     borderRadius: 3,
                     background: isSelected ? "rgba(99,102,241,0.08)" : "transparent",
                     transition: "border-color 0.15s",
                     pointerEvents: "all",
+                    padding: "2px 4px",
                   }}
-                />
+                >
+                  {/* Invisible text that gives the handle its natural size */}
+                  <span
+                    style={{
+                      fontSize: el.fontSize * scale,
+                      fontWeight: Number(el.fontWeight),
+                      lineHeight: 1.3,
+                      color: "transparent",
+                      whiteSpace: el.maxWidth ? "normal" : "nowrap",
+                      display: "block",
+                      textAlign: el.textAlign,
+                    }}
+                  >
+                    {el.text || "\u00A0"}
+                  </span>
+                </div>
               );
             })}
           </div>
@@ -1685,30 +1145,355 @@ function CustomSizeDialog({ onAdd, onClose }: CustomSizeDialogProps) {
 
 // ── Main component ─────────────────────────────────────────
 
-export function OgImageBuilder() {
+// ── Publish info panel ──────────────────────────────────
+
+const OG_CDN_BASE = typeof window !== "undefined"
+  ? `${window.location.origin}/og/s`
+  : "/og/s";
+
+function CopyUrlButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="p-1 rounded hover:bg-muted transition-colors shrink-0"
+      aria-label="Copy URL"
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-green-500" />
+      ) : (
+        <Copy className="h-3 w-3 text-muted-foreground" />
+      )}
+    </button>
+  );
+}
+
+function PublishInfoDialog({
+  slug,
+  images,
+  open,
+  onOpenChange,
+  onUnpublish,
+}: {
+  slug: string;
+  images: OgImage[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUnpublish: () => void;
+}) {
+  const enabledImages = images.filter((img) => img.enabled);
+  const baseUrl = `${OG_CDN_BASE}/${slug}`;
+
+  function variantSlug(img: OgImage): string {
+    return img.label.toLowerCase().replace(/\s+/g, "-");
+  }
+
+  const ogImage = enabledImages.find((img) => img.id === "og") ?? enabledImages[0];
+  const twImage = enabledImages.find((img) => img.id === "tw" || img.id === "tw-large");
+  const ogUrl = ogImage ? `${baseUrl}/${variantSlug(ogImage)}.png` : null;
+  const twUrl = twImage ? `${baseUrl}/${variantSlug(twImage)}.png` : null;
+
+  const metaTags = [
+    ogUrl && `<meta property="og:image" content="${ogUrl}" />`,
+    ogUrl && ogImage && `<meta property="og:image:width" content="${ogImage.width}" />`,
+    ogUrl && ogImage && `<meta property="og:image:height" content="${ogImage.height}" />`,
+    twUrl && `<meta name="twitter:card" content="summary_large_image" />`,
+    twUrl && `<meta name="twitter:image" content="${twUrl}" />`,
+  ].filter(Boolean);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <div className="space-y-4 overflow-hidden">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-500/10">
+              <Globe className="h-4 w-4 text-green-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Collection Published</h3>
+              <p className="text-xs text-muted-foreground">Your OG images are live and accessible via the URLs below.</p>
+            </div>
+          </div>
+
+          {/* URL list */}
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Image URLs
+            </div>
+            {enabledImages.map((img) => {
+              const url = `${baseUrl}/${variantSlug(img)}.png`;
+              return (
+                <div key={img.id} className="flex items-center gap-2 group min-w-0">
+                  <span className="text-xs text-muted-foreground w-28 shrink-0 truncate">
+                    {img.label}
+                  </span>
+                  <code className="text-xs text-foreground font-mono truncate flex-1 min-w-0 bg-muted/50 rounded px-1.5 py-0.5">
+                    {url}
+                  </code>
+                  <CopyUrlButton text={url} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Dynamic URL example */}
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Dynamic text via query params
+            </div>
+            {ogUrl && (
+              <div className="flex items-center gap-2 min-w-0">
+                <code className="text-xs text-foreground font-mono truncate flex-1 min-w-0 bg-muted/50 rounded px-1.5 py-0.5">
+                  {ogUrl}?title=Hello+World
+                </code>
+                <CopyUrlButton text={`${ogUrl}?title=Hello+World`} />
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              Override text with <code className="bg-muted rounded px-1">?title=</code> and <code className="bg-muted rounded px-1">?subtitle=</code> query parameters.
+            </p>
+          </div>
+
+          {/* Meta tags */}
+          {metaTags.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Code className="h-3 w-3" />
+                  HTML meta tags
+                </div>
+                <CopyUrlButton text={metaTags.join("\n")} />
+              </div>
+              <pre className="text-[11px] font-mono text-foreground bg-muted/50 rounded-md px-3 py-2 overflow-x-auto whitespace-pre max-w-full">
+{metaTags.join("\n")}
+              </pre>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={() => { onUnpublish(); onOpenChange(false); }}
+            >
+              Unpublish
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const DEFAULT_TITLE = "Your Title Goes Here";
+const DEFAULT_SUBTITLE = "A short description of your page or project";
+
+function makeDefaultImages(): OgImage[] {
+  return DEFAULT_PRESETS.map((p) => ({
+    ...p,
+    title: DEFAULT_TITLE,
+    subtitle: DEFAULT_SUBTITLE,
+    layout: "centered" as LayoutTemplate,
+  }));
+}
+
+interface OgImageBuilderProps {
+  /** When editing an existing collection */
+  collectionId?: string;
+  initialState?: OgBuilderState;
+  initialName?: string;
+  initialSlug?: string;
+  initialPublished?: boolean;
+}
+
+export function OgImageBuilder({
+  collectionId,
+  initialState,
+  initialName,
+  initialSlug,
+  initialPublished,
+}: OgImageBuilderProps = {}) {
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
+  const router = useRouter();
+
   const {
     data: savedLayouts,
     setData: setSavedLayouts,
     syncToggleProps,
   } = useSyncedState<SavedCustomLayout[]>(SAVED_LAYOUTS_KEY, []);
-  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
-  const [images, setImages] = useState<OgImage[]>(() =>
-    DEFAULT_PRESETS.map((p) => ({
-      ...p,
-      title: "Your Title Goes Here",
-      subtitle: "A short description of your page or project",
-      layout: "centered" as LayoutTemplate,
-    }))
-  );
-  const [exportFormat, setExportFormat] = useState<ExportFormat>("image/png");
-  const [jpegQuality, setJpegQuality] = useState(92);
+  const [theme, setTheme] = useState<Theme>(initialState?.theme ?? DEFAULT_THEME);
+  const [images, setImages] = useState<OgImage[]>(initialState?.images ?? makeDefaultImages);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(initialState?.exportFormat ?? "image/png");
+  const [jpegQuality, setJpegQuality] = useState(initialState?.jpegQuality ?? 92);
   const [showCustomDialog, setShowCustomDialog] = useState(false);
-  const [defaultTitle, setDefaultTitle] = useState("Your Title Goes Here");
+  const [defaultTitle, setDefaultTitle] = useState(initialState?.defaultTitle ?? DEFAULT_TITLE);
   const [colorBuilderOpen, setColorBuilderOpen] = useState(false);
   const [colorBuilderField, setColorBuilderField] = useState<keyof Theme | null>(null);
-  const [defaultSubtitle, setDefaultSubtitle] = useState(
-    "A short description of your page or project"
-  );
+  const [defaultSubtitle, setDefaultSubtitle] = useState(initialState?.defaultSubtitle ?? DEFAULT_SUBTITLE);
+
+  // Collection state
+  const [collName, setCollName] = useState(initialName ?? "Untitled");
+  const [collSlug] = useState(initialSlug ?? null);
+  const [collPublished, setCollPublished] = useState(initialPublished ?? false);
+  const [saving, setSaving] = useState(false);
+  const [showPublishInfo, setShowPublishInfo] = useState(false);
+  const [showCollections, setShowCollections] = useState(false);
+  const [collections, setCollections] = useState<OgCollectionSummary[]>([]);
+  const [loadingCollections, setLoadingCollections] = useState(false);
+
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hydrated = useRef(false);
+  const collectionsRef = useRef<HTMLDivElement>(null);
+  const isCollection = !!collectionId;
+
+  // Build current state snapshot
+  const getState = useCallback((): OgBuilderState => ({
+    theme,
+    images,
+    exportFormat,
+    jpegQuality,
+    defaultTitle,
+    defaultSubtitle,
+  }), [theme, images, exportFormat, jpegQuality, defaultTitle, defaultSubtitle]);
+
+  // Load state from localStorage on mount (only for new builder, not collections)
+  useEffect(() => {
+    if (isCollection) {
+      hydrated.current = true;
+      return;
+    }
+    const saved = loadBuilderState();
+    if (saved) {
+      if (saved.theme) setTheme(saved.theme);
+      if (saved.images) setImages(saved.images);
+      if (saved.exportFormat) setExportFormat(saved.exportFormat);
+      if (saved.jpegQuality != null) setJpegQuality(saved.jpegQuality);
+      if (saved.defaultTitle != null) setDefaultTitle(saved.defaultTitle);
+      if (saved.defaultSubtitle != null) setDefaultSubtitle(saved.defaultSubtitle);
+    }
+    hydrated.current = true;
+  }, [isCollection]);
+
+  // Persist state (localStorage for new builder, API for collections)
+  useEffect(() => {
+    if (!hydrated.current) return;
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(() => {
+      const state = getState();
+      if (isCollection) {
+        // Auto-save to API
+        fetch(`/api/proxy/og/collections/${collectionId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ config: state }),
+          credentials: "include",
+        }).catch(() => {});
+      } else {
+        localStorage.setItem(BUILDER_STATE_KEY, JSON.stringify(state));
+      }
+    }, 500);
+    return () => {
+      if (persistTimer.current) clearTimeout(persistTimer.current);
+    };
+  }, [theme, images, exportFormat, jpegQuality, defaultTitle, defaultSubtitle, isCollection, collectionId, getState]);
+
+  // Close collections popover on outside click
+  useEffect(() => {
+    if (!showCollections) return;
+    const handler = (e: MouseEvent) => {
+      if (collectionsRef.current && !collectionsRef.current.contains(e.target as Node)) {
+        setShowCollections(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showCollections]);
+
+  // Save as new collection
+  const saveAsCollection = useCallback(async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/proxy/og/collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: defaultTitle || "Untitled", config: getState() }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        router.push(`/tools/og/${data.id}`);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  }, [getState, defaultTitle, router]);
+
+  // Explicit save for existing collection
+  const saveCollection = useCallback(async () => {
+    if (!collectionId) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/proxy/og/collections/${collectionId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: collName, config: getState() }),
+        credentials: "include",
+      });
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  }, [collectionId, collName, getState]);
+
+  // Toggle published
+  const togglePublished = useCallback(async () => {
+    if (!collectionId) return;
+    const next = !collPublished;
+    setCollPublished(next);
+    if (next) setShowPublishInfo(true);
+    else setShowPublishInfo(false);
+    await fetch(`/api/proxy/og/collections/${collectionId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published: next }),
+      credentials: "include",
+    }).catch(() => {});
+  }, [collectionId, collPublished]);
+
+  // Fetch collection list
+  const fetchCollections = useCallback(async () => {
+    setLoadingCollections(true);
+    try {
+      const res = await fetch("/api/proxy/og/collections", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setCollections(data.collections ?? []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingCollections(false);
+    }
+  }, []);
 
   const updateTheme = useCallback((patch: Partial<Theme>) => {
     setTheme((t) => ({ ...t, ...patch }));
@@ -1779,19 +1564,28 @@ export function OgImageBuilder() {
   }, [defaultTitle, defaultSubtitle]);
 
   const exportImage = useCallback(
-    (img: OgImage) => {
-      const canvas = document.createElement("canvas");
-      renderCanvas(canvas, img, theme);
-      const q = exportFormat === "image/jpeg" ? jpegQuality / 100 : undefined;
-      const dataUrl = canvas.toDataURL(exportFormat, q);
+    async (img: OgImage) => {
       const ext = FORMAT_EXT[exportFormat];
       const slug = img.label.toLowerCase().replace(/\s+/g, "-");
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `og-${slug}-${img.width}x${img.height}.${ext}`;
-      a.click();
+      try {
+        const res = await fetch("/og/render", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: img, theme }),
+        });
+        if (!res.ok) throw new Error("Render failed");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `og-${slug}-${img.width}x${img.height}.${ext}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error("Export failed:", e);
+      }
     },
-    [theme, exportFormat, jpegQuality]
+    [theme, exportFormat]
   );
 
   const exportAll = useCallback(() => {
@@ -1809,7 +1603,28 @@ export function OgImageBuilder() {
       <div className="flex items-center justify-between px-4 h-11 border-b border-border shrink-0 gap-3">
         <div className="flex items-center gap-2">
           <ImageIcon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">OG Image Builder</span>
+          {isCollection ? (
+            <input
+              type="text"
+              value={collName}
+              onChange={(e) => {
+                setCollName(e.target.value);
+                if (saveTimer.current) clearTimeout(saveTimer.current);
+                saveTimer.current = setTimeout(() => {
+                  fetch(`/api/proxy/og/collections/${collectionId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: e.target.value }),
+                    credentials: "include",
+                  }).catch(() => {});
+                }, 500);
+              }}
+              className="text-sm font-medium text-foreground bg-transparent border-none outline-none focus:ring-0 w-48"
+              placeholder="Collection name..."
+            />
+          ) : (
+            <span className="text-sm font-medium text-foreground">OG Image Builder</span>
+          )}
           <span className="hidden sm:inline text-xs text-muted-foreground">
             - {enabledImages.length} image{enabledImages.length !== 1 ? "s" : ""} enabled
           </span>
@@ -1844,11 +1659,164 @@ export function OgImageBuilder() {
             <Download className="h-3 w-3" />
             Export All
           </Button>
-          <SyncToggle
-            {...syncToggleProps}
-          />
+          {isLoggedIn && !isCollection && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={saveAsCollection}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              Save
+            </Button>
+          )}
+          {isLoggedIn && isCollection && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={saveCollection}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              Save
+            </Button>
+          )}
+          {isLoggedIn && (
+            <div className="relative" ref={collectionsRef}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => {
+                  const next = !showCollections;
+                  setShowCollections(next);
+                  if (next) fetchCollections();
+                }}
+              >
+                <FolderOpen className="h-3 w-3" />
+                Collections
+              </Button>
+              {showCollections && (
+                <div className="absolute right-0 top-full mt-1 w-72 z-50 rounded-lg border bg-popover shadow-lg overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+                    <span className="text-xs font-medium text-muted-foreground">OG Image Collections</span>
+                  </div>
+                  {loadingCollections ? (
+                    <div className="flex items-center justify-center py-6 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    </div>
+                  ) : collections.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                      No saved collections yet.
+                    </div>
+                  ) : (
+                    <div className="max-h-64 overflow-y-auto">
+                      {collections.map((c) => (
+                        <div
+                          key={c.id}
+                          className={`group flex items-center gap-2 px-3 py-2 hover:bg-accent/50 transition-colors border-b border-border/50 last:border-0 ${
+                            c.id === collectionId ? "bg-accent/30" : ""
+                          }`}
+                        >
+                          <button
+                            className="flex-1 min-w-0 text-left"
+                            onClick={() => {
+                              setShowCollections(false);
+                              router.push(`/tools/og/${c.id}`);
+                            }}
+                          >
+                            <p className="text-xs font-medium truncate">{c.name}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                              {c.published && (
+                                <span className="text-green-600 dark:text-green-400">Published</span>
+                              )}
+                              <span>{new Date(c.updatedAt).toLocaleDateString()}</span>
+                            </p>
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await fetch(`/api/proxy/og/collections/${c.id}`, {
+                                method: "DELETE",
+                                credentials: "include",
+                              });
+                              fetchCollections();
+                              if (c.id === collectionId) {
+                                setShowCollections(false);
+                                router.push("/tools/og");
+                              }
+                            }}
+                            className="shrink-0 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+                            title="Delete collection"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!isCollection && (
+                    <div className="px-3 py-2 border-t border-border/50">
+                      <Button
+                        size="sm"
+                        className="w-full h-7 text-xs gap-1.5"
+                        onClick={() => {
+                          setShowCollections(false);
+                          saveAsCollection();
+                        }}
+                        disabled={saving}
+                      >
+                        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        Save as New Collection
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {isCollection && !collPublished && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1.5"
+              onClick={togglePublished}
+            >
+              <Globe className="h-3 w-3" />
+              Publish
+            </Button>
+          )}
+          {isCollection && collPublished && (
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => setShowPublishInfo(true)}
+            >
+              <Globe className="h-3 w-3" />
+              Published
+            </Button>
+          )}
+          {!isCollection && (
+            <SyncToggle
+              {...syncToggleProps}
+            />
+          )}
         </div>
       </div>
+
+      {/* Published URLs dialog */}
+      {isCollection && collSlug && (
+        <PublishInfoDialog
+          slug={collSlug}
+          images={images}
+          open={showPublishInfo}
+          onOpenChange={setShowPublishInfo}
+          onUnpublish={togglePublished}
+        />
+      )}
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left sidebar */}
@@ -2074,6 +2042,7 @@ export function OgImageBuilder() {
           description="Use the color builder to fine-tune your color."
         />
       )}
+
     </div>
   );
 }

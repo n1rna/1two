@@ -210,6 +210,14 @@ export const tools: ToolDefinition[] = [
     keywords: ["dns", "lookup", "domain", "nameserver", "mx", "cname", "txt", "a record", "aaaa", "ns", "soa", "dig", "nslookup"],
   },
   {
+    slug: "og-checker",
+    name: "OG Image Checker",
+    description: "Check Open Graph images and meta tags for any URL",
+    category: "web",
+    icon: "Image",
+    keywords: ["og", "open graph", "meta tags", "twitter card", "social media", "preview", "seo", "og:image"],
+  },
+  {
     slug: "sqlite",
     name: "SQLite Browser",
     description: "Open and explore SQLite databases in the browser - browse tables, run SQL queries, sort, filter, and export data",

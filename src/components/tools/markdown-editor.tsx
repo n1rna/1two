@@ -380,9 +380,24 @@ export function MarkdownEditor({ pasteId: initialPasteId, initialContent = "", i
                 ) : (
                   <div className="max-h-64 overflow-y-auto">
                     {publishedPastes.map((paste) => (
-                      <div
+                      <button
                         key={paste.id}
-                        className="group flex items-center gap-2 px-3 py-2 hover:bg-accent/50 transition-colors border-b border-border/50 last:border-0"
+                        className={`group flex items-center gap-2 px-3 py-2 w-full text-left hover:bg-accent/50 transition-colors border-b border-border/50 last:border-0 cursor-pointer ${
+                          activePasteId === paste.id ? "bg-accent/30" : ""
+                        }`}
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/proxy/pastes/${paste.id}`, { credentials: "include" });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setMarkdown(data.content ?? "");
+                              setPasteTitle(data.title ?? "");
+                              setActivePasteId(paste.id);
+                              window.history.replaceState(null, "", `/tools/markdown/${paste.id}`);
+                            }
+                          } catch {}
+                          setPagesOpen(false);
+                        }}
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">
@@ -397,20 +412,12 @@ export function MarkdownEditor({ pasteId: initialPasteId, initialContent = "", i
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                          title="View page"
-                          onClick={() => setPagesOpen(false)}
+                          title="View published page"
+                          onClick={(e) => { e.stopPropagation(); setPagesOpen(false); }}
                         >
                           <ExternalLink className="h-3 w-3" />
                         </a>
-                        <a
-                          href={`/tools/markdown/${paste.id}`}
-                          className="shrink-0 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                          title="Edit page"
-                          onClick={() => setPagesOpen(false)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </a>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}

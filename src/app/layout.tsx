@@ -57,12 +57,14 @@ export const metadata: Metadata = {
     title: "1two.dev - Tools that just work",
     description:
       "The tools you actually need - JWT parser, JSON formatter, Base64 encoder, diff viewer, cron builder, timestamp converter, color picker, UUID generator, DNS lookup, and more. Free, fast, no sign-up.",
+    images: [{ url: `${SITE_URL}/og/s/4d4a67930504/open-graph.png`, width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "1two.dev - Tools that just work",
     description:
       "The tools you actually need - free, fast, no sign-up. JWT parser, JSON formatter, Base64 encoder, diff viewer, cron builder, and more.",
+    images: [`${SITE_URL}/og/s/4d4a67930504/twitter-card.png`],
   },
   robots: {
     index: true,

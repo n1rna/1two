@@ -1,9 +1,11 @@
-"use client";
-
-import { useState, useEffect, use } from "react";
-import { Copy, Check, ExternalLink, Loader2, Globe, Lock, ArrowLeft, Pencil } from "lucide-react";
+import { notFound } from "next/navigation";
+import { Copy, Globe, Lock, ArrowLeft, Pencil, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "@/lib/auth-client";
+import { apiFetch } from "@/lib/api-fetch";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import type { Metadata } from "next";
+import { PasteToolbar } from "./toolbar";
 
 type PasteFormat = "text" | "markdown" | "json" | "code";
 type PasteVisibility = "public" | "unlisted";
@@ -36,108 +38,61 @@ function formatDate(iso?: string) {
   });
 }
 
-export default function PasteViewerPage({
+async function fetchPaste(id: string): Promise<Paste | null> {
+  try {
+    const res = await apiFetch(`/api/v1/pastes/${id}`, {
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const paste = await fetchPaste(id);
+  if (!paste) return { title: "Paste not found - 1two.dev" };
+  const title = paste.title || "Untitled paste";
+  const desc = paste.content.slice(0, 160).replace(/\n/g, " ");
+  return {
+    title: `${title} - 1two.dev`,
+    description: desc,
+    openGraph: { title, description: desc },
+  };
+}
+
+export default async function PasteViewerPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
-  const { data: session } = useSession();
-  const [paste, setPaste] = useState<Paste | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [rawMode, setRawMode] = useState(false);
+  const { id } = await params;
+  const paste = await fetchPaste(id);
 
-  const isOwner = !!(session?.user?.id && paste?.userId && session.user.id === paste.userId);
-
-  useEffect(() => {
-    async function fetchPaste() {
-      try {
-        const res = await fetch(`/api/proxy/pastes/${id}`);
-        if (res.status === 404) {
-          setNotFound(true);
-          return;
-        }
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setPaste(data);
-      } catch {
-        setNotFound(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchPaste();
-  }, [id]);
-
-  const copyContent = async () => {
-    if (!paste) return;
-    await navigator.clipboard.writeText(paste.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+  if (!paste) {
+    notFound();
   }
 
-  if (notFound || !paste) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4">
-        <div className="text-center space-y-2">
-          <p className="text-lg font-semibold">Paste not found</p>
-          <p className="text-sm text-muted-foreground">
-            This paste may have been deleted or the link is incorrect.
-          </p>
-        </div>
-        <Link
-          href="/tools/paste"
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Go to Paste Bin
-        </Link>
-      </div>
-    );
-  }
+  let userId: string | null = null;
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    userId = session?.user?.id ?? null;
+  } catch {}
 
-  if (rawMode) {
-    return (
-      <div className="flex-1 bg-background">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/95 backdrop-blur px-4 py-2">
-          <button
-            onClick={() => setRawMode(false)}
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-3 w-3" />
-            Back to formatted view
-          </button>
-          <button
-            onClick={copyContent}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <pre className="p-6 text-xs font-mono leading-relaxed whitespace-pre-wrap break-words">
-          {paste.content}
-        </pre>
-      </div>
-    );
-  }
+  const isOwner = !!(userId && paste.userId && userId === paste.userId);
+  const lineCount = paste.content.split("\n").length;
 
   return (
     <div className="flex-1 bg-background">
       {/* Header */}
       <div className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          {/* Back link */}
           <div className="flex items-center justify-between mb-4">
             <Link
               href="/tools/paste"
@@ -154,14 +109,12 @@ export default function PasteViewerPage({
             </a>
           </div>
 
-          {/* Title & meta */}
           <div className="space-y-2">
             <h1 className="text-xl font-semibold">
               {paste.title || <span className="text-muted-foreground">Untitled</span>}
             </h1>
 
             <div className="flex items-center gap-3 flex-wrap">
-              {/* Format badge */}
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wide ${
                   FORMAT_COLORS[paste.format]
@@ -170,7 +123,6 @@ export default function PasteViewerPage({
                 {paste.format}
               </span>
 
-              {/* Visibility badge */}
               <span
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
                   paste.visibility === "public"
@@ -186,7 +138,6 @@ export default function PasteViewerPage({
                 {paste.visibility === "public" ? "Public" : "Unlisted"}
               </span>
 
-              {/* Author */}
               {paste.author?.name && (
                 <span className="text-xs text-muted-foreground">
                   by{" "}
@@ -196,7 +147,6 @@ export default function PasteViewerPage({
                 </span>
               )}
 
-              {/* Date */}
               {paste.createdAt && (
                 <span className="text-xs text-muted-foreground">
                   {formatDate(paste.createdAt)}
@@ -211,38 +161,15 @@ export default function PasteViewerPage({
       <div className="border-b bg-muted/30">
         <div className="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            {paste.content.split("\n").length} lines
+            {lineCount} lines
             {paste.size !== undefined && ` · ${paste.size} bytes`}
           </span>
-          <div className="flex items-center gap-2">
-            {isOwner && (
-              <Link
-                href={`/tools/markdown/${paste.id}`}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <Pencil className="h-3 w-3" />
-                Edit
-              </Link>
-            )}
-            <button
-              onClick={() => setRawMode(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Raw
-            </button>
-            <button
-              onClick={copyContent}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              {copied ? (
-                <Check className="h-3 w-3 text-green-500" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
-              {copied ? "Copied!" : "Copy"}
-            </button>
-          </div>
+          <PasteToolbar
+            pasteId={paste.id}
+            content={paste.content}
+            isOwner={isOwner}
+            format={paste.format}
+          />
         </div>
       </div>
 
@@ -256,7 +183,13 @@ export default function PasteViewerPage({
 
 function PasteContent({ paste }: { paste: Paste }) {
   if (paste.format === "markdown") {
-    return <MarkdownContent content={paste.content} />;
+    const html = markdownToHtml(paste.content);
+    return (
+      <div
+        className="prose prose-sm dark:prose-invert max-w-none"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
   }
 
   return (
@@ -266,20 +199,9 @@ function PasteContent({ paste }: { paste: Paste }) {
   );
 }
 
-function MarkdownContent({ content }: { content: string }) {
-  const html = markdownToHtml(content);
-  return (
-    <div
-      className="prose prose-sm dark:prose-invert max-w-none"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
-
 /** Very minimal markdown-to-HTML converter (no external deps). */
 function markdownToHtml(md: string): string {
   let html = md
-    // Escape HTML
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -305,7 +227,7 @@ function markdownToHtml(md: string): string {
     .replace(/^\d+\. (.+)$/gm, "<li>$1</li>")
     // Blockquote
     .replace(/^> (.+)$/gm, '<blockquote class="border-l-2 border-muted-foreground/30 pl-4 text-muted-foreground italic">$1</blockquote>')
-    // Paragraphs - wrap lines that aren't already HTML tags
+    // Paragraphs
     .replace(/^(?!<[a-z]|\s*$)(.+)$/gm, "<p>$1</p>");
 
   // Wrap consecutive <li> in <ul>
