@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Copy, Check, MapPin, Globe, Wifi, Terminal } from "lucide-react";
+import { useState } from "react";
 
 // ── Types ─────────────────────────────────────────────
 
-interface IpInfo {
+export interface IpInfo {
   ip?: string;
   country?: string;
   countryCode?: string;
@@ -20,6 +20,13 @@ interface IpInfo {
   lat?: number;
   lon?: number;
   [key: string]: unknown;
+}
+
+export interface IpToolProps {
+  ipv4: string | null;
+  ipv6: string | null;
+  info: IpInfo | null;
+  error?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────
@@ -58,12 +65,6 @@ function CopyButton({ text, size = "sm" }: { text: string; size?: "sm" | "xs" })
   );
 }
 
-function Skeleton({ className }: { className?: string }) {
-  return (
-    <div className={`animate-pulse rounded bg-muted ${className ?? ""}`} />
-  );
-}
-
 interface InfoCardProps {
   label: string;
   value: string;
@@ -82,12 +83,7 @@ function InfoCard({ label, value, icon }: InfoCardProps) {
   );
 }
 
-interface CodeBlockProps {
-  label: string;
-  command: string;
-}
-
-function CodeBlock({ label, command }: CodeBlockProps) {
+function CodeBlock({ label, command }: { label: string; command: string }) {
   return (
     <div className="group flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-2.5">
       <div className="flex flex-col gap-0.5 min-w-0">
@@ -105,55 +101,7 @@ function CodeBlock({ label, command }: CodeBlockProps) {
 
 // ── Main Component ────────────────────────────────────
 
-export function IpTool() {
-  const [ipv4, setIpv4] = useState<string | null>(null);
-  const [ipv6, setIpv6] = useState<string | null>(null);
-  const [info, setInfo] = useState<IpInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [allRes, infoRes] = await Promise.all([
-          fetch("/api/proxy/ip/all"),
-          fetch("/api/proxy/ip/info"),
-        ]);
-
-        if (!cancelled) {
-          if (allRes.ok) {
-            const data = await allRes.json();
-            setIpv4(data.ipv4 || null);
-            setIpv6(data.ipv6 || null);
-            if (!data.ipv4 && !data.ipv6) {
-              setError("Could not detect your IP address.");
-            }
-          } else {
-            setError("Could not fetch IP information.");
-          }
-
-          if (infoRes.ok) {
-            const infoJson: IpInfo = await infoRes.json();
-            if (infoJson.status !== "fail") {
-              setInfo(infoJson);
-            }
-          }
-        }
-      } catch {
-        if (!cancelled) setError("Could not fetch IP information.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
+export function IpTool({ ipv4, ipv6, info, error }: IpToolProps) {
   // Build info card rows
   const infoRows: { label: string; value: string; icon: React.ReactNode }[] = [];
   if (info) {
@@ -200,11 +148,7 @@ export function IpTool() {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Your IP Address
         </h2>
-        {loading ? (
-          <div className="rounded-xl border bg-card p-6 flex flex-col items-center gap-3">
-            <Skeleton className="h-10 w-48" />
-          </div>
-        ) : error && !ipv4 && !ipv6 ? (
+        {error && !ipv4 && !ipv6 ? (
           <div className="rounded-xl border bg-card p-6 flex flex-col items-center gap-3">
             <p className="text-sm text-destructive">{error}</p>
           </div>
@@ -241,13 +185,7 @@ export function IpTool() {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Location &amp; Network Info
         </h2>
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 rounded-xl" />
-            ))}
-          </div>
-        ) : infoRows.length > 0 ? (
+        {infoRows.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {infoRows.map((row) => (
               <InfoCard key={row.label} label={row.label} value={row.value} icon={row.icon} />
