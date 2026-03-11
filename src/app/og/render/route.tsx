@@ -1,6 +1,5 @@
-import { ImageResponse } from "@vercel/og";
+import { ImageResponse } from "next/og";
 import { renderOgImage } from "@/lib/og/render";
-import { loadDefaultFont } from "@/lib/og/font";
 import type { OgImage, Theme } from "@/lib/og/types";
 
 export async function POST(request: Request) {
@@ -41,16 +40,9 @@ export async function POST(request: Request) {
 
   const jsx = renderOgImage(image, theme);
 
-  // Load font explicitly to avoid broken fallback fetch on Cloudflare Workers.
-  const url = new URL(request.url);
-  const fontData = await loadDefaultFont(url.origin);
-
   return new ImageResponse(jsx, {
     width: image.width,
     height: image.height,
-    fonts: [
-      { name: "sans-serif", data: fontData, weight: 400, style: "normal" },
-    ],
     headers: {
       "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
       "Content-Type": "image/png",

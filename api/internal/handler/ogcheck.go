@@ -386,11 +386,16 @@ func OgCheck(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Return cached result if available.
-		if cached, ok := ogCacheGet(req.URL); ok {
-			cached.Cached = true
-			writeJSON(w, http.StatusOK, cached)
-			return
+		// Authenticated users always get fresh results.
+		authenticated := r.Header.Get("X-User-Id") != ""
+
+		// Return cached result if available (anonymous users only).
+		if !authenticated {
+			if cached, ok := ogCacheGet(req.URL); ok {
+				cached.Cached = true
+				writeJSON(w, http.StatusOK, cached)
+				return
+			}
 		}
 
 		// Fetch context shares the remaining budget from the outer context.
