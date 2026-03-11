@@ -1,4 +1,4 @@
-import { ImageResponse } from "@vercel/og";
+import { ImageResponse } from "next/og";
 import { renderOgImage } from "@/lib/og/render";
 import type { OgImage, Theme } from "@/lib/og/types";
 

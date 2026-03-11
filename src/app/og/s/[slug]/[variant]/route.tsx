@@ -1,4 +1,4 @@
-import { ImageResponse } from "@vercel/og";
+import { ImageResponse } from "next/og";
 import { apiFetch } from "@/lib/api-fetch";
 import { renderOgImage } from "@/lib/og/render";
 import type { OgCollection, OgImage } from "@/lib/og/types";
