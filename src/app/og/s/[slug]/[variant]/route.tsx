@@ -1,6 +1,7 @@
-import { ImageResponse } from "next/og";
+import { ImageResponse } from "@vercel/og";
 import { apiFetch } from "@/lib/api-fetch";
 import { renderOgImage } from "@/lib/og/render";
+import { loadDefaultFont } from "@/lib/og/font";
 import type { OgCollection, OgImage } from "@/lib/og/types";
 
 export const runtime = "edge";
@@ -54,9 +55,15 @@ export async function GET(
   const theme = collection.config.theme;
   const jsx = renderOgImage(renderImg, theme);
 
+  // Load font explicitly to avoid broken fallback fetch on Cloudflare Workers.
+  const fontData = await loadDefaultFont(url.origin);
+
   return new ImageResponse(jsx, {
     width: img.width,
     height: img.height,
+    fonts: [
+      { name: "sans-serif", data: fontData, weight: 400, style: "normal" },
+    ],
     headers: {
       "Cache-Control": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400",
     },
