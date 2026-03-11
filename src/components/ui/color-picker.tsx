@@ -198,6 +198,7 @@ export function ColorPicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
+  const lastEmittedHex = useRef(value);
 
   // Position the dropdown when opening
   useEffect(() => {
@@ -212,12 +213,13 @@ export function ColorPicker({
     setDropdownPos({ top, left: rect.left });
   }, [open]);
 
-  // Sync external value changes
+  // Sync external value changes (skip if value matches what we last emitted)
   useEffect(() => {
+    if (value.toLowerCase() === lastEmittedHex.current.toLowerCase()) return;
+    lastEmittedHex.current = value;
     const parsed = parseHex(value);
     if (parsed) {
-      const newHsva = rgbaToHsva(parsed);
-      setHsva(newHsva);
+      setHsva(rgbaToHsva(parsed));
       setHexInput(value);
     }
   }, [value]);
@@ -228,6 +230,7 @@ export function ColorPicker({
       setHsva(next);
       const hex = formatHex(hsvaToRgba(next));
       setHexInput(hex);
+      lastEmittedHex.current = hex;
       onChange(hex);
     },
     [onChange]
@@ -238,7 +241,9 @@ export function ColorPicker({
     if (parsed) {
       const next = rgbaToHsva(parsed);
       setHsva(next);
-      onChange(formatHex(parsed));
+      const hex = formatHex(parsed);
+      lastEmittedHex.current = hex;
+      onChange(hex);
     } else {
       setHexInput(value);
     }
@@ -281,7 +286,9 @@ export function ColorPicker({
             if (parsed) {
               const next = rgbaToHsva(parsed);
               setHsva(next);
-              onChange(formatHex(parsed));
+              const hex = formatHex(parsed);
+              lastEmittedHex.current = hex;
+              onChange(hex);
             }
           }}
           onBlur={commitHex}

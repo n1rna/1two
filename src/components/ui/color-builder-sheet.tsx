@@ -121,42 +121,43 @@ export function ColorBuilderSheet({
   });
   const [hexInput, setHexInput] = useState(value);
   const [savedColors, setSavedColors] = useState<SavedColor[]>([]);
-  const suppressEmit = useRef(false);
+  const lastEmittedHex = useRef(value);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   // Load saved colors on mount
   useEffect(() => {
     setSavedColors(loadSavedColors());
   }, []);
 
-  // Sync from external value
+  // Sync from external value (skip if it matches what we last emitted)
   useEffect(() => {
+    if (value.toLowerCase() === lastEmittedHex.current.toLowerCase()) return;
+    lastEmittedHex.current = value;
     const parsed = parseHex(value);
     if (parsed) {
-      suppressEmit.current = true;
       setHsva(rgbaToHsva(parsed));
       setHexInput(value);
     }
   }, [value]);
 
-  // Emit changes
-  useEffect(() => {
-    if (suppressEmit.current) {
-      suppressEmit.current = false;
-      return;
-    }
-    const hex = formatHex(hsvaToRgba(hsva));
+  // Update hsva and emit hex to parent
+  const updateHsva = useCallback((next: HSVA) => {
+    setHsva(next);
+    const hex = formatHex(hsvaToRgba(next));
     setHexInput(hex);
-    onChange(hex);
-  }, [hsva, onChange]);
+    lastEmittedHex.current = hex;
+    onChangeRef.current(hex);
+  }, []);
 
   const handleHexCommit = useCallback(() => {
     const parsed = parseHex(hexInput);
     if (parsed) {
-      setHsva(rgbaToHsva(parsed));
+      updateHsva(rgbaToHsva(parsed));
     } else {
       setHexInput(formatHex(hsvaToRgba(hsva)));
     }
-  }, [hexInput, hsva]);
+  }, [hexInput, hsva, updateHsva]);
 
   const handleSaveColor = useCallback(() => {
     const color: SavedColor = {
@@ -196,15 +197,15 @@ export function ColorBuilderSheet({
 
           <SVPicker
             hsva={hsva}
-            onChange={(s, v) => setHsva((p) => ({ ...p, s, v }))}
+            onChange={(s, v) => updateHsva({ ...hsva, s, v })}
           />
           <HueSlider
             hue={hsva.h}
-            onChange={(h) => setHsva((p) => ({ ...p, h }))}
+            onChange={(h) => updateHsva({ ...hsva, h })}
           />
           <OpacitySlider
             hsva={hsva}
-            onChange={(a) => setHsva((p) => ({ ...p, a }))}
+            onChange={(a) => updateHsva({ ...hsva, a })}
           />
 
           {/* Hex input */}
@@ -246,32 +247,32 @@ export function ColorBuilderSheet({
                 {
                   label: "Lighter",
                   icon: Sun,
-                  fn: () => setHsva(adjustLightness(hsva, 0.05)),
+                  fn: () => updateHsva(adjustLightness(hsva, 0.05)),
                 },
                 {
                   label: "Darker",
                   icon: Moon,
-                  fn: () => setHsva(adjustLightness(hsva, -0.05)),
+                  fn: () => updateHsva(adjustLightness(hsva, -0.05)),
                 },
                 {
                   label: "Saturate",
                   icon: Droplets,
-                  fn: () => setHsva(adjustSaturation(hsva, 0.1)),
+                  fn: () => updateHsva(adjustSaturation(hsva, 0.1)),
                 },
                 {
                   label: "Desaturate",
                   icon: Pipette,
-                  fn: () => setHsva(adjustSaturation(hsva, -0.1)),
+                  fn: () => updateHsva(adjustSaturation(hsva, -0.1)),
                 },
                 {
                   label: "Hue +15",
                   icon: RotateCw,
-                  fn: () => setHsva(shiftHue(hsva, 15)),
+                  fn: () => updateHsva(shiftHue(hsva, 15)),
                 },
                 {
                   label: "Hue -15",
                   icon: RotateCcw,
-                  fn: () => setHsva(shiftHue(hsva, -15)),
+                  fn: () => updateHsva(shiftHue(hsva, -15)),
                 },
               ].map((b) => (
                 <Button
@@ -316,7 +317,7 @@ export function ColorBuilderSheet({
                     <div key={sc.id} className="relative group">
                       <button
                         className="w-8 h-8 rounded-md border border-border/50 relative overflow-hidden hover:ring-2 hover:ring-ring/50"
-                        onClick={() => setHsva(sc.hsva)}
+                        onClick={() => updateHsva(sc.hsva)}
                         style={{ background: checkerboard() }}
                       >
                         <div

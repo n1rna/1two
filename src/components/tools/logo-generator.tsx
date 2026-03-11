@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useSyncedState } from "@/lib/sync";
 import { SyncToggle } from "@/components/ui/sync-toggle";
 import { ToolLayout } from "@/components/layout/tool-layout";
@@ -13,16 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Copy, Check, RotateCcw, Plus, Trash2, ChevronDown, ChevronUp, RefreshCw, Lock, Unlock, Save, Share2, X, Link2 } from "lucide-react";
+import { Download, Copy, Check, RotateCcw, Plus, Trash2, RefreshCw, Lock, Unlock, Save, Share2, X, Link2, ChevronDown } from "lucide-react";
 import {
-  type HSVA,
   parseHex,
   formatHex,
   hsvaToRgba,
-  rgbaToHsva,
-  drawSVCanvas,
   contrastTextHex,
 } from "@/lib/tools/color";
+import { ColorPicker, COLOR_PICKER_SLIDER_STYLES } from "@/components/ui/color-picker";
+import { ColorBuilderSheet } from "@/components/ui/color-builder-sheet";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -623,132 +622,6 @@ function downloadText(text: string, filename: string, mime: string) {
   downloadBlob(blob, filename);
 }
 
-// ── Local Color Picker Components ─────────────────────
-
-function SVPicker({ hsva, onChange }: { hsva: HSVA; onChange: (s: number, v: number) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    drawSVCanvas(ctx, hsva.h, canvas.width, canvas.height);
-  }, [hsva.h]);
-
-  const pick = useCallback(
-    (clientX: number, clientY: number) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      onChange(
-        Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)),
-        Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height))
-      );
-    },
-    [onChange]
-  );
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative w-full rounded-lg overflow-hidden cursor-crosshair border border-border/50"
-      style={{ aspectRatio: "1 / 1" }}
-      onPointerDown={(e) => {
-        dragging.current = true;
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-        pick(e.clientX, e.clientY);
-      }}
-      onPointerMove={(e) => dragging.current && pick(e.clientX, e.clientY)}
-      onPointerUp={() => { dragging.current = false; }}
-    >
-      <canvas ref={canvasRef} width={200} height={200} className="w-full h-full" />
-      <div
-        className="absolute w-3.5 h-3.5 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)] pointer-events-none -translate-x-1/2 -translate-y-1/2"
-        style={{ left: `${hsva.s * 100}%`, top: `${(1 - hsva.v) * 100}%` }}
-      />
-    </div>
-  );
-}
-
-function HueSlider({ hue, onChange }: { hue: number; onChange: (h: number) => void }) {
-  return (
-    <input
-      type="range" min={0} max={360} step={1} value={hue}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="color-slider w-full h-3 rounded-lg appearance-none cursor-pointer"
-      style={{ background: `linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))` }}
-    />
-  );
-}
-
-interface MiniPickerProps {
-  hex: string;
-  onChange: (hex: string) => void;
-}
-
-function MiniColorPicker({ hex, onChange }: MiniPickerProps) {
-  const rgba = useMemo(() => parseHex(hex) ?? { r: 0, g: 0, b: 0, a: 1 }, [hex]);
-  const [hsva, setHsva] = useState<HSVA>(() => rgbaToHsva(rgba));
-  const [hexInput, setHexInput] = useState(hex);
-  const skipSync = useRef(false);
-
-  // Sync hsva → hex output
-  useEffect(() => {
-    if (skipSync.current) { skipSync.current = false; return; }
-    const newRgba = hsvaToRgba(hsva);
-    const newHex = formatHex(newRgba);
-    setHexInput(newHex);
-    onChange(newHex);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hsva]);
-
-  // Sync incoming hex changes to hsva (e.g., from presets)
-  useEffect(() => {
-    const parsed = parseHex(hex);
-    if (!parsed) return;
-    const newHsva = rgbaToHsva(parsed);
-    skipSync.current = true;
-    setHsva(newHsva);
-    setHexInput(hex);
-  }, [hex]);
-
-  const commitHex = useCallback(() => {
-    const parsed = parseHex(hexInput);
-    if (parsed) {
-      skipSync.current = true;
-      const newHsva = rgbaToHsva(parsed);
-      setHsva(newHsva);
-      onChange(formatHex(parsed));
-    } else {
-      setHexInput(hex);
-    }
-  }, [hexInput, hex, onChange]);
-
-  return (
-    <div className="space-y-2 pt-1">
-      <SVPicker hsva={hsva} onChange={(s, v) => setHsva((p) => ({ ...p, s, v }))} />
-      <HueSlider hue={hsva.h} onChange={(h) => setHsva((p) => ({ ...p, h }))} />
-      <div className="flex items-center gap-2">
-        <div
-          className="w-7 h-7 rounded-md border border-border/50 shrink-0"
-          style={{ background: hex }}
-        />
-        <input
-          type="text"
-          value={hexInput}
-          onChange={(e) => setHexInput(e.target.value)}
-          onBlur={commitHex}
-          onKeyDown={(e) => e.key === "Enter" && commitHex()}
-          className="flex-1 rounded-md border bg-transparent px-2 py-1 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
-          spellCheck={false}
-        />
-      </div>
-    </div>
-  );
-}
-
 // ── Gradient Builder ───────────────────────────────────
 
 interface GradientBuilderProps {
@@ -758,6 +631,8 @@ interface GradientBuilderProps {
 
 function GradientBuilder({ gradient, onChange }: GradientBuilderProps) {
   const [activeStop, setActiveStop] = useState<string | null>(null);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [builderStopId, setBuilderStopId] = useState<string | null>(null);
 
   const sortedStops = useMemo(
     () => [...gradient.stops].sort((a, b) => a.position - b.position),
@@ -817,7 +692,7 @@ function GradientBuilder({ gradient, onChange }: GradientBuilderProps) {
             <input
               type="range" min={0} max={360} step={1} value={gradient.angle}
               onChange={(e) => onChange({ ...gradient, angle: Number(e.target.value) })}
-              className="color-slider flex-1 h-2.5 rounded-lg appearance-none cursor-pointer bg-muted"
+              className="color-picker-slider flex-1 h-2.5 rounded-lg appearance-none cursor-pointer bg-muted"
             />
           </div>
         )}
@@ -845,7 +720,7 @@ function GradientBuilder({ gradient, onChange }: GradientBuilderProps) {
               <input
                 type="range" min={0} max={100} step={1} value={stop.position}
                 onChange={(e) => updateStop(stop.id, { position: Number(e.target.value) })}
-                className="color-slider flex-1 h-2.5 rounded-lg appearance-none cursor-pointer"
+                className="color-picker-slider flex-1 h-2.5 rounded-lg appearance-none cursor-pointer"
                 style={{ background: gradientCss(gradient) }}
               />
               <span className="text-[11px] font-mono text-muted-foreground w-8 text-right shrink-0">
@@ -861,9 +736,13 @@ function GradientBuilder({ gradient, onChange }: GradientBuilderProps) {
             </div>
             {activeStop === stop.id && (
               <div className="pl-8 pr-8">
-                <MiniColorPicker
-                  hex={stop.hex}
+                <ColorPicker
+                  value={stop.hex}
                   onChange={(h) => updateStop(stop.id, { hex: h })}
+                  onOpenBuilder={() => {
+                    setBuilderStopId(stop.id);
+                    setBuilderOpen(true);
+                  }}
                 />
               </div>
             )}
@@ -878,6 +757,19 @@ function GradientBuilder({ gradient, onChange }: GradientBuilderProps) {
       >
         <Plus className="h-3 w-3" /> Add stop
       </button>
+
+      {builderStopId && (
+        <ColorBuilderSheet
+          open={builderOpen}
+          onOpenChange={(open) => {
+            setBuilderOpen(open);
+            if (!open) setBuilderStopId(null);
+          }}
+          value={gradient.stops.find((s) => s.id === builderStopId)?.hex ?? "#000000"}
+          onChange={(h) => updateStop(builderStopId, { hex: h })}
+          title="Gradient Stop Color"
+        />
+      )}
     </div>
   );
 }
@@ -909,19 +801,14 @@ function ColorControl({
   locked = false,
   onLockToggle,
 }: ColorControlProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
 
   const effectiveMode = bgMode ?? (colorConfig.mode === "gradient" ? "gradient" : "solid");
   const isTransparent = bgMode === "transparent";
 
-  const swatchBg = useMemo(() => {
-    if (isTransparent) return checkerboard();
-    if (colorConfig.mode === "gradient") return gradientCss(colorConfig.gradient);
-    return colorConfig.hex;
-  }, [isTransparent, colorConfig]);
-
   return (
     <div className="space-y-2">
+      {/* Controls row */}
       <div className="flex items-center gap-1.5">
         <span className="text-xs font-medium text-muted-foreground flex-1">{label}</span>
         {/* Lock toggle */}
@@ -976,31 +863,16 @@ function ColorControl({
             </>
           )}
         </div>
-        {/* Swatch toggle */}
-        {!isTransparent && (
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1 shrink-0"
-          >
-            <div
-              className="w-6 h-6 rounded-md border border-border/50 shrink-0"
-              style={{ background: swatchBg }}
-            />
-            {expanded ? (
-              <ChevronUp className="h-3 w-3 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-            )}
-          </button>
-        )}
       </div>
 
-      {expanded && !isTransparent && (
+      {/* Color editor - always visible */}
+      {!isTransparent && (
         <div className="pl-2 border-l border-border/50 space-y-2">
           {colorConfig.mode === "solid" ? (
-            <MiniColorPicker
-              hex={colorConfig.hex}
+            <ColorPicker
+              value={colorConfig.hex}
               onChange={(h) => onChange({ ...colorConfig, hex: h })}
+              onOpenBuilder={() => setBuilderOpen(true)}
             />
           ) : (
             <GradientBuilder
@@ -1010,6 +882,14 @@ function ColorControl({
           )}
         </div>
       )}
+
+      <ColorBuilderSheet
+        open={builderOpen}
+        onOpenChange={setBuilderOpen}
+        value={colorConfig.hex}
+        onChange={(h) => onChange({ ...colorConfig, hex: h })}
+        title={`${label} Color`}
+      />
     </div>
   );
 }
@@ -1177,67 +1057,93 @@ export function LogoGenerator() {
     return map[config.fontWeight] ?? String(config.fontWeight);
   }, [config.fontWeight]);
 
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const downloadRef = useRef<HTMLDivElement>(null);
+
+  // Close download menu on outside click
+  useEffect(() => {
+    if (!downloadOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (downloadRef.current && !downloadRef.current.contains(e.target as Node)) {
+        setDownloadOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [downloadOpen]);
+
   return (
     <ToolLayout slug="logo" toolbar={
-      <SyncToggle
-        {...syncToggleProps}
-      />
+      <div className="flex items-center gap-1">
+        <button
+          onClick={handleSaveLogo}
+          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+          title="Save logo config"
+        >
+          <Save className="h-3.5 w-3.5" /> Save
+        </button>
+        <button
+          onClick={handleShareLink}
+          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+          title="Copy shareable link"
+        >
+          {linkCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Link2 className="h-3.5 w-3.5" />}
+          {linkCopied ? "Copied!" : "Share"}
+        </button>
+        <button
+          onClick={handleCopySvg}
+          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+          title="Copy SVG to clipboard"
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? "Copied!" : "Copy"}
+        </button>
+        <div ref={downloadRef} className="relative">
+          <button
+            onClick={() => setDownloadOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3" />
+          </button>
+          {downloadOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border bg-popover p-1.5 shadow-lg">
+              <button
+                onClick={() => { handleDownloadSvg(); setDownloadOpen(false); }}
+                className="flex items-center gap-2 w-full rounded-md px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" /> Download SVG
+              </button>
+              <button
+                onClick={() => { handleDownloadFavicon(); setDownloadOpen(false); }}
+                disabled={exporting === "ico"}
+                className="flex items-center gap-2 w-full rounded-md px-2.5 py-1.5 text-xs hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <Download className="h-3.5 w-3.5" /> Download Favicon
+              </button>
+              <div className="my-1 h-px bg-border" />
+              <div className="px-2.5 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">PNG</div>
+              <div className="grid grid-cols-2 gap-0.5">
+                {SIZE_PRESETS.map((p) => (
+                  <button
+                    key={p.size}
+                    onClick={() => { handleDownloadPng(p.size); setDownloadOpen(false); }}
+                    disabled={exporting === `png-${p.size}`}
+                    className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    <Download className="h-3 w-3" /> {p.label}px
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="h-5 w-px bg-border mx-0.5" />
+        <SyncToggle {...syncToggleProps} />
+      </div>
     }>
       <div className="flex flex-col lg:flex-row h-full gap-0 overflow-hidden">
-        {/* ── Left: Export + Preview ─────────────────────── */}
+        {/* ── Left: Preview ────────────────────────────── */}
         <div className="flex flex-col lg:flex-1 min-w-0 border-b lg:border-b-0 lg:border-r">
-          {/* Export buttons */}
-          <div className="border-b p-2.5 flex flex-wrap gap-1.5 bg-background/80 backdrop-blur-sm shrink-0">
-            <button
-              onClick={handleDownloadSvg}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <Download className="h-3.5 w-3.5" /> SVG
-            </button>
-            <button
-              onClick={handleCopySvg}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? "Copied!" : "Copy SVG"}
-            </button>
-            <button
-              onClick={handleDownloadFavicon}
-              disabled={exporting === "ico"}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
-            >
-              <Download className="h-3.5 w-3.5" /> Favicon
-            </button>
-            <div className="h-5 w-px bg-border self-center mx-0.5" />
-            <button
-              onClick={handleSaveLogo}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-              title="Save logo config"
-            >
-              <Save className="h-3.5 w-3.5" /> Save
-            </button>
-            <button
-              onClick={handleShareLink}
-              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-              title="Copy shareable link"
-            >
-              {linkCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Link2 className="h-3.5 w-3.5" />}
-              {linkCopied ? "Copied!" : "Share"}
-            </button>
-            <div className="h-5 w-px bg-border self-center mx-0.5" />
-            {SIZE_PRESETS.map((p) => (
-              <button
-                key={p.size}
-                onClick={() => handleDownloadPng(p.size)}
-                disabled={exporting === `png-${p.size}`}
-                className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
-              >
-                <Download className="h-3 w-3" />
-                {p.label}
-              </button>
-            ))}
-          </div>
-
           {/* Preview area */}
           <div className="flex-1 flex items-center justify-center p-6 overflow-hidden" style={{ background: checkerboard() }}>
             <div
@@ -1509,38 +1415,7 @@ export function LogoGenerator() {
         </div>
       </div>
 
-      {/* Slider styles (same pattern as color-tool) */}
-      <style>{`
-        .color-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          outline: none;
-          border-radius: 0.5rem;
-        }
-        .color-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: white;
-          border: 2px solid rgba(0,0,0,0.3);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-          cursor: pointer;
-        }
-        .color-slider::-moz-range-thumb {
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: white;
-          border: 2px solid rgba(0,0,0,0.3);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-          cursor: pointer;
-        }
-        .color-slider::-moz-range-track {
-          background: transparent;
-          border: none;
-        }
-      `}</style>
+      <style>{COLOR_PICKER_SLIDER_STYLES}</style>
     </ToolLayout>
   );
 }
