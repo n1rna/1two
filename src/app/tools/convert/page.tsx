@@ -52,6 +52,11 @@ export default function VideoConverterPage() {
             <li>Extracting video metadata without installing desktop tools</li>
             <li>Converting between container formats for compatibility</li>
           </ToolInfo.UL>
+
+          <ToolInfo.H2>Acknowledgements</ToolInfo.H2>
+          <ToolInfo.P>
+            Video metadata extraction is powered by <a href="https://github.com/nickaroot/mediabunny" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">mediabunny</a>, an open-source media probe library that runs entirely in the browser.
+          </ToolInfo.P>
         </ToolInfo>
       </div>
     </>

@@ -51,6 +51,11 @@ export default function VideoPlayerPage() {
             <li>Testing HLS streams and remote video URLs</li>
             <li>Quick playback of screen recordings or downloaded clips</li>
           </ToolInfo.UL>
+
+          <ToolInfo.H2>Acknowledgements</ToolInfo.H2>
+          <ToolInfo.P>
+            Video metadata extraction is powered by <a href="https://github.com/nickaroot/mediabunny" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">mediabunny</a>, an open-source media probe library that runs entirely in the browser.
+          </ToolInfo.P>
         </ToolInfo>
       </div>
     </>
