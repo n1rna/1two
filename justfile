@@ -160,6 +160,48 @@ cf-secret-api name:
     cd workers/api-container && wrangler secret put {{name}}
 
 # =========================================
+# Tunnels
+# =========================================
+
+# Start a cloudflared tunnel to the local API server (for webhook testing)
+tunnel port="8090":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pkill -f "cloudflared tunnel" 2>/dev/null || true
+    sleep 1
+    # Download cloudflared if not present
+    if [ ! -f /tmp/cloudflared ]; then
+        echo "Downloading cloudflared..."
+        curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
+        chmod +x /tmp/cloudflared
+    fi
+    echo "Starting tunnel to localhost:{{port}}..."
+    /tmp/cloudflared tunnel --url http://localhost:{{port}} 2>&1 &
+    PID=$!
+    # Wait for the URL to appear in output
+    for i in $(seq 1 30); do
+        if URL=$(grep -o 'https://[^ |]*trycloudflare.com' /proc/$PID/fd/2 2>/dev/null); then
+            echo ""
+            echo "========================================="
+            echo "Tunnel:  $URL"
+            echo "Webhook: $URL/api/v1/webhooks/polar"
+            echo "========================================="
+            echo ""
+            echo "Update this URL in your Polar webhook settings."
+            echo "Press Ctrl+C to stop the tunnel."
+            wait $PID
+            exit 0
+        fi
+        sleep 1
+    done
+    echo "Tunnel started (PID: $PID) but couldn't detect URL."
+    wait $PID
+
+# Stop the cloudflared tunnel
+tunnel-stop:
+    pkill -f "cloudflared tunnel" 2>/dev/null || echo "No tunnel running"
+
+# =========================================
 # Utilities
 # =========================================
 

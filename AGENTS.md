@@ -397,12 +397,98 @@ echo "the-value" | wrangler secret put MY_NEW_VAR --name 1two-web
 echo "the-value" | wrangler secret put MY_NEW_VAR --name onetwo-api
 ```
 
-### ee Configuration
+### ee CLI — Environment Variable Management
 
-- **`.ee.web`** — Schema file listing all web env var names
-- **`ee set <config> <key> <value>`** — Set a value locally
-- **`ee export <config>`** — Export all vars (for piping to `gh secret set`)
-- **`n1rna/ee-action`** — GitHub Action that hydrates env files from GitHub secrets
+ee is a CLI tool for managing environment variables with schema validation, multiple environments, and remote secret pushing. Docs: https://ee.n1rna.net/llms.txt
+
+#### Project Configuration (`.ee` files)
+
+Each service has its own `.ee` file (JSON):
+- **`.ee.web`** — Web app env var schema and environments
+- **`.ee.api`** — API service env var schema and environments
+
+Structure:
+```json
+{
+  "project": "project-name",
+  "schema": {
+    "variables": {
+      "MY_VAR": {
+        "name": "MY_VAR",
+        "type": "string",
+        "title": "Description",
+        "required": true,
+        "secret": true
+      }
+    }
+  },
+  "environments": {
+    "development": { "sheets": [".env.development"] },
+    "production": { "sheets": [".env.production"] }
+  },
+  "origins": {
+    "github": {
+      "type": "github",
+      "mode": "bundled",
+      "secret_name": "ENV_VARS_API",
+      "repo": "n1rna/1two"
+    },
+    "cloudflare": {
+      "type": "cloudflare",
+      "mode": "individual",
+      "worker": "onetwo-api"
+    }
+  }
+}
+```
+
+#### Key Commands
+
+```bash
+# Verify project config and env files
+ee verify -c .ee.api
+ee verify -c .ee.api --fix        # Auto-create missing files/vars
+
+# Apply environment (start shell or run command)
+ee apply -c .ee.api development
+ee apply -c .ee.api production -- go run ./cmd/server
+
+# Push secrets to remote origins
+ee push -c .ee.api production                    # Push to all origins
+ee push -c .ee.api cloudflare production         # Push to Cloudflare only
+ee push -c .ee.api github production             # Push to GitHub only
+ee push -c .ee.api production --dry-run          # Preview
+
+# Check auth status for push tools
+ee auth
+
+# Inspect current shell env vars
+ee --filter '*KEY*,*SECRET*' --mask
+```
+
+#### Push Modes
+
+- **bundled** (default for GitHub): All secrets combined into a single `KEY=VALUE` secret, used with `n1rna/ee-action` to hydrate at build time.
+- **individual** (default for Cloudflare): Each secret pushed as a separate wrangler secret.
+
+#### Adding a New Secret
+
+1. Add to `.ee.api` (or `.ee.web`) schema `variables` section
+2. Add to `.env.api.development` and `.env.api.production`
+3. Add to `workers/api-container/src/index.ts` `Env` interface and `envVars` mapping
+4. Push: `ee push -c .ee.api cloudflare production` and `ee push -c .ee.api github production`
+
+#### CI/CD Integration
+
+The `n1rna/ee-action` GitHub Action hydrates env files from bundled GitHub secrets:
+```yaml
+- uses: n1rna/ee-action@main
+  with:
+    environment: production
+    config_path: .ee.web
+    env_file: .env.web.production
+    gh_secret: ${{ secrets.ENV_VARS_WEB }}
+```
 
 ### Important Notes
 

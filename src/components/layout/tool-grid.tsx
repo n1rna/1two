@@ -414,6 +414,8 @@ export function ToolGrid() {
   return (
     <div className="space-y-10">
 
+      <p className="text-sm text-muted-foreground/60 tracking-wide">no ads, just tools.</p>
+
       {/* ── Section 1: Bookmarks ── */}
       {bookmarkedTools.length > 0 && (
         <section>

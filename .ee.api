@@ -70,6 +70,86 @@
 				"type": "string",
 				"required": true,
 				"secret": true
+			},
+			"CLOUDFLARE_ACCOUNT_ID": {
+				"name": "CLOUDFLARE_ACCOUNT_ID",
+				"title": "Cloudflare account ID for Browser Rendering crawl API",
+				"type": "string",
+				"required": true
+			},
+			"CLOUDFLARE_API_TOKEN": {
+				"name": "CLOUDFLARE_API_TOKEN",
+				"title": "Cloudflare API token for Browser Rendering",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"LLM_API_KEY": {
+				"name": "LLM_API_KEY",
+				"title": "API key for llms.txt LLM provider (Moonshot/Kimi K2)",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"LLM_PROVIDER": {
+				"name": "LLM_PROVIDER",
+				"title": "LLM provider type (openai or anthropic)",
+				"type": "string",
+				"default": "openai",
+				"required": false
+			},
+			"LLM_BASE_URL": {
+				"name": "LLM_BASE_URL",
+				"title": "Base URL for OpenAI-compatible LLM API",
+				"type": "string",
+				"default": "https://api.moonshot.ai/v1",
+				"required": false
+			},
+			"LLM_MODEL": {
+				"name": "LLM_MODEL",
+				"title": "LLM model ID",
+				"type": "string",
+				"default": "kimi-k2-0711",
+				"required": false
+			},
+			"POLAR_ACCESS_TOKEN": {
+				"name": "POLAR_ACCESS_TOKEN",
+				"title": "Polar API access token",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"POLAR_WEBHOOK_SECRET": {
+				"name": "POLAR_WEBHOOK_SECRET",
+				"title": "Polar webhook signing secret",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"POLAR_ORGANIZATION_ID": {
+				"name": "POLAR_ORGANIZATION_ID",
+				"title": "Polar organization ID",
+				"type": "string",
+				"required": true
+			},
+			"POLAR_ENVIRONMENT": {
+				"name": "POLAR_ENVIRONMENT",
+				"title": "Polar environment (sandbox or production)",
+				"type": "string",
+				"default": "sandbox",
+				"required": false
+			},
+			"POLAR_PRO_PRODUCT_ID": {
+				"name": "POLAR_PRO_PRODUCT_ID",
+				"title": "Polar Pro plan product ID",
+				"type": "string",
+				"required": true
+			},
+			"POLAR_MAX_PRODUCT_ID": {
+				"name": "POLAR_MAX_PRODUCT_ID",
+				"title": "Polar Max plan product ID",
+				"type": "string",
+				"required": true
 			}
 		}
 	},
@@ -79,6 +159,13 @@
 		},
 		"production": {
 			"sheets": [".env.api.production"]
+		}
+	},
+	"origins": {
+		"cloudflare": {
+			"type": "cloudflare",
+			"mode": "individual",
+			"worker": "onetwo-api"
 		}
 	}
 }

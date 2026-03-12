@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Download, Copy, Check, RotateCcw, Plus, Trash2, RefreshCw, Lock, Unlock, Save, Share2, X, Link2, ChevronDown } from "lucide-react";
+import { Download, Copy, Check, RotateCcw, Plus, Trash2, RefreshCw, Lock, Unlock, Save, X, Link2, ChevronDown, Globe, Loader2, ExternalLink } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
 import {
   parseHex,
   formatHex,
@@ -22,6 +23,8 @@ import {
 } from "@/lib/tools/color";
 import { ColorPicker, COLOR_PICKER_SLIDER_STYLES } from "@/components/ui/color-picker";
 import { ColorBuilderSheet } from "@/components/ui/color-builder-sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -258,6 +261,9 @@ interface SavedLogo {
   name: string;
   config: SerializableConfig;
   createdAt: number;
+  publishedId?: string;
+  publishedSlug?: string;
+  publishSize?: number;
 }
 
 // ── Color Presets ──────────────────────────────────────
@@ -894,6 +900,350 @@ function ColorControl({
   );
 }
 
+// ── Copy Button Helper ─────────────────────────────────
+
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="p-1 rounded hover:bg-muted transition-colors shrink-0"
+      aria-label="Copy"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+    </button>
+  );
+}
+
+// ── Publish Dialog ─────────────────────────────────────
+
+type PublishAction = "update" | "new-url";
+
+const PUBLISH_DEFAULT_KEY = "1two-logo-publish-default";
+const PUBLISH_SIZE_KEY = "1two-logo-publish-size";
+
+const PUBLISH_SIZES = [
+  { size: 16, label: "16px", tag: "favicon" },
+  { size: 32, label: "32px", tag: "favicon" },
+  { size: 48, label: "48px", tag: "icon" },
+  { size: 64, label: "64px", tag: "icon" },
+  { size: 128, label: "128px", tag: "" },
+  { size: 180, label: "180px", tag: "apple-touch" },
+  { size: 192, label: "192px", tag: "android" },
+  { size: 256, label: "256px", tag: "" },
+  { size: 512, label: "512px", tag: "standard" },
+  { size: 1024, label: "1024px", tag: "" },
+];
+
+function getPublishDefault(): PublishAction | null {
+  try {
+    const v = localStorage.getItem(PUBLISH_DEFAULT_KEY);
+    if (v === "update" || v === "new-url") return v;
+  } catch {}
+  return null;
+}
+
+function setPublishDefault(action: PublishAction | null) {
+  try {
+    if (action) localStorage.setItem(PUBLISH_DEFAULT_KEY, action);
+    else localStorage.removeItem(PUBLISH_DEFAULT_KEY);
+  } catch {}
+}
+
+function getPublishSizeDefault(): number {
+  try {
+    const v = localStorage.getItem(PUBLISH_SIZE_KEY);
+    if (v) { const n = parseInt(v, 10); if (n > 0) return n; }
+  } catch {}
+  return 512;
+}
+
+function setPublishSizeDefault(size: number) {
+  try { localStorage.setItem(PUBLISH_SIZE_KEY, String(size)); } catch {}
+}
+
+interface PublishedLogo {
+  id: string;
+  slug: string;
+  url: string;
+}
+
+interface LogoPublishDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  published: PublishedLogo | null;
+  publishing: boolean;
+  onPublish: (size: number) => void;
+  onRepublish: (size: number) => void;
+  onUnpublish: () => void;
+  onNewUrl: (size: number) => Promise<void> | void;
+  /** When true, dialog was triggered by a save action and needs the user to pick an update method */
+  saveTriggered?: boolean;
+  /** The size this logo was last published at */
+  currentPublishSize?: number;
+}
+
+function LogoPublishDialog({
+  open, onOpenChange, published, publishing,
+  onPublish, onRepublish, onUnpublish, onNewUrl,
+  saveTriggered = false, currentPublishSize,
+}: LogoPublishDialogProps) {
+  const [newUrlLoading, setNewUrlLoading] = useState(false);
+  const [defaultAction, setDefaultAction] = useState<PublishAction | null>(() => getPublishDefault());
+  const [selectedSize, setSelectedSize] = useState<number>(() => currentPublishSize || getPublishSizeDefault());
+
+  // Sync selectedSize when dialog opens with a different logo
+  useEffect(() => {
+    if (open) setSelectedSize(currentPublishSize || getPublishSizeDefault());
+  }, [open, currentPublishSize]);
+
+  if (!published) {
+    // Not yet published — show publish prompt
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Publish Logo</h3>
+                <p className="text-xs text-muted-foreground">Make your logo accessible via a permanent public URL.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Publishing renders your logo as a PNG and hosts it on our CDN.
+              You can update the image at any time by saving changes.
+            </p>
+
+            <PublishSizeSelector size={selectedSize} onChange={setSelectedSize} />
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" className="h-7 text-xs gap-1.5" onClick={() => onPublish(selectedSize)} disabled={publishing}>
+                {publishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
+                {publishing ? "Publishing..." : "Publish"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const handleAction = async (action: PublishAction, setAsDefault: boolean) => {
+    if (setAsDefault) {
+      setPublishDefault(action);
+      setDefaultAction(action);
+    }
+    if (action === "update") {
+      onRepublish(selectedSize);
+    } else {
+      setNewUrlLoading(true);
+      await onNewUrl(selectedSize);
+      setNewUrlLoading(false);
+    }
+  };
+
+  const clearDefault = () => {
+    setPublishDefault(null);
+    setDefaultAction(null);
+  };
+
+  // Already published — show URLs and options
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <div className="space-y-4 overflow-hidden">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-500/10">
+              <Globe className="h-4 w-4 text-green-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">
+                {saveTriggered ? "Update Published Logo" : "Logo Published"}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {saveTriggered
+                  ? "Your logo has been saved. Choose how to update the published image."
+                  : "Your logo is live and accessible via the URL below."}
+              </p>
+            </div>
+          </div>
+
+          {/* URL */}
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Public URL
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <code className="text-xs text-foreground font-mono truncate flex-1 min-w-0 bg-muted/50 rounded px-2 py-1">
+                {published.url}
+              </code>
+              <CopyBtn text={published.url} />
+              <a
+                href={published.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1 rounded hover:bg-muted transition-colors shrink-0"
+              >
+                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+              </a>
+            </div>
+          </div>
+
+          {/* HTML snippet — hide when save-triggered to keep dialog focused */}
+          {!saveTriggered && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  HTML
+                </div>
+                <CopyBtn text={`<img src="${published.url}" alt="Logo" />`} />
+              </div>
+              <pre className="text-[11px] font-mono text-foreground bg-muted/50 rounded-md px-3 py-2 overflow-x-auto whitespace-pre">
+{`<img src="${published.url}" alt="Logo" />`}
+              </pre>
+            </div>
+          )}
+
+          {/* Size selector */}
+          <PublishSizeSelector size={selectedSize} onChange={setSelectedSize} />
+
+          {/* Update options */}
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {saveTriggered ? "Choose update method" : "Update Options"}
+            </div>
+            <div className="space-y-2">
+              <UpdateOptionButton
+                icon={publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <RefreshCw className="h-3.5 w-3.5 shrink-0" />}
+                label="Update image at current URL"
+                description="Re-renders and overwrites the existing image. Cached copies may take up to 1 hour to refresh."
+                isDefault={defaultAction === "update"}
+                disabled={publishing}
+                onAction={(setAsDefault) => handleAction("update", setAsDefault)}
+              />
+              <UpdateOptionButton
+                icon={newUrlLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Link2 className="h-3.5 w-3.5 shrink-0" />}
+                label="Publish at a new URL"
+                description="Generates a fresh URL with the latest image. The old URL will stop working."
+                isDefault={defaultAction === "new-url"}
+                disabled={newUrlLoading}
+                onAction={(setAsDefault) => handleAction("new-url", setAsDefault)}
+              />
+            </div>
+            {defaultAction && (
+              <button
+                onClick={clearDefault}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear default action
+              </button>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={() => { onUnpublish(); onOpenChange(false); }}
+            >
+              Unpublish
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
+              {saveTriggered ? "Skip" : "Close"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UpdateOptionButton({
+  icon, label, description, isDefault, disabled, onAction,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  isDefault: boolean;
+  disabled: boolean;
+  onAction: (setAsDefault: boolean) => void;
+}) {
+  return (
+    <div className={`rounded-md border transition-colors ${isDefault ? "border-primary/40 bg-primary/5" : ""}`}>
+      <button
+        onClick={() => onAction(false)}
+        disabled={disabled}
+        className="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-muted transition-colors disabled:opacity-50 text-left"
+      >
+        {icon}
+        <div className="flex-1 min-w-0">
+          <div className="font-medium flex items-center gap-1.5">
+            {label}
+            {isDefault && (
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                default
+              </span>
+            )}
+          </div>
+          <div className="text-muted-foreground">{description}</div>
+        </div>
+      </button>
+      {!isDefault && (
+        <button
+          onClick={() => onAction(true)}
+          disabled={disabled}
+          className="w-full px-3 pb-2 -mt-0.5 text-left text-[10px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          Use as default when saving
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PublishSizeSelector({ size, onChange }: { size: number; onChange: (s: number) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Image Size
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {PUBLISH_SIZES.map((p) => (
+          <button
+            key={p.size}
+            onClick={() => onChange(p.size)}
+            className={`px-2 py-1 rounded-md text-xs transition-colors border ${
+              size === p.size
+                ? "bg-primary text-primary-foreground border-primary"
+                : "hover:bg-muted border-border/50"
+            }`}
+          >
+            {p.label}
+            {p.tag && (
+              <span className={`ml-1 text-[9px] ${size === p.size ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                {p.tag}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────
 
 export function LogoGenerator() {
@@ -909,6 +1259,14 @@ export function LogoGenerator() {
     syncToggleProps,
   } = useSyncedState<SavedLogo[]>(SAVED_LOGOS_KEY, []);
   const [mounted, setMounted] = useState(false);
+  const { data: session } = useSession();
+  const [activeLogoId, setActiveLogoId] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState<PublishedLogo | null>(null);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [publishDialogSaveTriggered, setPublishDialogSaveTriggered] = useState(false);
+
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   // Load URL config on mount
   useEffect(() => {
@@ -917,9 +1275,46 @@ export function LogoGenerator() {
     const encoded = params.get("c");
     if (encoded) {
       const decoded = decodeConfig(encoded);
-      if (decoded) setConfig(decoded);
+      if (decoded) {
+        setConfig(decoded);
+        setInitialLoaded(true); // Don't override with id-based load
+      }
     }
   }, []);
+
+  // Load saved logo by id from URL (once savedLogos are available)
+  useEffect(() => {
+    if (initialLoaded || activeLogoId) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    if (!id || savedLogos.length === 0) return;
+    const saved = savedLogos.find((l) => l.id === id);
+    if (saved) {
+      setConfig(deserializeConfig(saved.config));
+      setActiveLogoId(saved.id);
+      if (saved.publishedSlug) {
+        setPublished({
+          id: saved.publishedId!,
+          slug: saved.publishedSlug,
+          url: `${window.location.origin}/logo/s/${saved.publishedSlug}`,
+        });
+      }
+      setInitialLoaded(true);
+    }
+  }, [savedLogos, initialLoaded, activeLogoId]);
+
+  // Update URL when activeLogoId changes
+  useEffect(() => {
+    if (!mounted) return;
+    const url = new URL(window.location.href);
+    if (activeLogoId) {
+      url.searchParams.set("id", activeLogoId);
+      url.searchParams.delete("c");
+    } else {
+      url.searchParams.delete("id");
+    }
+    window.history.replaceState({}, "", url.pathname + url.search);
+  }, [activeLogoId, mounted]);
 
   // Load Google Font when font changes
   useEffect(() => {
@@ -1016,24 +1411,124 @@ export function LogoGenerator() {
     });
   }, [textLocked, bgLocked]);
 
-  const handleSaveLogo = useCallback(() => {
+  const [saving, setSaving] = useState(false);
+
+  // Helper: render PNG blob from current config at a given size
+  const renderPngForm = useCallback(async (size: number = 512) => {
+    const blob = await svgToPngBlob(config, size);
+    const isWide = config.shape === "wide";
+    const w = isWide ? size * 2 : size;
+    const h = size;
+    const form = new FormData();
+    form.append("file", blob, "logo.png");
+    form.append("name", config.text || "Logo");
+    form.append("config", JSON.stringify(serializeConfig(config)));
+    form.append("width", String(w));
+    form.append("height", String(h));
+    return form;
+  }, [config]);
+
+  const handleSaveLogo = useCallback(async () => {
     const name = config.text || "Logo";
-    const saved: SavedLogo = {
-      id: crypto.randomUUID(),
-      name,
-      config: serializeConfig(config),
-      createdAt: Date.now(),
-    };
-    setSavedLogos((prev) => [saved, ...prev]);
-  }, [config, setSavedLogos]);
+    const serialized = serializeConfig(config);
+
+    if (activeLogoId) {
+      // Update existing saved logo
+      const existing = savedLogos.find((l) => l.id === activeLogoId);
+      setSavedLogos((prev) =>
+        prev.map((l) =>
+          l.id === activeLogoId
+            ? { ...l, name, config: serialized }
+            : l
+        )
+      );
+
+      // Handle republish for published logos
+      if (existing?.publishedId && existing?.publishedSlug && session) {
+        const defaultAction = getPublishDefault();
+        const pubSize = existing.publishSize || getPublishSizeDefault();
+        if (defaultAction === "update") {
+          // Auto-update at current URL
+          setSaving(true);
+          try {
+            const form = await renderPngForm(pubSize);
+            await fetch(`/api/proxy/logo/images/${existing.publishedId}`, {
+              method: "PUT", credentials: "include", body: form,
+            });
+          } catch {
+            // Silent fail - local save still succeeded
+          } finally {
+            setSaving(false);
+          }
+        } else if (defaultAction === "new-url") {
+          // Auto-publish at new URL
+          setSaving(true);
+          try {
+            const form = await renderPngForm(pubSize);
+            await fetch(`/api/proxy/logo/images/${existing.publishedId}`, {
+              method: "PUT", credentials: "include", body: form,
+            });
+            const patchRes = await fetch(`/api/proxy/logo/images/${existing.publishedId}`, {
+              method: "PATCH", credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ newSlug: true }),
+            });
+            if (patchRes.ok) {
+              const data = await patchRes.json();
+              const newSlug = data.slug as string;
+              const pub: PublishedLogo = { id: existing.publishedId, slug: newSlug, url: `${window.location.origin}/logo/s/${newSlug}` };
+              setPublished(pub);
+              setSavedLogos((prev) =>
+                prev.map((l) => l.id === activeLogoId ? { ...l, publishedSlug: newSlug } : l)
+              );
+            }
+          } catch {
+            // Silent fail
+          } finally {
+            setSaving(false);
+          }
+        } else {
+          // No default set — open dialog so user can choose
+          setPublishDialogSaveTriggered(true);
+          setShowPublishDialog(true);
+        }
+      }
+    } else {
+      // Create new saved logo
+      const id = crypto.randomUUID();
+      const saved: SavedLogo = { id, name, config: serialized, createdAt: Date.now() };
+      setSavedLogos((prev) => [saved, ...prev]);
+      setActiveLogoId(id);
+    }
+  }, [config, setSavedLogos, activeLogoId, savedLogos, session, renderPngForm]);
 
   const handleLoadLogo = useCallback((saved: SavedLogo) => {
     setConfig(deserializeConfig(saved.config));
+    setActiveLogoId(saved.id);
+    if (saved.publishedSlug) {
+      setPublished({
+        id: saved.publishedId!,
+        slug: saved.publishedSlug,
+        url: `${window.location.origin}/logo/s/${saved.publishedSlug}`,
+      });
+    } else {
+      setPublished(null);
+    }
   }, []);
 
   const handleDeleteLogo = useCallback((id: string) => {
     setSavedLogos((prev) => prev.filter((l) => l.id !== id));
-  }, [setSavedLogos]);
+    if (activeLogoId === id) {
+      setActiveLogoId(null);
+      setPublished(null);
+    }
+  }, [setSavedLogos, activeLogoId]);
+
+  const handleNewLogo = useCallback(() => {
+    setConfig(DEFAULT_CONFIG);
+    setActiveLogoId(null);
+    setPublished(null);
+  }, []);
 
   const handleShareLink = useCallback(async () => {
     const encoded = encodeConfig(config);
@@ -1072,15 +1567,145 @@ export function LogoGenerator() {
     return () => document.removeEventListener("mousedown", handler);
   }, [downloadOpen]);
 
+  // Update published + savedLogos state after a publish/republish
+  const updatePublishedState = useCallback((pubId: string, slug: string, size?: number) => {
+    const pub: PublishedLogo = { id: pubId, slug, url: `${window.location.origin}/logo/s/${slug}` };
+    setPublished(pub);
+    const patch: Partial<SavedLogo> = { publishedId: pubId, publishedSlug: slug };
+    if (size) patch.publishSize = size;
+    if (activeLogoId) {
+      setSavedLogos((prev) =>
+        prev.map((l) => l.id === activeLogoId ? { ...l, ...patch } : l)
+      );
+    } else {
+      const id = crypto.randomUUID();
+      const saved: SavedLogo = {
+        id, name: config.text || "Logo", config: serializeConfig(config),
+        createdAt: Date.now(), ...patch,
+      };
+      setSavedLogos((prev) => [saved, ...prev]);
+      setActiveLogoId(id);
+    }
+  }, [activeLogoId, config, setSavedLogos]);
+
+  const handlePublish = useCallback(async (size: number) => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      setPublishSizeDefault(size);
+      const form = await renderPngForm(size);
+      const res = await fetch("/api/proxy/logo/images", {
+        method: "POST", credentials: "include", body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      updatePublishedState(data.id, data.slug, size);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to publish");
+    } finally {
+      setPublishing(false);
+    }
+  }, [publishing, renderPngForm, updatePublishedState]);
+
+  const handleRepublish = useCallback(async (size: number) => {
+    if (publishing || !published) return;
+    setPublishing(true);
+    try {
+      setPublishSizeDefault(size);
+      const form = await renderPngForm(size);
+      const res = await fetch(`/api/proxy/logo/images/${published.id}`, {
+        method: "PUT", credentials: "include", body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      // Update size in saved logo
+      if (activeLogoId) {
+        setSavedLogos((prev) =>
+          prev.map((l) => l.id === activeLogoId ? { ...l, publishSize: size } : l)
+        );
+      }
+      setPublished({ ...published });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update");
+    } finally {
+      setPublishing(false);
+    }
+  }, [publishing, published, renderPngForm, activeLogoId, setSavedLogos]);
+
+  const handleNewUrl = useCallback(async (size: number) => {
+    if (!published) return;
+    setPublishSizeDefault(size);
+    // 1. Re-upload the image
+    const form = await renderPngForm(size);
+    const putRes = await fetch(`/api/proxy/logo/images/${published.id}`, {
+      method: "PUT", credentials: "include", body: form,
+    });
+    if (!putRes.ok) {
+      alert("Failed to update image");
+      return;
+    }
+    // 2. Generate a new slug
+    const patchRes = await fetch(`/api/proxy/logo/images/${published.id}`, {
+      method: "PATCH", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newSlug: true }),
+    });
+    if (!patchRes.ok) {
+      alert("Failed to generate new URL");
+      return;
+    }
+    const data = await patchRes.json();
+    const newSlug = data.slug as string;
+    updatePublishedState(published.id, newSlug, size);
+  }, [published, renderPngForm, updatePublishedState]);
+
+  const handleUnpublish = useCallback(async () => {
+    if (!published) return;
+    try {
+      await fetch(`/api/proxy/logo/images/${published.id}`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: false }),
+      });
+      // Clear published state from saved logo
+      if (activeLogoId) {
+        setSavedLogos((prev) =>
+          prev.map((l) => l.id === activeLogoId
+            ? { ...l, publishedId: undefined, publishedSlug: undefined }
+            : l)
+        );
+      }
+      setPublished(null);
+    } catch {
+      alert("Failed to unpublish");
+    }
+  }, [published, activeLogoId, setSavedLogos]);
+
   return (
     <ToolLayout slug="logo" toolbar={
       <div className="flex items-center gap-1">
+        {activeLogoId && (
+          <button
+            onClick={handleNewLogo}
+            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+            title="Create a new logo"
+          >
+            <Plus className="h-3.5 w-3.5" /> New
+          </button>
+        )}
         <button
           onClick={handleSaveLogo}
-          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
-          title="Save logo config"
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+          title={activeLogoId ? "Update saved logo" : "Save as new logo"}
         >
-          <Save className="h-3.5 w-3.5" /> Save
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          {saving ? "Saving..." : activeLogoId ? "Save" : "Save New"}
         </button>
         <button
           onClick={handleShareLink}
@@ -1090,6 +1715,23 @@ export function LogoGenerator() {
           {linkCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Link2 className="h-3.5 w-3.5" />}
           {linkCopied ? "Copied!" : "Share"}
         </button>
+        {session && !published && (
+          <button
+            onClick={() => setShowPublishDialog(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
+            title="Publish logo as a public image"
+          >
+            <Globe className="h-3.5 w-3.5" /> Publish
+          </button>
+        )}
+        {published && (
+          <button
+            onClick={() => setShowPublishDialog(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-600 dark:text-green-400 hover:bg-green-500/20 transition-colors"
+          >
+            <Globe className="h-3.5 w-3.5" /> Published
+          </button>
+        )}
         <button
           onClick={handleCopySvg}
           className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted transition-colors"
@@ -1372,7 +2014,11 @@ export function LogoGenerator() {
                       >
                         <button
                           onClick={() => handleLoadLogo(saved)}
-                          className="flex items-center gap-2 flex-1 min-w-0 rounded-md border border-border/50 p-1.5 hover:border-ring transition-colors"
+                          className={`flex items-center gap-2 flex-1 min-w-0 rounded-md border p-1.5 transition-colors ${
+                            activeLogoId === saved.id
+                              ? "border-ring bg-muted/50"
+                              : "border-border/50 hover:border-ring"
+                          }`}
                         >
                           <div
                             className="w-8 h-8 rounded shrink-0 flex items-center justify-center text-[8px] font-bold overflow-hidden"
@@ -1385,7 +2031,12 @@ export function LogoGenerator() {
                             {c.text.slice(0, 4)}
                           </div>
                           <div className="flex-1 min-w-0 text-left">
-                            <div className="text-xs font-medium truncate">{saved.name}</div>
+                            <div className="text-xs font-medium truncate flex items-center gap-1">
+                              {saved.name}
+                              {saved.publishedSlug && (
+                                <Globe className="h-2.5 w-2.5 text-green-500 shrink-0" />
+                              )}
+                            </div>
                             <div className="text-[10px] text-muted-foreground">
                               {c.shape} · {c.bgMode === "transparent" ? "transparent" : c.bgColor.mode}
                             </div>
@@ -1406,7 +2057,7 @@ export function LogoGenerator() {
 
             {/* ── Reset ── */}
             <button
-              onClick={() => setConfig(DEFAULT_CONFIG)}
+              onClick={handleNewLogo}
               className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
             >
               <RotateCcw className="h-3.5 w-3.5" /> Reset to defaults
@@ -1416,6 +2067,25 @@ export function LogoGenerator() {
       </div>
 
       <style>{COLOR_PICKER_SLIDER_STYLES}</style>
+
+      {/* Publish dialog */}
+      {session && (
+        <LogoPublishDialog
+          open={showPublishDialog}
+          onOpenChange={(open) => {
+            setShowPublishDialog(open);
+            if (!open) setPublishDialogSaveTriggered(false);
+          }}
+          published={published}
+          publishing={publishing}
+          onPublish={handlePublish}
+          onRepublish={handleRepublish}
+          onUnpublish={handleUnpublish}
+          onNewUrl={handleNewUrl}
+          saveTriggered={publishDialogSaveTriggered}
+          currentPublishSize={activeLogoId ? savedLogos.find((l) => l.id === activeLogoId)?.publishSize : undefined}
+        />
+      )}
     </ToolLayout>
   );
 }

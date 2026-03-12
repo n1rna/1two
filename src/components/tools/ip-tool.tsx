@@ -210,6 +210,7 @@ export function IpTool({ ipv4, ipv6, info, error }: IpToolProps) {
           <CodeBlock label="Get detailed IP info" command="curl 1two.dev/ip/info" />
         </div>
       </section>
+
     </div>
   );
 }

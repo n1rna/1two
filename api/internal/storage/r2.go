@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // R2Client wraps the S3-compatible Cloudflare R2 API.
@@ -64,6 +66,23 @@ func (r *R2Client) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("storage: delete %q: %w", key, err)
 	}
 	return nil
+}
+
+// Get retrieves a file from R2. Returns nil, nil if the key doesn't exist.
+func (r *R2Client) Get(ctx context.Context, key string) ([]byte, error) {
+	resp, err := r.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &r.bucket,
+		Key:    &key,
+	})
+	if err != nil {
+		var nfe *types.NoSuchKey
+		if errors.As(err, &nfe) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("storage: get %q: %w", key, err)
+	}
+	defer resp.Body.Close()
+	return io.ReadAll(resp.Body)
 }
 
 // PresignedURL generates a pre-signed GET URL for downloading a file.

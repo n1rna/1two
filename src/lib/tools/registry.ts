@@ -226,6 +226,14 @@ export const tools: ToolDefinition[] = [
     keywords: ["ssl", "tls", "certificate", "https", "security", "expiry", "certificate chain", "x509"],
   },
   {
+    slug: "invoice",
+    name: "Invoice Creator",
+    description: "Create professional invoices with EU/US standards, line items, tax calculations, and PDF export",
+    category: "generators",
+    icon: "Receipt",
+    keywords: ["invoice", "bill", "pdf", "vat", "tax", "receipt", "billing", "payment", "eu", "us", "iban", "ein"],
+  },
+  {
     slug: "sqlite",
     name: "SQLite Browser",
     description: "Open and explore SQLite databases in the browser - browse tables, run SQL queries, sort, filter, and export data",
@@ -272,6 +280,15 @@ export const tools: ToolDefinition[] = [
     category: "generators",
     icon: "Settings",
     keywords: ["config", "configuration", "tsconfig", "nginx", "eslint", "prettier", "docker", "gitignore", "generate", "yaml", "json", "toml"],
+  },
+  {
+    slug: "llms-txt",
+    name: "llms.txt Generator",
+    description: "Generate llms.txt files from any website or docs",
+    category: "generators",
+    icon: "Bot",
+    keywords: ["llms.txt", "llms", "ai", "documentation", "crawl", "generate", "context", "sitemap"],
+    requiresAuth: true,
   },
   {
     slug: "paste",
@@ -324,13 +341,13 @@ export interface SearchItem {
 
 /** Sub-items that link to specific tabs/modes of a tool */
 const SUB_ITEMS: Omit<SearchItem, "category" | "icon">[] = [
-  { id: "random-uuid", name: "UUID Generator", description: "Generate random UUIDs (v4/v7)", href: "/tools/random?t=uuid", keywords: ["uuid", "guid", "unique id", "v4", "v7"], parent: "Random Generator" },
-  { id: "random-password", name: "Password Generator", description: "Generate secure random passwords", href: "/tools/random?t=password", keywords: ["password", "passphrase", "secure", "random password"], parent: "Random Generator" },
-  { id: "random-secret", name: "Secret Key Generator", description: "Generate cryptographic secret keys", href: "/tools/random?t=secret", keywords: ["secret", "key", "api key", "token", "crypto"], parent: "Random Generator" },
-  { id: "random-hex", name: "Hex String Generator", description: "Generate random hexadecimal strings", href: "/tools/random?t=hex", keywords: ["hex", "hexadecimal", "random hex"], parent: "Random Generator" },
-  { id: "random-base64", name: "Base64 Generator", description: "Generate random Base64-encoded strings", href: "/tools/random?t=base64", keywords: ["base64", "random base64", "token"], parent: "Random Generator" },
-  { id: "random-number", name: "Random Number", description: "Generate random numbers in a range", href: "/tools/random?t=number", keywords: ["number", "integer", "random number", "range"], parent: "Random Generator" },
-  { id: "random-lorem", name: "Lorem Ipsum Generator", description: "Generate placeholder text", href: "/tools/random?t=lorem", keywords: ["lorem", "ipsum", "placeholder", "dummy text", "filler"], parent: "Random Generator" },
+  { id: "random-uuid", name: "UUID Generator", description: "Generate random UUIDs (v4/v7)", href: "/tools/random/uuid", keywords: ["uuid", "guid", "unique id", "v4", "v7"], parent: "Random Generator" },
+  { id: "random-password", name: "Password Generator", description: "Generate secure random passwords", href: "/tools/random/password", keywords: ["password", "passphrase", "secure", "random password"], parent: "Random Generator" },
+  { id: "random-secret", name: "Secret Key Generator", description: "Generate cryptographic secret keys", href: "/tools/random/secret", keywords: ["secret", "key", "api key", "token", "crypto"], parent: "Random Generator" },
+  { id: "random-hex", name: "Hex String Generator", description: "Generate random hexadecimal strings", href: "/tools/random/hex", keywords: ["hex", "hexadecimal", "random hex"], parent: "Random Generator" },
+  { id: "random-base64", name: "Base64 Generator", description: "Generate random Base64-encoded strings", href: "/tools/random/base64", keywords: ["base64", "random base64", "token"], parent: "Random Generator" },
+  { id: "random-number", name: "Random Number", description: "Generate random numbers in a range", href: "/tools/random/number", keywords: ["number", "integer", "random number", "range"], parent: "Random Generator" },
+  { id: "random-lorem", name: "Lorem Ipsum Generator", description: "Generate placeholder text", href: "/tools/random/lorem", keywords: ["lorem", "ipsum", "placeholder", "dummy text", "filler"], parent: "Random Generator" },
   // Config Generator sub-items
   { id: "config-tsconfig", name: "tsconfig Generator", description: "Generate TypeScript tsconfig.json configuration", href: "/tools/config/tsconfig", keywords: ["tsconfig", "typescript", "tsconfig.json", "compiler options"], parent: "Config Generator" },
   { id: "config-eslint", name: "ESLint Config Generator", description: "Generate ESLint flat configuration", href: "/tools/config/eslint", keywords: ["eslint", "eslint config", "linter", "lint rules"], parent: "Config Generator" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "@/lib/auth-client";
-import { LogOut, User, Cloud } from "lucide-react";
+import { LogOut, User, Globe, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { SignInDialog } from "./sign-in-dialog";
@@ -69,8 +69,16 @@ export function UserMenu() {
               className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
               onClick={() => setMenuOpen(false)}
             >
-              <Cloud className="h-4 w-4" />
+              <Globe className="h-4 w-4" />
               Cloud Sync
+            </Link>
+            <Link
+              href="/account/billing"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              <CreditCard className="h-4 w-4" />
+              Billing
             </Link>
             <button
               className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors text-destructive"

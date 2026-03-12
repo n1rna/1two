@@ -11,6 +11,12 @@ interface Env {
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
   INTERNAL_SECRET: string;
+  CLOUDFLARE_ACCOUNT_ID: string;
+  CLOUDFLARE_API_TOKEN: string;
+  LLM_API_KEY: string;
+  LLM_PROVIDER: string;
+  LLM_BASE_URL: string;
+  LLM_MODEL: string;
 }
 
 export class ApiContainer extends Container<Env> {
@@ -29,6 +35,12 @@ export class ApiContainer extends Container<Env> {
       R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY ?? "",
       R2_BUCKET_NAME: env.R2_BUCKET_NAME ?? "",
       INTERNAL_SECRET: env.INTERNAL_SECRET ?? "",
+      CLOUDFLARE_ACCOUNT_ID: env.CLOUDFLARE_ACCOUNT_ID ?? "",
+      CLOUDFLARE_API_TOKEN: env.CLOUDFLARE_API_TOKEN ?? "",
+      LLM_API_KEY: env.LLM_API_KEY ?? "",
+      LLM_PROVIDER: env.LLM_PROVIDER ?? "",
+      LLM_BASE_URL: env.LLM_BASE_URL ?? "",
+      LLM_MODEL: env.LLM_MODEL ?? "",
       PORT: "8080",
     };
   }

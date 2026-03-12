@@ -62,6 +62,8 @@ export default function SslCheckerPage() {
           <li>Inspecting the certificate chain to debug <ToolInfo.Code>SSL_ERROR_RX_RECORD_TOO_LONG</ToolInfo.Code> or chain trust errors</li>
           <li>Checking the negotiated protocol to confirm <ToolInfo.Code>TLS 1.3</ToolInfo.Code> is in use and older versions are disabled</li>
         </ToolInfo.UL>
+
+
       </ToolInfo>
     </SslChecker>
   );

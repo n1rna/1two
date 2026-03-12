@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { RandomGenerator } from "@/components/tools/random-generator";
 import { ToolInfo } from "@/components/layout/tool-info";
 import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
@@ -22,7 +21,13 @@ export const metadata = toolMetadata({
   ],
 });
 
-export default function RandomPage() {
+export default async function RandomPage({
+  params,
+}: {
+  params: Promise<{ type?: string[] }>;
+}) {
+  const { type } = await params;
+  const initialType = type?.[0] ?? undefined;
   const jsonLd = toolJsonLd("random");
   return (
     <>
@@ -33,9 +38,7 @@ export default function RandomPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(item) }}
         />
       ))}
-      <Suspense>
-        <RandomGenerator />
-      </Suspense>
+      <RandomGenerator initialType={initialType} />
       <div className="max-w-6xl mx-auto px-6 pb-6">
         <ToolInfo>
           <ToolInfo.H2>What is this tool?</ToolInfo.H2>

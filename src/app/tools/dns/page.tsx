@@ -57,6 +57,8 @@ export default function DnsPage() {
           <li>Confirming domain ownership via <ToolInfo.Code>TXT</ToolInfo.Code> verification records</li>
           <li>Checking <ToolInfo.Code>CNAME</ToolInfo.Code> and <ToolInfo.Code>A</ToolInfo.Code> records when setting up CDNs or hosting</li>
         </ToolInfo.UL>
+
+
       </ToolInfo>
     </DnsTool>
   );

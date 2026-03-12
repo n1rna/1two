@@ -64,6 +64,8 @@ export default function OgCheckerPage() {
           <li>Checking <ToolInfo.Code>twitter:card</ToolInfo.Code> type (<ToolInfo.Code>summary</ToolInfo.Code> vs <ToolInfo.Code>summary_large_image</ToolInfo.Code>) and associated metadata</li>
           <li>Auditing multiple pages on a site for missing or incorrect OG tags</li>
         </ToolInfo.UL>
+
+
       </ToolInfo>
     </OgChecker>
   );

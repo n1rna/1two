@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"strings"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
@@ -23,7 +24,15 @@ func Open(databaseURL string) (*sql.DB, error) {
 		return nil, fmt.Errorf("database: DATABASE_URL must not be empty")
 	}
 
-	db, err := sql.Open("postgres", databaseURL)
+	// Use simple protocol to avoid prepared statement issues with connection poolers
+	// (Neon, Supabase PgBouncer in transaction mode).
+	sep := "?"
+	if strings.Contains(databaseURL, "?") {
+		sep = "&"
+	}
+	connStr := databaseURL + sep + "default_query_exec_mode=simple_protocol"
+
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("database: open connection: %w", err)
 	}

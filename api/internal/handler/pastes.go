@@ -4,11 +4,14 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/n1rna/1two/api/internal/billing"
 	"github.com/n1rna/1two/api/internal/middleware"
 )
 
@@ -105,11 +108,27 @@ var validVisibilities = map[string]bool{
 
 // CreatePaste handles POST /pastes.
 // Auth required.
-func CreatePaste(db *sql.DB) http.HandlerFunc {
+func CreatePaste(db *sql.DB, billingClient *billing.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := middleware.GetUserID(r.Context())
 		if userID == "" {
 			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// Check billing limit
+		allowed, current, limit, err := billing.CheckLimit(r.Context(), db, userID, "paste-created")
+		if err != nil {
+			log.Printf("billing: check limit error: %v", err)
+		} else if !allowed {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]any{
+				"error":   fmt.Sprintf("monthly paste limit reached (%d/%d)", current, limit),
+				"code":    "LIMIT_REACHED",
+				"current": current,
+				"limit":   limit,
+			})
 			return
 		}
 
@@ -156,12 +175,28 @@ func CreatePaste(db *sql.DB) http.HandlerFunc {
 			RETURNING created_at`
 
 		var createdAt time.Time
-		err := db.QueryRowContext(r.Context(), q,
+		err = db.QueryRowContext(r.Context(), q,
 			pasteID, userID, req.Title, req.Content, req.Format, req.Visibility, size, expiresAt,
 		).Scan(&createdAt)
 		if err != nil {
 			http.Error(w, `{"error":"failed to create paste"}`, http.StatusInternalServerError)
 			return
+		}
+
+		// Increment local usage counter
+		if _, uErr := billing.IncrementUsage(r.Context(), db, userID, "paste-created"); uErr != nil {
+			log.Printf("billing: increment usage error: %v", uErr)
+		}
+
+		// Fire async Polar event (best-effort)
+		if billingClient != nil {
+			go func() {
+				if err := billingClient.IngestEvent(r.Context(), userID, "paste-created", map[string]string{
+					"paste_id": pasteID,
+				}); err != nil {
+					log.Printf("billing: ingest event error: %v", err)
+				}
+			}()
 		}
 
 		resp := createPasteResponse{

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Cloud, CloudOff, Loader2, RefreshCw } from "lucide-react";
+import { Globe, GlobeLock, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ── Relative time helper ────────────────────────────────
@@ -109,11 +109,11 @@ export function SyncToggle({
           {isSyncing ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : !isLoggedIn ? (
-            <CloudOff className="h-4 w-4 text-muted-foreground/50" />
+            <GlobeLock className="h-4 w-4 text-muted-foreground/50" />
           ) : syncMode === "cloud" ? (
-            <Cloud className="h-4 w-4 text-primary" />
+            <Globe className="h-4 w-4 text-primary" />
           ) : (
-            <CloudOff className="h-4 w-4 text-muted-foreground" />
+            <GlobeLock className="h-4 w-4 text-muted-foreground" />
           )}
         </Button>
       </Tooltip>

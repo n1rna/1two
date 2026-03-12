@@ -52,6 +52,8 @@ export default function PastePage() {
           <li>Sending text that&apos;s too long for chat messages</li>
           <li>Quick alternative to creating a GitHub Gist</li>
         </ToolInfo.UL>
+
+
       </ToolInfo>
     </ToolLayout>
   );

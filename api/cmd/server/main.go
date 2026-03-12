@@ -1,16 +1,24 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/n1rna/1two/api/internal/agent"
+	"github.com/n1rna/1two/api/internal/billing"
 	"github.com/n1rna/1two/api/internal/config"
+	"github.com/n1rna/1two/api/internal/crawl"
 	"github.com/n1rna/1two/api/internal/database"
 	"github.com/n1rna/1two/api/internal/handler"
+	"github.com/n1rna/1two/api/internal/llms"
 	"github.com/n1rna/1two/api/internal/middleware"
 	"github.com/n1rna/1two/api/internal/storage"
 )
@@ -34,6 +42,26 @@ func main() {
 		}
 	} else {
 		log.Printf("WARNING: R2 not configured (file upload/download will be unavailable)")
+	}
+
+	var llmsSvc *llms.Service
+	if cfg.CfAccountID != "" && cfg.LLMAPIKey != "" && db != nil && r2 != nil {
+		crawlClient := crawl.NewClient(cfg.CfAccountID, cfg.CfAPIToken)
+		llmsSvc = llms.NewService(db, r2, crawlClient, agent.LLMConfig{
+			Provider: cfg.LLMProvider,
+			APIKey:   cfg.LLMAPIKey,
+			BaseURL:  cfg.LLMBaseURL,
+			Model:    cfg.LLMModel,
+		})
+	} else {
+		log.Printf("WARNING: llms.txt generator not configured (missing CLOUDFLARE_ACCOUNT_ID, LLM_API_KEY, DB, or R2)")
+	}
+
+	var billingClient *billing.Client
+	if cfg.PolarAccessToken != "" && db != nil {
+		billingClient = billing.NewClient(cfg)
+	} else {
+		log.Printf("WARNING: Polar billing not configured (missing POLAR_ACCESS_TOKEN or DB)")
 	}
 
 	r := chi.NewRouter()
@@ -62,6 +90,11 @@ func main() {
 		r.Post("/og-check", handler.OgCheck(cfg))
 		r.Post("/ssl-check", handler.SslCheck(cfg))
 
+		// Polar webhook (public, uses signature verification)
+		if billingClient != nil {
+			r.Post("/webhooks/polar", handler.PolarWebhook(cfg, db, billingClient))
+		}
+
 		// Internal routes (protected by secret)
 		if r2 != nil && db != nil {
 			r.Post("/internal/cleanup", handler.CleanupExpiredFiles(cfg, db, r2))
@@ -70,7 +103,13 @@ func main() {
 		// Public routes (no auth)
 		if db != nil {
 			r.Get("/pastes/{id}", handler.GetPaste(db))
-			r.Get("/og/s/{slug}", handler.GetOgCollectionBySlug(db))
+			r.Get("/og/s/{slug}", handler.GetOgCollectionBySlug(db, billingClient))
+		}
+		if llmsSvc != nil {
+			r.Get("/llms/s/{slug}", handler.GetLlmsPublicFile(llmsSvc))
+		}
+		if db != nil && r2 != nil {
+			r.Get("/logo/s/{slug}", handler.GetLogoImageBySlug(db, r2))
 		}
 
 		// Authenticated routes
@@ -83,7 +122,7 @@ func main() {
 				r.Delete("/files/{id}", handler.DeleteFile(db, r2))
 			}
 			if db != nil {
-				r.Post("/pastes", handler.CreatePaste(db))
+				r.Post("/pastes", handler.CreatePaste(db, billingClient))
 				r.Get("/pastes", handler.ListPastes(db))
 				r.Put("/pastes/{id}", handler.UpdatePaste(db))
 				r.Delete("/pastes/{id}", handler.DeletePaste(db))
@@ -98,6 +137,28 @@ func main() {
 				r.Get("/og/collections/{id}", handler.GetOgCollection(db))
 				r.Put("/og/collections/{id}", handler.UpdateOgCollection(db))
 				r.Delete("/og/collections/{id}", handler.DeleteOgCollection(db))
+
+				r.Patch("/logo/images/{id}", handler.PatchLogoImage(db))
+			}
+			if r2 != nil && db != nil {
+				r.Post("/logo/images", handler.CreateLogoImage(db, r2))
+				r.Get("/logo/images", handler.ListLogoImages(db))
+				r.Put("/logo/images/{id}", handler.UpdateLogoImage(db, r2))
+				r.Delete("/logo/images/{id}", handler.DeleteLogoImage(db, r2))
+			}
+			if db != nil {
+				r.Get("/billing/status", handler.GetBillingStatus(db, billingClient))
+				r.Post("/billing/checkout", handler.CreateCheckout(db, billingClient))
+				r.Post("/billing/portal-session", handler.CreateCustomerPortalSession(db, billingClient))
+			}
+			if llmsSvc != nil && db != nil && r2 != nil {
+				r.Post("/llms/generate", handler.GenerateLlms(llmsSvc))
+				r.Get("/llms/jobs", handler.ListLlmsJobs(llmsSvc))
+				r.Get("/llms/jobs/{id}", handler.GetLlmsJob(llmsSvc))
+				r.Delete("/llms/jobs/{id}", handler.CancelLlmsJob(llmsSvc))
+				r.Get("/llms/cache", handler.GetLlmsCache(llmsSvc))
+				r.Get("/llms/files/{id}", handler.GetLlmsFile(db, r2))
+				r.Patch("/llms/files/{id}", handler.PatchLlmsFile(llmsSvc))
 			}
 		})
 	})
@@ -107,8 +168,32 @@ func main() {
 		port = "8080"
 	}
 
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
+	}
+
+	// Graceful shutdown: wait for SIGINT/SIGTERM, then drain connections
+	// and stop background workers.
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+
+		log.Println("Shutting down...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		srv.Shutdown(ctx)
+
+		if llmsSvc != nil {
+			llmsSvc.Stop()
+		}
+	}()
+
 	log.Printf("API server listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }

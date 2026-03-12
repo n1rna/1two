@@ -7,8 +7,8 @@ import { SYNCABLE_KEYS, type SyncableKeyDef } from "@/lib/sync/schema";
 import { getToolBySlug } from "@/lib/tools/registry";
 import * as icons from "lucide-react";
 import {
-  Cloud,
-  CloudOff,
+  Globe,
+  GlobeLock,
   Loader2,
   Trash2,
   HardDrive,
@@ -351,7 +351,7 @@ function SyncManagerInner() {
                       title="Disable cloud sync"
                       onClick={() => disableCloud(keyDef.key)}
                     >
-                      <CloudOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      <GlobeLock className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
                   </>
                 ) : (
@@ -362,7 +362,7 @@ function SyncManagerInner() {
                     title="Enable cloud sync"
                     onClick={() => enableCloud(keyDef.key)}
                   >
-                    <Cloud className="h-3.5 w-3.5" />
+                    <Globe className="h-3.5 w-3.5" />
                     Enable
                   </Button>
                 )}

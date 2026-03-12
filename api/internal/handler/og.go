@@ -1,15 +1,18 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/n1rna/1two/api/internal/billing"
 	"github.com/n1rna/1two/api/internal/middleware"
 )
 
@@ -190,16 +193,17 @@ func GetOgCollection(db *sql.DB) http.HandlerFunc {
 }
 
 // GetOgCollectionBySlug returns a collection config by slug (public, no auth required for serving).
-func GetOgCollectionBySlug(db *sql.DB) http.HandlerFunc {
+func GetOgCollectionBySlug(db *sql.DB, billingClient *billing.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slug := chi.URLParam(r, "slug")
 
 		var item ogCollectionRow
+		var ownerUserID string
 		var createdAt, updatedAt time.Time
 		err := db.QueryRowContext(r.Context(),
-			`SELECT id, slug, name, config, published, created_at, updated_at
+			`SELECT id, user_id, slug, name, config, published, created_at, updated_at
 			 FROM og_collections WHERE slug = $1 AND published = TRUE`,
-			slug).Scan(&item.ID, &item.Slug, &item.Name, &item.Config, &item.Published, &createdAt, &updatedAt)
+			slug).Scan(&item.ID, &ownerUserID, &item.Slug, &item.Name, &item.Config, &item.Published, &createdAt, &updatedAt)
 		if err == sql.ErrNoRows {
 			http.Error(w, `{"error":"collection not found"}`, http.StatusNotFound)
 			return
@@ -210,6 +214,21 @@ func GetOgCollectionBySlug(db *sql.DB) http.HandlerFunc {
 		}
 		item.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		item.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		// Track OG image view for the collection owner (best-effort)
+		go func() {
+			if _, err := billing.IncrementUsage(context.Background(), db, ownerUserID, "og-image-view"); err != nil {
+				log.Printf("billing: og view increment error: %v", err)
+			}
+			if billingClient != nil {
+				if err := billingClient.IngestEvent(context.Background(), ownerUserID, "og-image-view", map[string]string{
+					"collection_id": item.ID,
+					"slug":          slug,
+				}); err != nil {
+					log.Printf("billing: og view ingest error: %v", err)
+				}
+			}
+		}()
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "public, max-age=60")

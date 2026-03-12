@@ -50,6 +50,8 @@ export default function UploadPage() {
           <li>Hosting small files for quick access via a direct URL</li>
           <li>Temporary file sharing without third-party services</li>
         </ToolInfo.UL>
+
+
       </ToolInfo>
     </ToolLayout>
   );

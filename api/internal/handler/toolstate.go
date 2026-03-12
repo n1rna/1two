@@ -22,6 +22,7 @@ var allowedToolStateKeys = map[string]int64{
 	"og-custom-layouts":     262144,
 	"1two-saved-colors":     65536,
 	"1two-saved-themes":     65536,
+	"1two-saved-invoices":   262144,
 	"1two:bookmarks":        8192,
 	"1two:tool-order":       8192,
 }
@@ -39,6 +40,7 @@ var toolStateValidators = map[string]validator{
 	"lookup-history":        validateLookupHistory,
 	"1two-saved-logos":      validateSavedLogos,
 	"og-custom-layouts":     validateOgLayouts,
+	"1two-saved-invoices":   validateSavedInvoices,
 	"1two-saved-colors":     validateSavedColors,
 	"1two-saved-themes":     validateSavedThemes,
 }
@@ -205,6 +207,27 @@ func validateOgLayouts(data json.RawMessage) error {
 	for i, e := range arr {
 		if e.ID == nil || e.Name == nil || e.Elements == nil {
 			return fmt.Errorf("item %d missing required fields (id, name, elements)", i)
+		}
+	}
+	return nil
+}
+
+func validateSavedInvoices(data json.RawMessage) error {
+	var arr []struct {
+		ID      *string `json:"id"`
+		Name    *string `json:"name"`
+		Data    *any    `json:"data"`
+		SavedAt *string `json:"savedAt"`
+	}
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return fmt.Errorf("must be an array of saved invoice objects")
+	}
+	if len(arr) > 50 {
+		return fmt.Errorf("too many items (max 50)")
+	}
+	for i, e := range arr {
+		if e.ID == nil || e.Name == nil || e.Data == nil || e.SavedAt == nil {
+			return fmt.Errorf("item %d missing required fields (id, name, data, savedAt)", i)
 		}
 	}
 	return nil

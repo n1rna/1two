@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -34,33 +33,21 @@ interface GeneratedItem {
 
 let nextId = 0;
 
-function isValidType(t: string | null): t is GeneratorType {
+function isValidType(t: string | null | undefined): t is GeneratorType {
   return !!t && GENERATOR_TYPES.includes(t as GeneratorType);
 }
 
-export function RandomGenerator() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const paramType = searchParams.get("t");
+export function RandomGenerator({ initialType }: { initialType?: string } = {}) {
   const [activeType, setActiveType] = useState<GeneratorType>(
-    isValidType(paramType) ? paramType : "uuid"
+    isValidType(initialType) ? initialType : "uuid"
   );
 
-  // Sync state when URL param changes externally (e.g. via search launcher)
-  useEffect(() => {
-    if (isValidType(paramType) && paramType !== activeType) {
-      setActiveType(paramType);
-    }
-  }, [paramType]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const setActiveTypeWithParam = useCallback(
+  const setActiveTypeWithUrl = useCallback(
     (type: GeneratorType) => {
       setActiveType(type);
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("t", type);
-      router.replace(`?${params.toString()}`, { scroll: false });
+      window.history.replaceState(null, "", `/tools/random/${type}`);
     },
-    [searchParams, router]
+    []
   );
   const [config, setConfig] = useState<GeneratorConfig>({ ...DEFAULT_CONFIG });
   const [results, setResults] = useState<GeneratedItem[]>([]);
@@ -160,7 +147,7 @@ export function RandomGenerator() {
             {GENERATOR_TYPES.map((type) => (
               <button
                 key={type}
-                onClick={() => setActiveTypeWithParam(type)}
+                onClick={() => setActiveTypeWithUrl(type)}
                 className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
                   activeType === type
                     ? "bg-foreground text-background font-medium"
