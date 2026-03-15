@@ -177,9 +177,9 @@ export function ProgressView({
 
 // ─── ReasoningStep ────────────────────────────────────────────────────────────
 
-type StepStatus = "pending" | "active" | "done";
+export type StepStatus = "pending" | "active" | "done";
 
-interface ReasoningStepProps {
+export interface ReasoningStepProps {
   icon: LucideIcon;
   title: string;
   status: StepStatus;
@@ -188,7 +188,7 @@ interface ReasoningStepProps {
   children: React.ReactNode;
 }
 
-function ReasoningStep({
+export function ReasoningStep({
   icon: Icon,
   title,
   status,
@@ -335,7 +335,7 @@ const SHIMMER_CSS = `
 }
 `;
 
-function ShimmerStyles() {
+export function ShimmerStyles() {
   return <style dangerouslySetInnerHTML={{ __html: SHIMMER_CSS }} />;
 }
 
