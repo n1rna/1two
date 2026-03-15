@@ -141,18 +141,22 @@ func buildSystemPrompt(dialect string, tables []aiSqlTable) string {
 	}
 
 	if dialect == "elasticsearch" {
-		// Mappings are injected by the frontend as a system message in
-		// conversation mode.  This single-turn path is a fallback.
-		return `You are an Elasticsearch expert. Generate a valid Elasticsearch query body as JSON.
+		return `You are an Elasticsearch query expert.
 
-Rules:
-- Output ONLY valid JSON — the complete request body for the _search endpoint
-- No markdown, no code fences, no explanations outside the JSON
-- Include "size": 10 unless specified otherwise
-- For text fields, use "match" queries; for keyword fields use "term"
-- For date fields, use "range" with relative dates like "now-7d"
+Your task: generate the JSON request body for the Elasticsearch _search API.
+
+CRITICAL RULES:
+- Output ONLY the raw JSON object. Nothing else.
+- Do NOT include the HTTP method or URL path (no "GET /index/_search" prefix)
+- Do NOT include any comments — JSON does not support comments
+- Do NOT include any text before or after the JSON
+- The output must be valid, parseable JSON that starts with { and ends with }
+- Include "size": 10 unless the user specifies otherwise
+- Use appropriate query types: "match" for text search, "term" for exact keyword match, "range" for dates/numbers, "bool" for combining conditions
 - For aggregations, set "size": 0 to skip hits
-- Common patterns: bool queries for combining, nested for nested objects`
+
+Example of correct output:
+{"query":{"match_all":{}},"size":10}`
 	}
 
 	schemaTxt := formatSchema(tables)
@@ -174,7 +178,7 @@ Rules:
 // followed by a fenced code block.
 func conversationSystemSuffix(dialect string) string {
 	if dialect == "elasticsearch" {
-		return "\n\nBriefly explain your approach in 1-2 sentences, then output the complete Elasticsearch query body in a fenced code block: ```json ... ```. The JSON must be the full _search request body."
+		return "\n\nBriefly explain your approach in 1-2 sentences, then output the JSON in a fenced code block: ```json ... ```. CRITICAL: The JSON must be a raw JSON object starting with { — no HTTP method/path prefix, no comments, no text inside the JSON block."
 	}
 	return "\n\nAfter your reasoning, output the SQL on a new line starting with ```sql and ending with ```. Your reasoning should be brief (1-2 sentences max)."
 }
@@ -412,6 +416,11 @@ func GenerateAiSql(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 
 		reasoning, cleanSQL := parseAiResponse(rawContent)
 
+		// For Elasticsearch: ensure the output is clean JSON without HTTP prefix or comments
+		if req.Dialect == "elasticsearch" {
+			cleanSQL = sanitizeEsJSON(cleanSQL)
+		}
+
 		// Track actual token usage from the LLM response.
 		tokenCount := int64(tokens)
 		if tokenCount <= 0 {
@@ -592,6 +601,70 @@ func buildSuggestions(tables []aiSqlTable, dialect string) []aiSqlSuggestion {
 	}
 
 	return suggestions
+}
+
+// sanitizeEsJSON cleans up LLM-generated Elasticsearch JSON that may contain
+// unwanted prefixes (e.g. "GET /index/_search\n{...}"), inline comments
+// (// or /* */), or trailing text after the JSON object.
+func sanitizeEsJSON(s string) string {
+	s = strings.TrimSpace(s)
+
+	// Strip HTTP method + path prefix: "GET /users/_search\n" or "POST /_search\n"
+	if idx := strings.Index(s, "\n"); idx != -1 && idx < 80 {
+		line := strings.TrimSpace(s[:idx])
+		upper := strings.ToUpper(line)
+		if strings.HasPrefix(upper, "GET ") || strings.HasPrefix(upper, "POST ") ||
+			strings.HasPrefix(upper, "PUT ") || strings.HasPrefix(upper, "DELETE ") {
+			s = strings.TrimSpace(s[idx+1:])
+		}
+	}
+
+	// Find the first '{' — everything before it is discarded
+	braceIdx := strings.Index(s, "{")
+	if braceIdx == -1 {
+		return s // no JSON object found, return as-is
+	}
+	s = s[braceIdx:]
+
+	// Remove single-line comments (// ...) that some LLMs add despite instructions
+	lines := strings.Split(s, "\n")
+	var cleaned []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "//") {
+			continue // skip full-line comments
+		}
+		// Remove inline comments: find // that isn't inside a string
+		// Simple heuristic: if // appears after a " or }, it's likely a comment
+		if commentIdx := strings.Index(line, "//"); commentIdx > 0 {
+			before := strings.TrimSpace(line[:commentIdx])
+			if len(before) > 0 {
+				line = before
+			}
+		}
+		cleaned = append(cleaned, line)
+	}
+	s = strings.Join(cleaned, "\n")
+
+	// Find matching closing '}' by counting braces
+	depth := 0
+	endIdx := -1
+	for i, ch := range s {
+		if ch == '{' {
+			depth++
+		} else if ch == '}' {
+			depth--
+			if depth == 0 {
+				endIdx = i
+				break
+			}
+		}
+	}
+	if endIdx >= 0 {
+		s = s[:endIdx+1]
+	}
+
+	return strings.TrimSpace(s)
 }
 
 // ─── Elasticsearch suggestion helpers ────────────────────────────────────────

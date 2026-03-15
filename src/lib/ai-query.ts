@@ -43,21 +43,23 @@ export function buildSystemMessage(schema: TableSchema[], dialect: SqlDialect): 
     );
     const fieldList = fields.length > 0 ? fields.join("\n") : "  (no fields known)";
 
-    return `You are an Elasticsearch expert. Generate a valid Elasticsearch query body as JSON.
+    return `You are an Elasticsearch query expert.
+
+Your task: generate the JSON request body for the Elasticsearch _search API.
 
 Index: ${indexName}
 Index mappings (field — type):
 ${fieldList}
 
-Rules:
-- Output ONLY valid JSON — the complete request body for the _search endpoint
-- No markdown, no code fences, no explanations outside the JSON
+CRITICAL RULES:
+- Output ONLY the raw JSON object. Nothing else.
+- Do NOT include the HTTP method or URL path (no "GET /index/_search" prefix)
+- Do NOT include any comments — JSON does not support comments
+- The output must be valid, parseable JSON that starts with { and ends with }
 - Use exact field names from the mappings above
-- Include "size": 10 unless specified otherwise
-- For text fields, use "match" queries; for keyword fields use "term"
-- For date fields, use "range" with relative dates like "now-7d"
+- Include "size": 10 unless the user specifies otherwise
+- Use "match" for text search, "term" for exact keyword match, "range" for dates/numbers, "bool" for combining conditions
 - For aggregations, set "size": 0 to skip hits
-- Common patterns: bool queries for combining, nested for nested objects
 - For follow-up requests, use conversation context to understand what the user wants modified`;
   }
 
