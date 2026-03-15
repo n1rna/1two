@@ -17,6 +17,17 @@ interface Env {
   LLM_PROVIDER: string;
   LLM_BASE_URL: string;
   LLM_MODEL: string;
+  POLAR_ACCESS_TOKEN: string;
+  POLAR_WEBHOOK_SECRET: string;
+  POLAR_ORGANIZATION_ID: string;
+  POLAR_ENVIRONMENT: string;
+  POLAR_PRO_PRODUCT_ID: string;
+  POLAR_MAX_PRODUCT_ID: string;
+  NEON_API_KEY: string;
+  NEON_ORG_ID: string;
+  TURSO_API_TOKEN: string;
+  TURSO_ORG_SLUG: string;
+  TURSO_GROUP: string;
 }
 
 export class ApiContainer extends Container<Env> {
@@ -41,6 +52,17 @@ export class ApiContainer extends Container<Env> {
       LLM_PROVIDER: env.LLM_PROVIDER ?? "",
       LLM_BASE_URL: env.LLM_BASE_URL ?? "",
       LLM_MODEL: env.LLM_MODEL ?? "",
+      POLAR_ACCESS_TOKEN: env.POLAR_ACCESS_TOKEN ?? "",
+      POLAR_WEBHOOK_SECRET: env.POLAR_WEBHOOK_SECRET ?? "",
+      POLAR_ORGANIZATION_ID: env.POLAR_ORGANIZATION_ID ?? "",
+      POLAR_ENVIRONMENT: env.POLAR_ENVIRONMENT ?? "",
+      POLAR_PRO_PRODUCT_ID: env.POLAR_PRO_PRODUCT_ID ?? "",
+      POLAR_MAX_PRODUCT_ID: env.POLAR_MAX_PRODUCT_ID ?? "",
+      NEON_API_KEY: env.NEON_API_KEY ?? "",
+      NEON_ORG_ID: env.NEON_ORG_ID ?? "",
+      TURSO_API_TOKEN: env.TURSO_API_TOKEN ?? "",
+      TURSO_ORG_SLUG: env.TURSO_ORG_SLUG ?? "",
+      TURSO_GROUP: env.TURSO_GROUP ?? "",
       PORT: "8080",
     };
   }

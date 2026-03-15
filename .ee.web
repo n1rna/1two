@@ -54,7 +54,7 @@
 				"title": "Go backend internal URL",
 				"type": "string",
 				"default": "http://localhost:8090",
-				"required": true
+				"required": false
 			},
 			"NEXT_PUBLIC_TURNSTILE_SITE_KEY": {
 				"name": "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
@@ -70,6 +70,13 @@
 		},
 		"production": {
 			"sheets": [".env.web.production"]
+		}
+	},
+	"origins": {
+		"cloudflare": {
+			"type": "cloudflare",
+			"mode": "individual",
+			"worker": "1two-web"
 		}
 	}
 }

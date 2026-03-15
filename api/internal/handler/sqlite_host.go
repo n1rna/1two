@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/n1rna/1two/api/internal/billing"
 	"github.com/n1rna/1two/api/internal/middleware"
 	"github.com/n1rna/1two/api/internal/turso"
 )
@@ -37,7 +38,7 @@ type HostedSqliteRecord struct {
 
 // UploadSqliteDB handles POST /sqlite — upload a SQLite file, provision a Turso
 // database, seed it, and register the record.
-func UploadSqliteDB(db *sql.DB, tursoClient *turso.Client) http.HandlerFunc {
+func UploadSqliteDB(db *sql.DB, tursoClient *turso.Client, billingClient *billing.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -52,9 +53,37 @@ func UploadSqliteDB(db *sql.DB, tursoClient *turso.Client) http.HandlerFunc {
 			return
 		}
 
-		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
-		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
-			http.Error(w, `{"error":"file too large (max 50MB)"}`, http.StatusBadRequest)
+		// Check plan limits: number of SQLite databases
+		tier := billing.GetUserPlanTier(r.Context(), db, userID)
+		limits := billing.Plans[tier]
+
+		if limits.SqliteDbsMax <= 0 {
+			http.Error(w, `{"error":"hosted SQLite databases require a paid plan"}`, http.StatusForbidden)
+			return
+		}
+
+		var activeCount int
+		err := db.QueryRowContext(r.Context(),
+			`SELECT COUNT(*) FROM hosted_sqlite WHERE user_id = $1 AND status = 'active'`,
+			userID).Scan(&activeCount)
+		if err != nil {
+			http.Error(w, `{"error":"failed to check database count"}`, http.StatusInternalServerError)
+			return
+		}
+		if activeCount >= limits.SqliteDbsMax {
+			http.Error(w, `{"error":"SQLite database limit reached for your plan"}`, http.StatusForbidden)
+			return
+		}
+
+		// Enforce per-file size limit from plan
+		maxSize := limits.SqliteMaxSizeMB * 1024 * 1024
+		if maxSize <= 0 {
+			maxSize = maxUploadSize
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+		if err := r.ParseMultipartForm(maxSize); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"file too large (max %dMB for your plan)"}`, limits.SqliteMaxSizeMB), http.StatusBadRequest)
 			return
 		}
 

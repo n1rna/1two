@@ -16,6 +16,9 @@ export interface BillingStatus {
   usage: Record<string, UsageMetric>;
   limits: {
     ogCollections: number | null; // null = unlimited
+    databasesMax: number;
+    sqliteDbsMax: number;
+    sqliteMaxSizeMB: number;
   };
 }
 

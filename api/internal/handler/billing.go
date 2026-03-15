@@ -64,7 +64,10 @@ func GetBillingStatus(db *sql.DB, billingClient *billing.Client) http.HandlerFun
 				},
 			},
 			"limits": map[string]any{
-				"ogCollections": limits.OgCollections,
+				"ogCollections":  limits.OgCollections,
+				"databasesMax":   limits.DatabasesMax,
+				"sqliteDbsMax":   limits.SqliteDbsMax,
+				"sqliteMaxSizeMB": limits.SqliteMaxSizeMB,
 			},
 		})
 	}

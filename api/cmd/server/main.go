@@ -185,7 +185,7 @@ func main() {
 			}
 			// Hosted SQLite — session-authenticated management routes.
 			if db != nil {
-				r.Post("/sqlite", handler.UploadSqliteDB(db, tursoClient))
+				r.Post("/sqlite", handler.UploadSqliteDB(db, tursoClient, billingClient))
 				r.Get("/sqlite", handler.ListSqliteDBs(db))
 				r.Get("/sqlite/{id}", handler.GetSqliteDB(db))
 				r.Delete("/sqlite/{id}", handler.DeleteSqliteDB(db, tursoClient))
