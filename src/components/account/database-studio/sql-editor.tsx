@@ -9,7 +9,7 @@ import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { tags } from "@lezer/highlight";
 import { useTheme } from "next-themes";
-import { Play, Loader2, AlertTriangle, CheckCircle2, Sparkles, PanelTopClose, PanelBottomClose, GripHorizontal } from "lucide-react";
+import { Play, Loader2, AlertTriangle, CheckCircle2, Sparkles, GripHorizontal, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CellValue, QueryExecutor, SqlDialect, TableSchema, AiSession } from "./types";
@@ -639,23 +639,36 @@ export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabl
           </span>
         )}
 
-        {/* AI toggle */}
-        <button
-          onClick={() => setAiBarOpen((v) => !v)}
-          className={cn(
-            "flex items-center gap-1 h-6 px-2 rounded text-[11px] transition-colors",
-            aiBarOpen
-              ? "bg-primary/10 text-primary hover:bg-primary/15"
-              : "text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/50"
-          )}
-          title={aiBarOpen ? "Hide AI assistant" : "Show AI assistant"}
-        >
-          <Sparkles className="h-3 w-3" />
-          AI
-        </button>
       </div>
 
-      {/* AI SQL bar — collapsible */}
+      {/* AI assistant section — clickable header + collapsible content */}
+      <button
+        onClick={() => setAiBarOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-2 w-full px-3 py-1.5 border-b shrink-0 text-left transition-colors",
+          aiBarOpen
+            ? "bg-primary/5 hover:bg-primary/10"
+            : "bg-muted/10 hover:bg-muted/20"
+        )}
+      >
+        <Sparkles className={cn("h-3 w-3 shrink-0", aiBarOpen ? "text-primary" : "text-muted-foreground/50")} />
+        <span className={cn("text-xs font-medium", aiBarOpen ? "text-primary" : "text-muted-foreground/50")}>
+          AI Assistant
+        </span>
+        {aiSession && aiSession.entries.length > 0 && (
+          <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+            {aiSession.entries.length} {aiSession.entries.length === 1 ? "prompt" : "prompts"}
+          </span>
+        )}
+        <div className="flex-1" />
+        <ChevronDown
+          className={cn(
+            "h-3 w-3 shrink-0 transition-transform duration-200",
+            aiBarOpen ? "text-primary/60 rotate-180" : "text-muted-foreground/40"
+          )}
+        />
+      </button>
+
       <div
         className="grid transition-[grid-template-rows] duration-200 ease-in-out shrink-0"
         style={{ gridTemplateRows: aiBarOpen ? "1fr" : "0fr" }}
