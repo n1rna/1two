@@ -18,6 +18,8 @@ export const metadata = guideMetadata({
     "database gui",
     "schema browser",
     "postgres client",
+    "ai sql",
+    "natural language sql",
   ],
 });
 
@@ -87,6 +89,32 @@ export default function PostgresqlStudioGuide() {
           <Guide.Code>DELETE</Guide.Code>, and DDL statements — anything your
           database user has permission to execute.
         </Guide.P>
+
+        <Guide.H2>AI-assisted SQL</Guide.H2>
+        <Guide.P>
+          Not sure how to write a query? The studio includes an AI assistant
+          that generates SQL from plain English. Describe what you want —
+          &quot;show the 10 most recent orders with customer names&quot; — and
+          the assistant writes the query for you, using the actual tables and
+          columns in your database.
+        </Guide.P>
+        <Guide.UL>
+          <li>
+            <Guide.Strong>Schema-aware</Guide.Strong> — the AI sees your
+            database schema so it produces queries that reference real table
+            and column names, not guesses
+          </li>
+          <li>
+            <Guide.Strong>Suggestion chips</Guide.Strong> — contextual query
+            suggestions appear based on your schema, giving you one-click
+            starting points for common queries
+          </li>
+          <li>
+            <Guide.Strong>Edit and refine</Guide.Strong> — generated SQL is
+            placed directly in the editor where you can review, modify, and
+            run it
+          </li>
+        </Guide.UL>
 
         <Guide.H2>Hosted Postgres databases</Guide.H2>
         <Guide.P>

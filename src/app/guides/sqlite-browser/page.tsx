@@ -18,6 +18,8 @@ export const metadata = guideMetadata({
     "embedded database",
     "edge database",
     "sqlite browser",
+    "ai sql",
+    "natural language sql",
   ],
 });
 
@@ -67,6 +69,30 @@ export default function SqliteBrowserGuide() {
           <li>Run arbitrary SQL with syntax highlighting</li>
           <li>Sort, filter, and paginate results in a data grid</li>
           <li>Export query results as CSV</li>
+        </Guide.UL>
+
+        <Guide.H2>AI-assisted SQL</Guide.H2>
+        <Guide.P>
+          The SQLite Browser includes an AI assistant that generates SQL from
+          natural language. Describe what you need — &quot;find duplicate
+          entries by email&quot; — and the assistant writes a query using the
+          actual tables and columns in your database.
+        </Guide.P>
+        <Guide.UL>
+          <li>
+            <Guide.Strong>Schema-aware</Guide.Strong> — the AI reads your
+            database schema and generates queries that reference real table
+            and column names
+          </li>
+          <li>
+            <Guide.Strong>Suggestion chips</Guide.Strong> — one-click query
+            suggestions based on the tables in your file, so you can start
+            exploring immediately
+          </li>
+          <li>
+            <Guide.Strong>Edit and refine</Guide.Strong> — generated SQL
+            lands in the editor where you can tweak it before running
+          </li>
         </Guide.UL>
 
         <Guide.H2>Turso and libSQL: SQLite for the edge</Guide.H2>

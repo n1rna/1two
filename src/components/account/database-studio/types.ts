@@ -58,6 +58,17 @@ export interface QueryResult {
   rowCount?: number;
   rowsAffected?: number;
   error?: string;
+  // Multi-statement results
+  results?: StatementResult[];
+}
+
+export interface StatementResult {
+  statement: string;
+  columns?: string[];
+  rows?: string[][];
+  rowCount?: number;
+  rowsAffected?: number;
+  error?: string;
 }
 
 export type QueryExecutor = (sql: string) => Promise<QueryResult>;

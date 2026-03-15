@@ -68,6 +68,19 @@ function HostedSqliteStudioInner() {
     [db]
   );
 
+  const refreshSchema = useCallback(async () => {
+    if (!db?.tursoHostname || !db.apiKey) return;
+    setSchemaLoading(true);
+    try {
+      const tables = await getTursoSchema(db.tursoHostname, db.apiKey);
+      setSchema(tables);
+    } catch {
+      // silently fail
+    } finally {
+      setSchemaLoading(false);
+    }
+  }, [db]);
+
   const sidebarHeader = (
     <div className="px-3 py-2.5 border-b space-y-1.5">
       <Link
@@ -112,6 +125,7 @@ function HostedSqliteStudioInner() {
         schemaLoading={schemaLoading}
         sidebarHeader={sidebarHeader}
         aiEnabled={aiEnabled}
+        onRefreshSchema={refreshSchema}
       />
     </>
   );

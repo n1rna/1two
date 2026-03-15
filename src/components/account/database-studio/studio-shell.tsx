@@ -34,6 +34,7 @@ export interface StudioShellProps {
   schemaLoading: boolean;
   sidebarHeader: React.ReactNode;
   aiEnabled?: boolean;
+  onRefreshSchema?: () => void;
   className?: string;
 }
 
@@ -44,6 +45,7 @@ export function StudioShell({
   schemaLoading,
   sidebarHeader,
   aiEnabled = false,
+  onRefreshSchema,
   className,
 }: StudioShellProps) {
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -136,6 +138,7 @@ export function StudioShell({
             loading={schemaLoading}
             onSelectTable={openTable}
             onNewQuery={openSqlTab}
+            onRefresh={onRefreshSchema}
           />
         </div>
       </aside>

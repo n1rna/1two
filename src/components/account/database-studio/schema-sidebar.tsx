@@ -11,6 +11,7 @@ import {
   Sparkles,
   Search,
   Database,
+  RefreshCw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ interface SchemaSidebarProps {
   loading?: boolean;
   onSelectTable: (schema: string, name: string) => void;
   onNewQuery: () => void;
+  onRefresh?: () => void;
 }
 
 export function SchemaSidebar({
@@ -105,6 +107,7 @@ export function SchemaSidebar({
   loading,
   onSelectTable,
   onNewQuery,
+  onRefresh,
 }: SchemaSidebarProps) {
   const [search, setSearch] = useState("");
   const [selectedSchema, setSelectedSchema] = useState<string | null>(null);
@@ -163,9 +166,9 @@ export function SchemaSidebar({
         </div>
       )}
 
-      {/* Search */}
-      <div className="p-2 border-b">
-        <div className="relative">
+      {/* Search + Refresh */}
+      <div className="p-2 border-b flex items-center gap-1.5">
+        <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
           <Input
             value={search}
@@ -174,6 +177,18 @@ export function SchemaSidebar({
             className="pl-7 h-7 text-xs"
           />
         </div>
+        {onRefresh && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={onRefresh}
+            disabled={loading}
+            title="Refresh schema"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+          </Button>
+        )}
       </div>
 
       {/* Table list */}

@@ -71,6 +71,29 @@ function DatabaseStudioInner() {
     [dbId]
   );
 
+  const refreshSchema = useCallback(async () => {
+    setSchemaLoading(true);
+    try {
+      const tables = await getDatabaseSchema(dbId);
+      const coerced = tables.map((t) => ({
+        ...t,
+        indexes: (t as unknown as { indexes?: TableSchema["indexes"] }).indexes ?? [],
+        rowEstimate: (t as unknown as { rowEstimate?: number }).rowEstimate ?? 0,
+        columns: t.columns.map((c) => ({
+          ...c,
+          isPrimary: (c as unknown as { isPrimary?: boolean }).isPrimary ?? false,
+          isUnique: (c as unknown as { isUnique?: boolean }).isUnique ?? false,
+          foreignKey: (c as unknown as { foreignKey?: { table: string; column: string } }).foreignKey,
+        })),
+      })) as TableSchema[];
+      setSchema(coerced);
+    } catch {
+      // silently fail
+    } finally {
+      setSchemaLoading(false);
+    }
+  }, [dbId]);
+
   const sidebarHeader = (
     <div className="px-3 py-2.5 border-b space-y-1.5">
       <Link
@@ -112,6 +135,7 @@ function DatabaseStudioInner() {
       schemaLoading={schemaLoading}
       sidebarHeader={sidebarHeader}
       aiEnabled={aiEnabled}
+      onRefreshSchema={refreshSchema}
     />
   );
 }

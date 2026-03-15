@@ -318,81 +318,158 @@ func QueryDatabase(db *sql.DB, neonClient *neon.Client) http.HandlerFunc {
 		queryCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 
-		// Always attempt QueryContext first. If the result set has columns it is a
-		// row-returning statement (SELECT, WITH, TABLE, VALUES, EXPLAIN, SHOW, etc.).
-		// If it has no columns, fall through to report rows affected via ExecContext.
-		rows, err := userDB.QueryContext(queryCtx, req.Query)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+		// Split input into individual statements so multi-statement batches work.
+		stmts := splitStatements(req.Query)
+
+		// Single statement: use the fast path that returns columns or rows-affected.
+		if len(stmts) == 1 {
+			executeAndRespond(queryCtx, w, userDB, stmts[0])
 			return
 		}
-		defer rows.Close()
 
-		columns, err := rows.Columns()
+		// Multiple statements: execute in a transaction, return a result per statement.
+		tx, err := userDB.BeginTx(queryCtx, nil)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]any{"error": "failed to read columns: " + err.Error()})
+			json.NewEncoder(w).Encode(map[string]any{"error": "failed to begin transaction: " + err.Error()})
 			return
 		}
+		defer tx.Rollback()
 
-		if len(columns) > 0 {
-			// Row-returning query: stream results back as columns + rows.
-			const maxRows = 1000
-			result := make([][]any, 0)
+		results := make([]map[string]any, 0, len(stmts))
 
-			for rows.Next() && len(result) < maxRows {
-				vals := make([]any, len(columns))
-				valPtrs := make([]any, len(columns))
-				for i := range vals {
-					valPtrs[i] = &vals[i]
-				}
-				if err := rows.Scan(valPtrs...); err != nil {
-					w.WriteHeader(http.StatusInternalServerError)
-					json.NewEncoder(w).Encode(map[string]any{"error": "failed to scan row: " + err.Error()})
-					return
-				}
-				// Convert []byte values to strings for clean JSON serialisation.
-				row := make([]any, len(columns))
-				for i, v := range vals {
-					if b, ok := v.([]byte); ok {
-						row[i] = string(b)
-					} else {
-						row[i] = v
-					}
-				}
-				result = append(result, row)
-			}
-			if err := rows.Err(); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+		for _, stmt := range stmts {
+			rows, err := tx.QueryContext(queryCtx, stmt)
+			if err != nil {
+				results = append(results, map[string]any{"statement": stmt, "error": err.Error()})
+				// Stop on first error
+				json.NewEncoder(w).Encode(map[string]any{"results": results})
 				return
 			}
 
-			json.NewEncoder(w).Encode(map[string]any{
-				"columns":  columns,
-				"rows":     result,
-				"rowCount": len(result),
-			})
+			columns, _ := rows.Columns()
+			if len(columns) > 0 {
+				data := scanRows(rows, columns)
+				results = append(results, map[string]any{
+					"statement": stmt,
+					"columns":  columns,
+					"rows":     data,
+					"rowCount": len(data),
+				})
+			} else {
+				rows.Close()
+				res, err := tx.ExecContext(queryCtx, stmt)
+				if err != nil {
+					results = append(results, map[string]any{"statement": stmt, "error": err.Error()})
+					json.NewEncoder(w).Encode(map[string]any{"results": results})
+					return
+				}
+				n, _ := res.RowsAffected()
+				results = append(results, map[string]any{
+					"statement":    stmt,
+					"rowsAffected": n,
+				})
+			}
+			rows.Close()
+		}
+
+		if err := tx.Commit(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]any{"error": "failed to commit: " + err.Error()})
 			return
 		}
 
-		// No columns: DML/DDL statement — drain the rows cursor then report
-		// rows affected. Because sql.DB does not expose RowsAffected from
-		// QueryContext we re-run via ExecContext (the statement already
-		// succeeded above so this is safe for idempotent DDL; for DML the
-		// duplicate execution is avoided by closing the first cursor first).
-		rows.Close()
+		json.NewEncoder(w).Encode(map[string]any{"results": results})
+	}
+}
 
-		res, err := userDB.ExecContext(queryCtx, req.Query)
-		if err != nil {
+// splitStatements splits a SQL string on semicolons, ignoring empty segments.
+// This is a simple split that doesn't handle semicolons inside string literals
+// or dollar-quoted strings, which is sufficient for the vast majority of
+// interactive queries.
+func splitStatements(query string) []string {
+	parts := strings.Split(query, ";")
+	stmts := make([]string, 0, len(parts))
+	for _, p := range parts {
+		s := strings.TrimSpace(p)
+		if s != "" {
+			stmts = append(stmts, s)
+		}
+	}
+	if len(stmts) == 0 {
+		return []string{query}
+	}
+	return stmts
+}
+
+// scanRows reads up to 1000 rows from a result set and returns them as a slice
+// of slices. []byte values are converted to strings for JSON serialisation.
+func scanRows(rows *sql.Rows, columns []string) [][]any {
+	const maxRows = 1000
+	result := make([][]any, 0)
+	for rows.Next() && len(result) < maxRows {
+		vals := make([]any, len(columns))
+		valPtrs := make([]any, len(columns))
+		for i := range vals {
+			valPtrs[i] = &vals[i]
+		}
+		if err := rows.Scan(valPtrs...); err != nil {
+			break
+		}
+		row := make([]any, len(columns))
+		for i, v := range vals {
+			if b, ok := v.([]byte); ok {
+				row[i] = string(b)
+			} else {
+				row[i] = v
+			}
+		}
+		result = append(result, row)
+	}
+	return result
+}
+
+// executeAndRespond runs a single SQL statement and writes the JSON response.
+func executeAndRespond(ctx context.Context, w http.ResponseWriter, db *sql.DB, query string) {
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{"error": "failed to read columns: " + err.Error()})
+		return
+	}
+
+	if len(columns) > 0 {
+		result := scanRows(rows, columns)
+		if err := rows.Err(); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
 			return
 		}
-		rowsAffected, _ := res.RowsAffected()
-		json.NewEncoder(w).Encode(map[string]any{"rowsAffected": rowsAffected})
+		json.NewEncoder(w).Encode(map[string]any{
+			"columns":  columns,
+			"rows":     result,
+			"rowCount": len(result),
+		})
+		return
 	}
+
+	rows.Close()
+	res, err := db.ExecContext(ctx, query)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
+		return
+	}
+	rowsAffected, _ := res.RowsAffected()
+	json.NewEncoder(w).Encode(map[string]any{"rowsAffected": rowsAffected})
 }
 
 // schemaQuery retrieves table and column metadata from information_schema,
