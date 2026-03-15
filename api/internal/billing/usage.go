@@ -38,16 +38,26 @@ func GetCurrentUsage(ctx context.Context, db *sql.DB, userID, meterSlug string) 
 	return count, err
 }
 
-// IncrementUsage atomically increments the usage counter and returns the new count.
+// IncrementUsage atomically increments the usage counter by 1 and returns the new count.
 func IncrementUsage(ctx context.Context, db *sql.DB, userID, meterSlug string) (int64, error) {
+	return IncrementUsageBy(ctx, db, userID, meterSlug, 1)
+}
+
+// IncrementUsageBy atomically increments the usage counter by the given amount
+// and returns the new count. Use this for metered resources like AI tokens where
+// each call consumes a variable number of units.
+func IncrementUsageBy(ctx context.Context, db *sql.DB, userID, meterSlug string, amount int64) (int64, error) {
+	if amount <= 0 {
+		amount = 1
+	}
 	var count int64
 	err := db.QueryRowContext(ctx,
 		`INSERT INTO billing_usage (user_id, meter_slug, period_start, count, updated_at)
-		 VALUES ($1, $2, $3, 1, NOW())
+		 VALUES ($1, $2, $3, $4, NOW())
 		 ON CONFLICT (user_id, meter_slug, period_start)
-		 DO UPDATE SET count = billing_usage.count + 1, updated_at = NOW()
+		 DO UPDATE SET count = billing_usage.count + $4, updated_at = NOW()
 		 RETURNING count`,
-		userID, meterSlug, currentPeriodStart()).Scan(&count)
+		userID, meterSlug, currentPeriodStart(), amount).Scan(&count)
 	return count, err
 }
 

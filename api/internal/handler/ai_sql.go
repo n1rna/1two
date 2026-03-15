@@ -369,9 +369,12 @@ func GenerateAiSql(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 
 		reasoning, cleanSQL := parseAiResponse(rawContent)
 
-		// Track usage — one increment per call (simple approach).
-		if _, err := billing.IncrementUsage(r.Context(), db, userID, "ai-token-used"); err != nil {
-			// Non-fatal — log and continue so the user still gets their result.
+		// Track actual token usage from the LLM response.
+		tokenCount := int64(tokens)
+		if tokenCount <= 0 {
+			tokenCount = 1 // minimum 1 so every call is tracked
+		}
+		if _, err := billing.IncrementUsageBy(r.Context(), db, userID, "ai-token-used", tokenCount); err != nil {
 			log.Printf("ai_sql: usage increment error for user %s: %v", userID, err)
 		}
 

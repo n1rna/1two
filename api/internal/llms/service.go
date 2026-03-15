@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/n1rna/1two/api/internal/agent"
+	"github.com/n1rna/1two/api/internal/billing"
 	"github.com/n1rna/1two/api/internal/crawl"
 	"github.com/n1rna/1two/api/internal/gitclone"
 	"github.com/n1rna/1two/api/internal/storage"
@@ -380,13 +381,21 @@ func (s *Service) runJob(ctx context.Context, jobID string) error {
 		usageID, userID, usage.InputTokens, usage.OutputTokens, jobID, now)
 
 	// --- Mark complete ---
+	totalTokens := usage.InputTokens + usage.OutputTokens
 	s.db.ExecContext(ctx,
 		`UPDATE llms_jobs
 		 SET status = 'completed', tokens_used = $1, completed_at = $2, updated_at = $2
 		 WHERE id = $3`,
-		usage.InputTokens+usage.OutputTokens, now, jobID)
+		totalTokens, now, jobID)
 
-	log.Printf("llms: job %s completed — %d pages, %d tokens", jobID, len(pages), usage.InputTokens+usage.OutputTokens)
+	// Track AI token usage in billing meter
+	if totalTokens > 0 {
+		if _, err := billing.IncrementUsageBy(ctx, s.db, userID, "ai-token-used", int64(totalTokens)); err != nil {
+			log.Printf("llms: billing increment error for user %s job %s: %v", userID, jobID, err)
+		}
+	}
+
+	log.Printf("llms: job %s completed — %d pages, %d tokens", jobID, len(pages), totalTokens)
 	return nil
 }
 
