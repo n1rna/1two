@@ -548,6 +548,14 @@ func (s *Service) StartJob(ctx context.Context, userID string, req GenerateReque
 			 VALUES ($1, $2, 'llms_txt', $3, 0, $4, $5)`,
 			usageID, userID, cachedTokens, jobID, now)
 
+		// Track token usage in billing meter — charge the original token cost
+		// even on cache hits, since the user is consuming the generated content.
+		if cachedTokens > 0 {
+			if _, err := billing.IncrementUsageBy(ctx, s.db, userID, "ai-token-used", int64(cachedTokens)); err != nil {
+				log.Printf("llms: billing increment error (cache hit) for user %s: %v", userID, err)
+			}
+		}
+
 		log.Printf("llms: job %s served from result cache (%d tokens)", jobID, cachedTokens)
 
 		completedAt := now
