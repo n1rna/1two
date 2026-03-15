@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, ArrowRight, ChevronDown, Brain, AlertCircle } from "lucide-react";
+import { Sparkles, ArrowRight, ChevronDown, ChevronUp, Brain, AlertCircle, Check, Loader2, Circle } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
@@ -87,120 +87,125 @@ function emptySession(): AiSession {
   return { messages: [], entries: [], schemaInjected: false };
 }
 
-// ─── AiHistoryEntry ───────────────────────────────────────────────────────────
+// ─── Timeline entry ──────────────────────────────────────────────────────────
 
-function AiHistoryEntry({ entry }: { entry: AiSessionEntry }) {
-  const [open, setOpen] = useState(false);
+function TimelineEntry({
+  entry,
+  expanded,
+  isLast,
+}: {
+  entry: AiSessionEntry;
+  expanded: boolean;
+  isLast: boolean;
+}) {
+  const [detailOpen, setDetailOpen] = useState(expanded);
 
   const isThinking = entry.status === "thinking";
   const isError = entry.status === "error";
   const isDone = entry.status === "done";
 
   return (
-    <div className="rounded-md border border-border/40 overflow-hidden text-xs">
-      {/* Prompt row */}
-      <div
-        className={cn(
-          "flex items-center gap-1.5 px-2.5 py-1.5",
-          isThinking && "ai-shimmer-row bg-primary/5",
-          isDone && "bg-muted/30",
-          isError && "bg-destructive/5"
-        )}
-      >
-        <Sparkles
+    <div className="relative flex gap-2.5 text-xs">
+      {/* Timeline line + bullet */}
+      <div className="flex flex-col items-center shrink-0 w-4">
+        {/* Bullet */}
+        <div
           className={cn(
-            "h-3 w-3 shrink-0",
-            isThinking && "text-primary animate-pulse",
-            isDone && "text-primary/60",
-            isError && "text-destructive"
-          )}
-        />
-        <span
-          className={cn(
-            "flex-1 font-medium truncate",
-            isThinking && "text-foreground",
-            isDone && "text-muted-foreground",
-            isError && "text-destructive"
+            "flex items-center justify-center h-4 w-4 rounded-full shrink-0 z-10",
+            isThinking && "bg-primary/20",
+            isDone && "bg-green-500/15",
+            isError && "bg-destructive/15"
           )}
         >
-          {entry.userPrompt}
-        </span>
-
-        {/* Expand/collapse chevron when done and has reasoning */}
-        {isDone && entry.reasoning && (
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="shrink-0 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-            title={open ? "Hide reasoning" : "Show reasoning"}
-          >
-            <ChevronDown
-              className={cn(
-                "h-3 w-3 transition-transform duration-200",
-                open && "rotate-180"
-              )}
-            />
-          </button>
+          {isThinking ? (
+            <Loader2 className="h-2.5 w-2.5 text-primary animate-spin" />
+          ) : isError ? (
+            <AlertCircle className="h-2.5 w-2.5 text-destructive" />
+          ) : (
+            <Check className="h-2.5 w-2.5 text-green-500" />
+          )}
+        </div>
+        {/* Vertical line */}
+        {!isLast && (
+          <div className="w-px flex-1 bg-border/40 -mb-1" />
         )}
       </div>
 
-      {/* Thinking state */}
-      {isThinking && (
-        <div className="px-2.5 py-1.5 flex items-center gap-1.5 border-t border-border/30 bg-muted/10">
-          <Brain className="h-3 w-3 text-muted-foreground/50 animate-pulse" />
-          <span className="text-muted-foreground/60 text-[11px]">Thinking…</span>
-        </div>
-      )}
-
-      {/* Error state */}
-      {isError && entry.error && (
-        <div className="px-2.5 py-1.5 flex items-start gap-1.5 border-t border-destructive/20 bg-destructive/5">
-          <AlertCircle className="h-3 w-3 text-destructive shrink-0 mt-px" />
-          <span className="text-destructive text-[11px] break-words">{entry.error}</span>
-        </div>
-      )}
-
-      {/* Done: collapsed summary + optional expanded reasoning */}
-      {isDone && (
-        <>
-          {/* Collapsed: reasoning pill */}
-          {entry.reasoning && !open && (
-            <div className="px-2.5 py-1 border-t border-border/20 bg-muted/10">
-              <button
-                onClick={() => setOpen(true)}
-                className="flex items-center gap-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-              >
-                <Brain className="h-2.5 w-2.5" />
-                <span className="text-[10px]">Thought for a moment</span>
-              </button>
-            </div>
+      {/* Content */}
+      <div className={cn("flex-1 min-w-0 pb-2.5", isLast ? "pb-1" : "pb-2.5")}>
+        {/* Prompt */}
+        <button
+          onClick={() => isDone && setDetailOpen((v) => !v)}
+          disabled={!isDone}
+          className={cn(
+            "flex items-center gap-1.5 w-full text-left min-w-0",
+            isDone && "cursor-pointer hover:text-foreground",
+            isThinking && "ai-shimmer-row rounded px-1 -mx-1"
           )}
+        >
+          <span
+            className={cn(
+              "flex-1 truncate",
+              isThinking && "text-foreground font-medium",
+              isDone && "text-muted-foreground",
+              isError && "text-destructive"
+            )}
+          >
+            {entry.userPrompt}
+          </span>
+          {isDone && (entry.reasoning || entry.sql) && (
+            <ChevronDown
+              className={cn(
+                "h-3 w-3 shrink-0 text-muted-foreground/40 transition-transform duration-200",
+                detailOpen && "rotate-180"
+              )}
+            />
+          )}
+        </button>
 
-          {/* Expanded reasoning */}
+        {/* Thinking */}
+        {isThinking && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <Brain className="h-2.5 w-2.5 text-muted-foreground/40 animate-pulse" />
+            <span className="text-muted-foreground/50 text-[11px]">Thinking…</span>
+          </div>
+        )}
+
+        {/* Error */}
+        {isError && entry.error && (
+          <p className="mt-1 text-destructive text-[11px] break-words">{entry.error}</p>
+        )}
+
+        {/* Expandable detail for done entries */}
+        {isDone && (
           <div
             className="grid transition-[grid-template-rows] duration-200 ease-in-out"
-            style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+            style={{ gridTemplateRows: detailOpen ? "1fr" : "0fr" }}
           >
             <div className="overflow-hidden">
-              {entry.reasoning && (
-                <div className="px-2.5 py-2 border-t border-border/20 bg-muted/10">
-                  <p className="text-[11px] text-muted-foreground/70 leading-relaxed">
-                    {entry.reasoning}
-                  </p>
-                </div>
-              )}
+              <div className="mt-1.5 space-y-1">
+                {/* Reasoning */}
+                {entry.reasoning && (
+                  <div className="flex items-start gap-1.5">
+                    <Brain className="h-2.5 w-2.5 text-muted-foreground/40 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+                      {entry.reasoning}
+                    </p>
+                  </div>
+                )}
+                {/* SQL */}
+                {entry.sql && (
+                  <div className="rounded bg-muted/30 px-2 py-1">
+                    <code className="text-[10px] font-mono text-muted-foreground/70 break-all whitespace-pre-wrap">
+                      {entry.sql.length > 200 ? entry.sql.slice(0, 200) + "…" : entry.sql}
+                    </code>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* SQL preview */}
-          {entry.sql && (
-            <div className="px-2.5 py-1 border-t border-border/20 bg-muted/5">
-              <span className="text-[10px] font-mono text-muted-foreground/50">
-                {truncateSql(entry.sql)}
-              </span>
-            </div>
-          )}
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -398,8 +403,15 @@ export function AiSqlBar({
     [onSqlGenerated]
   );
 
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+
   const showSuggestions =
     aiEnabled && !hasEntries && (suggestionsLoading || suggestions.length > 0);
+
+  // Split entries: older ones (collapsible) vs the latest one (always shown)
+  const entries = session.entries;
+  const olderEntries = entries.length > 1 ? entries.slice(0, -1) : [];
+  const latestEntry = entries.length > 0 ? entries[entries.length - 1] : null;
 
   return (
     <>
@@ -407,12 +419,52 @@ export function AiSqlBar({
       <style dangerouslySetInnerHTML={{ __html: SHIMMER_CSS }} />
 
       <div className="bg-muted/20 border-b px-3 pt-2 pb-1.5 shrink-0">
-        {/* Session history */}
+        {/* Session history — timeline view */}
         {hasEntries && (
-          <div className="max-h-40 overflow-y-auto mb-2 space-y-1.5 pr-0.5">
-            {session.entries.map((entry) => (
-              <AiHistoryEntry key={entry.id} entry={entry} />
-            ))}
+          <div className="mb-2 pl-0.5">
+            {/* "Show more" for older entries */}
+            {olderEntries.length > 0 && !historyExpanded && (
+              <button
+                onClick={() => setHistoryExpanded(true)}
+                className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground mb-1.5 transition-colors"
+              >
+                <ChevronDown className="h-3 w-3" />
+                {olderEntries.length} earlier {olderEntries.length === 1 ? "prompt" : "prompts"}
+              </button>
+            )}
+
+            {/* Older entries (collapsed by default) */}
+            {historyExpanded && olderEntries.length > 0 && (
+              <div className="max-h-32 overflow-y-auto">
+                {olderEntries.map((entry, i) => (
+                  <TimelineEntry
+                    key={entry.id}
+                    entry={entry}
+                    expanded={false}
+                    isLast={false}
+                  />
+                ))}
+              </div>
+            )}
+            {historyExpanded && olderEntries.length > 0 && (
+              <button
+                onClick={() => setHistoryExpanded(false)}
+                className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground mb-1 transition-colors"
+              >
+                <ChevronUp className="h-3 w-3" />
+                Show less
+              </button>
+            )}
+
+            {/* Latest entry — always visible and expanded */}
+            {latestEntry && (
+              <TimelineEntry
+                key={latestEntry.id}
+                entry={latestEntry}
+                expanded={true}
+                isLast={true}
+              />
+            )}
             <div ref={historyEndRef} />
           </div>
         )}
