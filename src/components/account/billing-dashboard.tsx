@@ -27,9 +27,9 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const PLAN_PRICES: Record<string, string> = {
-  free: "$0",
-  pro: "$9",
-  max: "$29",
+  free: "€0",
+  pro: "€5",
+  max: "€15",
 };
 
 const PLAN_DESCRIPTIONS: Record<string, string> = {
