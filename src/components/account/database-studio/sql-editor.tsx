@@ -22,6 +22,16 @@ interface LocalQueryResult {
   rowsAffected?: number;
   error?: string;
   execMs?: number;
+  results?: LocalStatementResult[];
+}
+
+interface LocalStatementResult {
+  statement: string;
+  columns?: string[];
+  rows?: string[][];
+  rowCount?: number;
+  rowsAffected?: number;
+  error?: string;
 }
 
 interface SqlEditorProps {
@@ -145,6 +155,152 @@ function ResultsView({ result }: { result: LocalQueryResult | null }) {
   );
 }
 
+function StatementResultView({ result }: { result: LocalStatementResult }) {
+  if (result.error) {
+    return (
+      <div className="flex-1 p-4 overflow-auto">
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <pre className="font-mono text-xs break-all whitespace-pre-wrap">
+            {result.error}
+          </pre>
+        </div>
+      </div>
+    );
+  }
+
+  if (result.rowsAffected !== undefined && !result.columns) {
+    return (
+      <div className="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <CheckCircle2 className="h-4 w-4 text-green-500" />
+        <span>
+          <span className="font-medium text-foreground">
+            {result.rowsAffected}
+          </span>{" "}
+          row{result.rowsAffected === 1 ? "" : "s"} affected
+        </span>
+      </div>
+    );
+  }
+
+  const cols = result.columns ?? [];
+  const dataRows = result.rows ?? [];
+
+  if (cols.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+        Query returned no columns
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-auto">
+      <table className="w-full border-collapse text-xs font-mono min-w-max">
+        <thead className="sticky top-0 z-10">
+          <tr className="bg-muted/50 border-b">
+            {cols.map((c) => (
+              <th
+                key={c}
+                className="px-3 py-2 text-left font-medium text-foreground whitespace-nowrap border-r border-border/30"
+              >
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dataRows.map((row, ri) => (
+            <tr
+              key={ri}
+              className={cn(
+                "hover:bg-muted/30 border-b border-border/20",
+                ri % 2 === 1 && "bg-muted/10"
+              )}
+            >
+              {row.map((cell, ci) => (
+                <td
+                  key={ci}
+                  className="px-3 py-1.5 border-r border-border/20 whitespace-nowrap max-w-xs"
+                >
+                  {(cell as CellValue) === null ? (
+                    <span className="italic text-muted-foreground/50 text-[10px] bg-muted/40 px-1 rounded">
+                      NULL
+                    </span>
+                  ) : (
+                    <span className="truncate block" title={String(cell)}>
+                      {String(cell)}
+                    </span>
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {dataRows.length === 0 && (
+            <tr>
+              <td
+                colSpan={cols.length}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
+                No rows returned
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MultiResultsView({ results }: { results: LocalStatementResult[] }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const active = results[activeIdx];
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Tab bar */}
+      <div className="flex items-center gap-0 border-b bg-muted/20 overflow-x-auto shrink-0">
+        {results.map((r, i) => {
+          const label = r.error
+            ? `Error`
+            : r.columns
+              ? `${r.rowCount ?? 0} row${(r.rowCount ?? 0) === 1 ? "" : "s"}`
+              : `${r.rowsAffected ?? 0} affected`;
+          return (
+            <button
+              key={i}
+              onClick={() => setActiveIdx(i)}
+              className={cn(
+                "px-3 py-1.5 text-xs border-r border-border/30 whitespace-nowrap transition-colors",
+                i === activeIdx
+                  ? "bg-background text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30",
+                r.error && "text-red-500"
+              )}
+              title={r.statement}
+            >
+              <span className="text-muted-foreground/50 mr-1.5">
+                {i + 1}.
+              </span>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Statement preview */}
+      <div className="px-3 py-1.5 border-b bg-muted/10 shrink-0">
+        <pre className="text-[11px] font-mono text-muted-foreground truncate">
+          {active?.statement}
+        </pre>
+      </div>
+
+      {/* Result content */}
+      {active && <StatementResultView result={active} />}
+    </div>
+  );
+}
+
 const DEFAULT_QUERY = "SELECT * FROM information_schema.tables\nWHERE table_schema = 'public'\nLIMIT 50;";
 
 export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabled = false, initialValue, onContentChange, aiSession, onAiSessionChange }: SqlEditorProps) {
@@ -172,19 +328,33 @@ export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabl
       const execMs = Math.round(performance.now() - start);
       setResult({ ...res, execMs });
       // Build summary for AI context
-      const summary =
-        res.columns && res.rows
-          ? `${res.rows.length} rows, columns: ${res.columns.join(", ")}`
-          : res.rowsAffected !== undefined
-          ? `${res.rowsAffected} rows affected`
-          : undefined;
+      let summary: string | undefined;
+      if (res.error) {
+        summary = `Query error: ${res.error}`;
+      } else if (res.results && res.results.length > 0) {
+        summary = res.results
+          .map((r, i) =>
+            r.error
+              ? `Statement ${i + 1}: error — ${r.error}`
+              : r.columns
+                ? `Statement ${i + 1}: ${r.rowCount ?? 0} rows`
+                : `Statement ${i + 1}: ${r.rowsAffected ?? 0} rows affected`
+          )
+          .join("; ");
+      } else if (res.columns && res.rows) {
+        summary = `${res.rows.length} rows, columns: ${res.columns.join(", ")}`;
+      } else if (res.rowsAffected !== undefined) {
+        summary = `${res.rowsAffected} rows affected`;
+      }
       setLastQuerySummary(summary);
     } catch (err) {
       const execMs = Math.round(performance.now() - start);
+      const errMsg = err instanceof Error ? err.message : "Query failed";
       setResult({
-        error: err instanceof Error ? err.message : "Query failed",
+        error: errMsg,
         execMs,
       });
+      setLastQuerySummary(`Query error: ${errMsg}`);
     } finally {
       setLoading(false);
     }
@@ -378,8 +548,9 @@ export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabl
   }, [isDark, dialect]);
 
   const execMs = result?.execMs;
+  const isMultiResult = result?.results && result.results.length > 0;
   const rowCount =
-    result && !result.error && result.rows !== undefined
+    !isMultiResult && result && !result.error && result.rows !== undefined
       ? result.rows.length
       : null;
 
@@ -433,6 +604,11 @@ export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabl
         {execMs !== null && execMs !== undefined && (
           <span className="text-xs text-muted-foreground">{execMs}ms</span>
         )}
+        {isMultiResult && (
+          <span className="text-xs text-muted-foreground">
+            {result.results!.length} statement{result.results!.length === 1 ? "" : "s"}
+          </span>
+        )}
         {rowCount !== null && (
           <span className="text-xs text-muted-foreground">
             {rowCount} row{rowCount === 1 ? "" : "s"}
@@ -442,7 +618,11 @@ export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabl
 
       {/* Results */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        <ResultsView result={result} />
+        {result?.results && result.results.length > 0 ? (
+          <MultiResultsView results={result.results} />
+        ) : (
+          <ResultsView result={result} />
+        )}
       </div>
     </div>
   );

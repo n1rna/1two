@@ -326,7 +326,9 @@ func GenerateAiSql(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 			llmErr     error
 		)
 
-		if req.Messages != nil {
+		log.Printf("ai_sql: request — prompt=%q messages_len=%d dialect=%q", req.Prompt, len(req.Messages), req.Dialect)
+
+		if req.Messages != nil && len(req.Messages) > 0 {
 			// --- Conversation mode ---
 			// The frontend provides the full messages array including a system
 			// message that already contains the schema. Append the
