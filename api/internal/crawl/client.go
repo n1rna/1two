@@ -63,13 +63,12 @@ func (c *Client) StartCrawl(ctx context.Context, req CrawlRequest) (string, erro
 	}
 
 	body := map[string]any{
-		"url":                 req.URL,
-		"limit":               limit,
-		"depth":               req.Depth,
-		"formats":             []string{"markdown"},
-		"render":              req.Render,
-		"source":              "all",
-		"rejectResourceTypes": []string{"image", "media", "font", "stylesheet"},
+		"url":     req.URL,
+		"limit":   limit,
+		"depth":   req.Depth,
+		"formats": []string{"markdown"},
+		"render":  req.Render,
+		"source":  "all",
 	}
 
 	data, err := json.Marshal(body)
