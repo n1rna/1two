@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Github } from "lucide-react";
+import { Search, Github, BookOpen } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
 
@@ -35,6 +35,13 @@ export function Header() {
         </button>
 
         <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/guides"
+            aria-label="Guides"
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 w-8 hover:bg-accent hover:text-accent-foreground transition-colors text-muted-foreground"
+          >
+            <BookOpen className="h-4 w-4" />
+          </Link>
           <a
             href="https://github.com/n1rna/1two"
             target="_blank"

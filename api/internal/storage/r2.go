@@ -85,6 +85,24 @@ func (r *R2Client) Get(ctx context.Context, key string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// Download returns a streaming reader for the R2 object at key.
+// The caller is responsible for closing the returned ReadCloser.
+// Returns an error (wrapping types.NoSuchKey) if the key does not exist.
+func (r *R2Client) Download(ctx context.Context, key string) (io.ReadCloser, error) {
+	resp, err := r.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: &r.bucket,
+		Key:    &key,
+	})
+	if err != nil {
+		var nfe *types.NoSuchKey
+		if errors.As(err, &nfe) {
+			return nil, fmt.Errorf("storage: download %q: object not found", key)
+		}
+		return nil, fmt.Errorf("storage: download %q: %w", key, err)
+	}
+	return resp.Body, nil
+}
+
 // PresignedURL generates a pre-signed GET URL for downloading a file.
 // The URL is valid for the given TTL. The Content-Disposition header is set
 // so the browser uses the original filename.

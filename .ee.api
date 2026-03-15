@@ -150,6 +150,39 @@
 				"title": "Polar Max plan product ID",
 				"type": "string",
 				"required": true
+			},
+			"NEON_API_KEY": {
+				"name": "NEON_API_KEY",
+				"title": "Neon API key for managed database provisioning",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"NEON_ORG_ID": {
+				"name": "NEON_ORG_ID",
+				"title": "Neon organization ID",
+				"type": "string",
+				"required": true
+			},
+			"TURSO_API_TOKEN": {
+				"name": "TURSO_API_TOKEN",
+				"title": "Turso Platform API token for hosted SQLite",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"TURSO_ORG_SLUG": {
+				"name": "TURSO_ORG_SLUG",
+				"title": "Turso organization slug",
+				"type": "string",
+				"required": true
+			},
+			"TURSO_GROUP": {
+				"name": "TURSO_GROUP",
+				"title": "Turso database group",
+				"type": "string",
+				"default": "default",
+				"required": false
 			}
 		}
 	},

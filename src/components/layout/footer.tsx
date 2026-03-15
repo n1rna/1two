@@ -6,6 +6,11 @@ import { usePathname } from "next/navigation";
 
 export function Footer() {
   const pathname = usePathname();
+
+  // Hide footer entirely on full-screen pages
+  const isFullScreen = /^\/account\/(databases|sqlite)\/[^/]+$/.test(pathname);
+  if (isFullScreen) return null;
+
   const isToolPage = pathname.startsWith("/tools/");
 
   if (isToolPage) {

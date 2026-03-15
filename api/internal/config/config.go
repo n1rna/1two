@@ -37,6 +37,15 @@ type Config struct {
 	PolarEnvironment      string // "sandbox" or "production"
 	PolarProProductID string
 	PolarMaxProductID string
+
+	// Neon serverless database provisioning
+	NeonAPIKey string
+	NeonOrgID  string
+
+	// Turso hosted SQLite
+	TursoAPIToken string // TURSO_API_TOKEN
+	TursoOrgSlug  string // TURSO_ORG_SLUG
+	TursoGroup    string // TURSO_GROUP (default: "default")
 }
 
 func getEnvOrDefault(key, fallback string) string {
@@ -84,5 +93,12 @@ func Load() *Config {
 		PolarEnvironment:       getEnvOrDefault("POLAR_ENVIRONMENT", "sandbox"),
 		PolarProProductID: os.Getenv("POLAR_PRO_PRODUCT_ID"),
 		PolarMaxProductID: os.Getenv("POLAR_MAX_PRODUCT_ID"),
+
+		NeonAPIKey: os.Getenv("NEON_API_KEY"),
+		NeonOrgID:  os.Getenv("NEON_ORG_ID"),
+
+		TursoAPIToken: os.Getenv("TURSO_API_TOKEN"),
+		TursoOrgSlug:  os.Getenv("TURSO_ORG_SLUG"),
+		TursoGroup:    getEnvOrDefault("TURSO_GROUP", "default"),
 	}
 }

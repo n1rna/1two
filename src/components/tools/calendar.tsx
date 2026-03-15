@@ -443,7 +443,6 @@ export function CalendarTool() {
       <div className="border-b px-4 py-2 flex items-center gap-2 shrink-0 flex-wrap">
         <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="text-sm font-semibold shrink-0">Calendar</span>
-        <SyncToggle {...syncToggleProps} />
 
         <div className="ml-4 flex items-center rounded-md border overflow-hidden">
           {VIEW_OPTIONS.map((v) => (
@@ -461,7 +460,16 @@ export function CalendarTool() {
           ))}
         </div>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-2 flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={goToday}
+            title="Today"
+          >
+            <CalendarDays className="h-4 w-4" />
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -470,14 +478,7 @@ export function CalendarTool() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs px-3"
-            onClick={goToday}
-          >
-            Today
-          </Button>
+          <span className="text-sm font-medium px-1">{title}</span>
           <Button
             size="sm"
             variant="ghost"
@@ -486,7 +487,10 @@ export function CalendarTool() {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <span className="ml-2 text-sm font-medium">{title}</span>
+        </div>
+
+        <div className="ml-auto">
+          <SyncToggle {...syncToggleProps} />
         </div>
       </div>
 

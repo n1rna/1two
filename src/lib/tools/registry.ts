@@ -1,4 +1,8 @@
 import { ToolDefinition, ToolCategory, categoryLabels } from "./types";
+import { guides } from "@/lib/guides/registry";
+
+// Extend categoryLabels with non-tool categories used in search
+(categoryLabels as Record<string, string>).guides = "Guides";
 
 export const tools: ToolDefinition[] = [
   {
@@ -234,6 +238,14 @@ export const tools: ToolDefinition[] = [
     keywords: ["invoice", "bill", "pdf", "vat", "tax", "receipt", "billing", "payment", "eu", "us", "iban", "ein"],
   },
   {
+    slug: "elasticsearch",
+    name: "Elasticsearch Explorer",
+    description: "Connect to Elasticsearch clusters, browse indices, run queries, manage documents, and monitor health",
+    category: "data",
+    icon: "Database",
+    keywords: ["elasticsearch", "es", "elastic", "cluster", "index", "query", "search", "kibana", "opensearch", "dsl", "mapping"],
+  },
+  {
     slug: "sqlite",
     name: "SQLite Browser",
     description: "Open and explore SQLite databases in the browser - browse tables, run SQL queries, sort, filter, and export data",
@@ -385,6 +397,19 @@ export function getSearchItems(): SearchItem[] {
         icon: parent.icon,
       });
     }
+  }
+
+  // Add guides as searchable items
+  for (const guide of guides) {
+    items.push({
+      id: `guide:${guide.slug}`,
+      name: guide.title,
+      description: guide.description,
+      category: "guides" as ToolCategory,
+      icon: guide.icon,
+      href: `/guides/${guide.slug}`,
+      keywords: guide.keywords,
+    });
   }
 
   return items;

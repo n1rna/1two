@@ -15,6 +15,8 @@ export const SYNCABLE_KEYS: SyncableKeyDef[] = [
   { key: "1two-saved-colors", toolSlug: "color", label: "Saved Colors", maxSizeBytes: 65536 },
   { key: "1two-saved-themes", toolSlug: "color", label: "Saved Themes", maxSizeBytes: 65536 },
   { key: "1two-saved-invoices", toolSlug: "invoice", label: "Saved Invoice Templates", maxSizeBytes: 262144 },
+  { key: "1two:es-connections", toolSlug: "elasticsearch", label: "ES Connections", maxSizeBytes: 32768 },
+  { key: "1two:es-state", toolSlug: "elasticsearch", label: "ES Explorer State", maxSizeBytes: 65536 },
   { key: "1two:bookmarks", toolSlug: "preferences", label: "Bookmarks", maxSizeBytes: 8192 },
   { key: "1two:tool-order", toolSlug: "preferences", label: "Tool Order", maxSizeBytes: 8192 },
 ];

@@ -23,6 +23,8 @@ var allowedToolStateKeys = map[string]int64{
 	"1two-saved-colors":     65536,
 	"1two-saved-themes":     65536,
 	"1two-saved-invoices":   262144,
+	"1two:es-connections":   32768,
+	"1two:es-state":         65536,
 	"1two:bookmarks":        8192,
 	"1two:tool-order":       8192,
 }

@@ -1,5 +1,6 @@
 import { getToolBySlug } from "@/lib/tools/registry";
 import * as icons from "lucide-react";
+import { PromoBanner } from "./promo-banner";
 
 interface ToolLayoutProps {
   slug: string;
@@ -18,6 +19,8 @@ export function ToolLayout({ slug, children, toolbar }: ToolLayoutProps) {
 
   return (
     <div>
+      {/* Promo banner — only visible to non-logged-in users */}
+      <PromoBanner currentSlug={slug} />
       {/* Toolbar */}
       <div className="border-b">
         <div className="max-w-6xl mx-auto flex items-center gap-2 px-6 py-2">

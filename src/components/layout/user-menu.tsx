@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "@/lib/auth-client";
-import { LogOut, User, Globe, CreditCard } from "lucide-react";
+import { LogOut, User, Globe, CreditCard, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { SignInDialog } from "./sign-in-dialog";
@@ -71,6 +71,14 @@ export function UserMenu() {
             >
               <Globe className="h-4 w-4" />
               Cloud Sync
+            </Link>
+            <Link
+              href="/account/databases"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              <Database className="h-4 w-4" />
+              Databases
             </Link>
             <Link
               href="/account/billing"

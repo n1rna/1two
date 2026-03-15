@@ -6,14 +6,15 @@ type PlanLimits struct {
 	OgViewsPerMonth  int64
 	AiTokensPerMonth int64
 	OgCollections    int // -1 = unlimited
+	DatabasesMax     int
 	OverageEnabled   bool
 }
 
 // Plans maps plan tier names to their limits.
 var Plans = map[string]PlanLimits{
-	"free": {PastesPerMonth: 5, OgViewsPerMonth: 1000, AiTokensPerMonth: 0, OgCollections: 1, OverageEnabled: false},
-	"pro":  {PastesPerMonth: 100, OgViewsPerMonth: 10000, AiTokensPerMonth: 100000, OgCollections: 10, OverageEnabled: true},
-	"max":  {PastesPerMonth: 500, OgViewsPerMonth: 50000, AiTokensPerMonth: 500000, OgCollections: -1, OverageEnabled: true},
+	"free": {PastesPerMonth: 5, OgViewsPerMonth: 1000, AiTokensPerMonth: 0, OgCollections: 1, DatabasesMax: 0, OverageEnabled: false},
+	"pro":  {PastesPerMonth: 100, OgViewsPerMonth: 10000, AiTokensPerMonth: 100000, OgCollections: 10, DatabasesMax: 1, OverageEnabled: true},
+	"max":  {PastesPerMonth: 500, OgViewsPerMonth: 50000, AiTokensPerMonth: 500000, OgCollections: -1, DatabasesMax: 3, OverageEnabled: true},
 }
 
 // MeterLimit returns the monthly limit for a given tier and meter slug.

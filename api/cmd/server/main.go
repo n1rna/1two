@@ -20,7 +20,9 @@ import (
 	"github.com/n1rna/1two/api/internal/handler"
 	"github.com/n1rna/1two/api/internal/llms"
 	"github.com/n1rna/1two/api/internal/middleware"
+	"github.com/n1rna/1two/api/internal/neon"
 	"github.com/n1rna/1two/api/internal/storage"
+	"github.com/n1rna/1two/api/internal/turso"
 )
 
 func main() {
@@ -64,6 +66,22 @@ func main() {
 		log.Printf("WARNING: Polar billing not configured (missing POLAR_ACCESS_TOKEN or DB)")
 	}
 
+	var neonClient *neon.Client
+	if cfg.NeonAPIKey != "" {
+		neonClient = neon.NewClient(cfg)
+	} else {
+		log.Printf("WARNING: Neon not configured (missing NEON_API_KEY — database provisioning will be unavailable)")
+	}
+
+	// Turso hosted SQLite — requires TURSO_API_TOKEN and TURSO_ORG_SLUG.
+	var tursoClient *turso.Client
+	if cfg.TursoAPIToken != "" {
+		tursoClient = turso.NewClient(cfg)
+		log.Printf("INFO: Turso client initialised (org: %s, group: %s)", cfg.TursoOrgSlug, cfg.TursoGroup)
+	} else {
+		log.Printf("WARNING: Turso not configured (missing TURSO_API_TOKEN — SQLite hosting will be unavailable)")
+	}
+
 	r := chi.NewRouter()
 
 	// Middleware stack
@@ -98,6 +116,12 @@ func main() {
 		// Internal routes (protected by secret)
 		if r2 != nil && db != nil {
 			r.Post("/internal/cleanup", handler.CleanupExpiredFiles(cfg, db, r2))
+		}
+
+		// Hosted SQLite — API key auth (no session required)
+		if db != nil {
+			r.Post("/sqlite/{id}/query", handler.QuerySqliteDB(db, tursoClient))
+			r.Get("/sqlite/{id}/schema", handler.GetSqliteSchema(db, tursoClient))
 		}
 
 		// Public routes (no auth)
@@ -150,6 +174,21 @@ func main() {
 				r.Get("/billing/status", handler.GetBillingStatus(db, billingClient))
 				r.Post("/billing/checkout", handler.CreateCheckout(db, billingClient))
 				r.Post("/billing/portal-session", handler.CreateCustomerPortalSession(db, billingClient))
+			}
+			if db != nil {
+				r.Get("/databases", handler.ListDatabases(db))
+				r.Post("/databases", handler.CreateDatabase(db, neonClient, billingClient))
+				r.Get("/databases/{id}", handler.GetDatabase(db, neonClient))
+				r.Delete("/databases/{id}", handler.DeleteDatabase(db, neonClient))
+				r.Post("/databases/{id}/query", handler.QueryDatabase(db, neonClient))
+				r.Get("/databases/{id}/schema", handler.GetDatabaseSchema(db, neonClient))
+			}
+			// Hosted SQLite — session-authenticated management routes.
+			if db != nil {
+				r.Post("/sqlite", handler.UploadSqliteDB(db, tursoClient))
+				r.Get("/sqlite", handler.ListSqliteDBs(db))
+				r.Get("/sqlite/{id}", handler.GetSqliteDB(db))
+				r.Delete("/sqlite/{id}", handler.DeleteSqliteDB(db, tursoClient))
 			}
 			if llmsSvc != nil && db != nil && r2 != nil {
 				r.Post("/llms/generate", handler.GenerateLlms(llmsSvc))
