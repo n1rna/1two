@@ -45,6 +45,7 @@ type Service struct {
 type GenerateRequest struct {
 	URL         string `json:"url"`
 	ScanDepth   int    `json:"scanDepth"`
+	MaxPages    int    `json:"maxPages"`
 	DetailLevel string `json:"detailLevel"`
 	FileName    string `json:"fileName"`
 	NotifyEmail string `json:"notifyEmail,omitempty"`
@@ -222,12 +223,12 @@ func (s *Service) processJob(jobID string) {
 func (s *Service) runJob(ctx context.Context, jobID string) error {
 	// Load job details
 	const fetchQ = `
-		SELECT user_id, url, normalized_url, scan_depth, detail_level, file_name
+		SELECT user_id, url, normalized_url, scan_depth, max_pages, detail_level, file_name
 		FROM llms_jobs WHERE id = $1`
 	var userID, rawURL, normalizedURL, detailLevel, fileName string
-	var scanDepth int
+	var scanDepth, maxPages int
 	if err := s.db.QueryRowContext(ctx, fetchQ, jobID).
-		Scan(&userID, &rawURL, &normalizedURL, &scanDepth, &detailLevel, &fileName); err != nil {
+		Scan(&userID, &rawURL, &normalizedURL, &scanDepth, &maxPages, &detailLevel, &fileName); err != nil {
 		return fmt.Errorf("fetch job: %w", err)
 	}
 
@@ -263,9 +264,12 @@ func (s *Service) runJob(ctx context.Context, jobID string) error {
 			}
 		} else {
 			// Non-GitHub URLs: use Cloudflare crawl
+			if maxPages <= 0 {
+				maxPages = 50
+			}
 			cfJobID, crawlErr := s.crawlClient.StartCrawl(ctx, crawl.CrawlRequest{
 				URL:   rawURL,
-				Limit: 500,
+				Limit: maxPages,
 				Depth: scanDepth,
 			})
 			if crawlErr != nil {
@@ -453,6 +457,12 @@ func (s *Service) StartJob(ctx context.Context, userID string, req GenerateReque
 	if req.ScanDepth <= 0 {
 		req.ScanDepth = 3
 	}
+	if req.MaxPages <= 0 {
+		req.MaxPages = 50
+	}
+	if req.MaxPages > 200 {
+		req.MaxPages = 200
+	}
 	if req.DetailLevel == "" {
 		req.DetailLevel = "standard"
 	}
@@ -494,11 +504,11 @@ func (s *Service) StartJob(ctx context.Context, userID string, req GenerateReque
 		// Cache hit — create a completed job immediately.
 		const insertCompletedQ = `
 			INSERT INTO llms_jobs
-				(id, user_id, url, normalized_url, status, scan_depth, detail_level, file_name,
+				(id, user_id, url, normalized_url, status, scan_depth, max_pages, detail_level, file_name,
 				 tokens_used, notify_email, created_at, updated_at, completed_at)
-			VALUES ($1, $2, $3, $4, 'completed', $5, $6, $7, $8, $9, $10, $10, $10)`
+			VALUES ($1, $2, $3, $4, 'completed', $5, $6, $7, $8, $9, $10, $11, $11, $11)`
 		if _, err := s.db.ExecContext(ctx, insertCompletedQ,
-			jobID, userID, req.URL, normalizedURL, req.ScanDepth, req.DetailLevel, req.FileName,
+			jobID, userID, req.URL, normalizedURL, req.ScanDepth, req.MaxPages, req.DetailLevel, req.FileName,
 			cachedTokens, nullableString(req.NotifyEmail), now,
 		); err != nil {
 			return nil, fmt.Errorf("failed to create job")
@@ -554,12 +564,12 @@ func (s *Service) StartJob(ctx context.Context, userID string, req GenerateReque
 	// No cache hit — insert a pending job for the worker loop.
 	const insertQ = `
 		INSERT INTO llms_jobs
-			(id, user_id, url, normalized_url, status, scan_depth, detail_level, file_name,
+			(id, user_id, url, normalized_url, status, scan_depth, max_pages, detail_level, file_name,
 			 notify_email, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $9)`
+		VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10, $10)`
 
 	if _, err := s.db.ExecContext(ctx, insertQ,
-		jobID, userID, req.URL, normalizedURL, req.ScanDepth, req.DetailLevel, req.FileName,
+		jobID, userID, req.URL, normalizedURL, req.ScanDepth, req.MaxPages, req.DetailLevel, req.FileName,
 		nullableString(req.NotifyEmail), now,
 	); err != nil {
 		return nil, fmt.Errorf("failed to create job")

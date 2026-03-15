@@ -207,6 +207,7 @@ export function LlmsTxtGenerator() {
 
   // Step 2: Options
   const [scanDepth, setScanDepth] = useState<ScanDepth>(0);
+  const [maxPages, setMaxPages] = useState(50);
   const [detailLevel, setDetailLevel] = useState<DetailLevel>("standard");
   const [fileName, setFileName] = useState("llms");
   const [notifyEmail, setNotifyEmail] = useState("");
@@ -269,6 +270,7 @@ export function LlmsTxtGenerator() {
         body: JSON.stringify({
           url,
           scanDepth,
+          maxPages,
           detailLevel,
           fileName: `${fileName.trim() || "llms"}.txt`,
           ...(notifyEmail.trim() ? { notifyEmail: notifyEmail.trim() } : {}),
@@ -419,6 +421,34 @@ export function LlmsTxtGenerator() {
                 </svg>
               </div>
             </div>
+          </div>
+
+          {/* Max Pages */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Max Pages
+            </label>
+            <div className="relative">
+              <select
+                value={maxPages}
+                onChange={(e) => setMaxPages(Number(e.target.value))}
+                className="w-full appearance-none px-3 py-2.5 rounded-xl border border-border bg-card text-sm outline-none focus:ring-1 focus:ring-ring cursor-pointer pr-8"
+              >
+                <option value={10}>10 pages</option>
+                <option value={25}>25 pages</option>
+                <option value={50}>50 pages (default)</option>
+                <option value={100}>100 pages</option>
+                <option value={200}>200 pages (max)</option>
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none">
+                  <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Limits the number of pages crawled. Fewer pages = faster generation.
+            </p>
           </div>
 
           {/* Detail Level */}
