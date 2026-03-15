@@ -301,7 +301,8 @@ func (s *Service) runJob(ctx context.Context, jobID string) error {
 		}
 		newCacheID := generateID()
 		expiresAt := time.Now().UTC().Add(14 * 24 * time.Hour)
-		s.db.ExecContext(context.Background(),
+		log.Printf("llms: writing cache for %q (depth=%d, pages=%d)", normalizedURL, scanDepth, len(pages))
+		if _, cacheInsertErr := s.db.ExecContext(context.Background(),
 			`INSERT INTO llms_cache (id, normalized_url, scan_depth, crawl_data, pages_count, expires_at)
 			 VALUES ($1, $2, $3, $4, $5, $6)
 			 ON CONFLICT (normalized_url, scan_depth) DO UPDATE
@@ -309,7 +310,9 @@ func (s *Service) runJob(ctx context.Context, jobID string) error {
 			       pages_count = EXCLUDED.pages_count,
 			       created_at = NOW(),
 			       expires_at = EXCLUDED.expires_at`,
-			newCacheID, normalizedURL, scanDepth, data, len(pages), expiresAt)
+			newCacheID, normalizedURL, scanDepth, data, len(pages), expiresAt); cacheInsertErr != nil {
+			log.Printf("llms: cache insert error for %q: %v", normalizedURL, cacheInsertErr)
+		}
 
 	} else if err != nil {
 		return fmt.Errorf("check cache: %w", err)
@@ -649,7 +652,8 @@ func (s *Service) GetJob(ctx context.Context, userID, jobID string) (*Job, error
 func (s *Service) CheckCache(ctx context.Context, rawURL string, _ int) (*CacheInfo, error) {
 	normalizedURL := crawl.NormalizeURL(rawURL)
 
-	const q = `
+	// Check crawl cache first (has page count info).
+	const crawlQ = `
 		SELECT pages_count, created_at, expires_at
 		FROM llms_cache
 		WHERE normalized_url = $1 AND expires_at > NOW()
@@ -657,17 +661,35 @@ func (s *Service) CheckCache(ctx context.Context, rawURL string, _ int) (*CacheI
 		LIMIT 1`
 
 	var info CacheInfo
-	err := s.db.QueryRowContext(ctx, q, normalizedURL).
+	err := s.db.QueryRowContext(ctx, crawlQ, normalizedURL).
 		Scan(&info.PagesCount, &info.CachedAt, &info.ExpiresAt)
-	if err == sql.ErrNoRows {
-		return &CacheInfo{Cached: false}, nil
+	if err == nil {
+		info.Cached = true
+		return &info, nil
 	}
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("check cache: %w", err)
 	}
 
-	info.Cached = true
-	return &info, nil
+	// Fall back to result cache (generated llms.txt output).
+	const resultQ = `
+		SELECT created_at, expires_at
+		FROM llms_result_cache
+		WHERE normalized_url = $1 AND expires_at > NOW()
+		ORDER BY created_at DESC
+		LIMIT 1`
+
+	err = s.db.QueryRowContext(ctx, resultQ, normalizedURL).
+		Scan(&info.CachedAt, &info.ExpiresAt)
+	if err == nil {
+		info.Cached = true
+		return &info, nil
+	}
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("check result cache: %w", err)
+	}
+
+	return &CacheInfo{Cached: false}, nil
 }
 
 // CancelJob cancels the context for an active job and marks it as cancelled.
