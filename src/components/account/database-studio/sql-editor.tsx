@@ -29,6 +29,8 @@ interface SqlEditorProps {
   dialect?: SqlDialect;
   schema?: TableSchema[];
   aiEnabled?: boolean;
+  initialValue?: string;
+  onContentChange?: (content: string) => void;
 }
 
 function ResultsView({ result }: { result: LocalQueryResult | null }) {
@@ -141,7 +143,9 @@ function ResultsView({ result }: { result: LocalQueryResult | null }) {
   );
 }
 
-export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabled = false }: SqlEditorProps) {
+const DEFAULT_QUERY = "SELECT * FROM information_schema.tables\nWHERE table_schema = 'public'\nLIMIT 50;";
+
+export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabled = false, initialValue, onContentChange }: SqlEditorProps) {
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const { resolvedTheme } = useTheme();
@@ -347,7 +351,7 @@ export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabl
     ];
 
     const state = EditorState.create({
-      doc: "SELECT * FROM information_schema.tables\nWHERE table_schema = 'public'\nLIMIT 50;",
+      doc: initialValue ?? DEFAULT_QUERY,
       extensions,
     });
 
@@ -355,6 +359,7 @@ export function SqlEditor({ queryExecutor, dialect = "postgres", schema, aiEnabl
     editorViewRef.current = view;
 
     return () => {
+      onContentChange?.(view.state.doc.toString());
       view.destroy();
       editorViewRef.current = null;
     };

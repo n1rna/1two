@@ -50,6 +50,8 @@ export function StudioShell({
 
   // Per-tab view state (data | structure) stored separately to survive tab switching
   const [tabViews, setTabViews] = useState<Record<string, "data" | "structure">>({});
+  // Per-tab SQL content stored separately to survive tab switching
+  const [tabSqlContent, setTabSqlContent] = useState<Record<string, string>>({});
 
   const openTable = useCallback((schemaName: string, tableName: string) => {
     const id = makeTableTabId(schemaName, tableName);
@@ -91,6 +93,10 @@ export function StudioShell({
       });
       return next;
     });
+    setTabSqlContent((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
   }, []);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
@@ -98,6 +104,13 @@ export function StudioShell({
   const handleViewChange = useCallback(
     (tabId: string, view: "data" | "structure") => {
       setTabViews((prev) => ({ ...prev, [tabId]: view }));
+    },
+    []
+  );
+
+  const handleSqlContentChange = useCallback(
+    (tabId: string, content: string) => {
+      setTabSqlContent((prev) => ({ ...prev, [tabId]: content }));
     },
     []
   );
@@ -167,6 +180,8 @@ export function StudioShell({
               dialect={dialect}
               schema={schema}
               aiEnabled={aiEnabled}
+              initialValue={tabSqlContent[activeTab.id]}
+              onContentChange={(content) => handleSqlContentChange(activeTab.id, content)}
             />
           )}
         </div>
