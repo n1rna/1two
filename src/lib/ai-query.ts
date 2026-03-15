@@ -22,7 +22,7 @@ export async function generateAiChat(
   messages: AiMessage[],
   dialect: SqlDialect
 ): Promise<AiChatResponse> {
-  const res = await fetch("/api/proxy/ai/sql", {
+  const res = await fetch("/api/proxy/ai/query", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -97,7 +97,7 @@ export async function getAiSuggestions(
       ? { fields: schema.flatMap((t) => t.columns.map((c) => c.name)), dialect }
       : { schema, dialect };
 
-  const res = await fetch("/api/proxy/ai/sql/suggestions", {
+  const res = await fetch("/api/proxy/ai/query/suggestions", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

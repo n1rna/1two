@@ -192,8 +192,8 @@ func main() {
 			}
 			// AI query generation (SQL, Elasticsearch, etc.)
 			if db != nil {
-				r.Post("/ai/sql", handler.GenerateAiQuery(cfg, db))
-				r.Post("/ai/sql/suggestions", handler.GenerateAiQuerySuggestions(db))
+				r.Post("/ai/query", handler.GenerateAiQuery(cfg, db))
+				r.Post("/ai/query/suggestions", handler.GenerateAiQuerySuggestions(db))
 			}
 			if llmsSvc != nil && db != nil && r2 != nil {
 				r.Post("/llms/generate", handler.GenerateLlms(llmsSvc))
