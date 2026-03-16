@@ -1,20 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 234 234" width="234" height="234">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
 <defs>
-  <linearGradient id="bgGrad" x1="-22.1" y1="77.1" x2="256.1" y2="156.9" gradientUnits="userSpaceOnUse">
-    <stop offset="0%" stop-color="#721431"/>
-    <stop offset="100%" stop-color="#ff7ea5"/>
+  <linearGradient id="bgGrad" x1="282.5" y1="193.6" x2="-26.5" y2="62.4" gradientUnits="userSpaceOnUse">
+    <stop offset="0%" stop-color="#9fa652"/>
+    <stop offset="100%" stop-color="#4ca9ab"/>
   </linearGradient>
 </defs>
-  <rect width="234" height="234" rx="0" fill="url(#bgGrad)"/>
+  <rect width="256" height="256" rx="0" fill="url(#bgGrad)"/>
   <text
     x="50%"
     y="50%"
     dominant-baseline="central"
     text-anchor="middle"
     fill="#ffffff"
-    font-family="'Anton', sans-serif"
+    font-family="'IBM Plex Mono', monospace"
     font-weight="900"
     font-size="120"
-    letter-spacing="5"
-  >12.</text>
+    letter-spacing="-14"
+  >1tt</text>
 </svg>
