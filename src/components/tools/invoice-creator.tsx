@@ -689,7 +689,7 @@ export function InvoiceCreator({
   const { standard } = invoice;
 
   return (
-    <ToolLayout slug="invoice" toolbar={<SyncToggle {...syncToggleProps} />}>
+    <ToolLayout slug="invoice" sync={<SyncToggle {...syncToggleProps} />}>
       <div className="space-y-6 lg:grid lg:grid-cols-[1fr_1fr] lg:gap-6 lg:space-y-0">
 
         {/* ── Left column: settings ───────────────────────────────────────── */}

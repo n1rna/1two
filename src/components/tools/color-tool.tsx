@@ -519,6 +519,7 @@ export function ColorTool() {
         <div className="flex items-center gap-2 mr-1">
           <Palette className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold hidden sm:inline">Theme</span>
+          <SyncToggle {...colorSyncToggleProps} />
         </div>
 
         {/* Core token swatches */}
@@ -635,7 +636,6 @@ export function ColorTool() {
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <SyncToggle {...colorSyncToggleProps} />
           <Button size="sm" className="h-7 px-3 gap-1.5 text-xs" onClick={() => { setEditingToken(null); setBuilderOpen(true); }}>
             <Paintbrush className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Color Builder</span>

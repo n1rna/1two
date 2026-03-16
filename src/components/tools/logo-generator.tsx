@@ -1687,7 +1687,7 @@ export function LogoGenerator() {
   }, [published, activeLogoId, setSavedLogos]);
 
   return (
-    <ToolLayout slug="logo" toolbar={
+    <ToolLayout slug="logo" sync={<SyncToggle {...syncToggleProps} />} toolbar={
       <div className="flex items-center gap-1">
         {activeLogoId && (
           <button
@@ -1779,8 +1779,6 @@ export function LogoGenerator() {
             </div>
           )}
         </div>
-        <div className="h-5 w-px bg-border mx-0.5" />
-        <SyncToggle {...syncToggleProps} />
       </div>
     }>
       <div className="flex flex-col lg:flex-row h-full gap-0 overflow-hidden">

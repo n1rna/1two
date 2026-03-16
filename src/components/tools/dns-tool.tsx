@@ -316,7 +316,7 @@ export function DnsTool({ children }: { children?: React.ReactNode }) {
   }, [recordType]);
 
   return (
-    <ToolLayout slug="dns" toolbar={<SyncToggle {...lookupHistory.syncToggleProps} />}>
+    <ToolLayout slug="dns" sync={<SyncToggle {...lookupHistory.syncToggleProps} />}>
     <div className="space-y-6">
       {/* Input row */}
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">

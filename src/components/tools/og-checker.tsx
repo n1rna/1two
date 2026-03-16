@@ -396,7 +396,7 @@ export function OgChecker({ children }: { children?: React.ReactNode }) {
   );
 
   return (
-    <ToolLayout slug="og-checker" toolbar={<SyncToggle {...lookupHistory.syncToggleProps} />}>
+    <ToolLayout slug="og-checker" sync={<SyncToggle {...lookupHistory.syncToggleProps} />}>
     <div className="space-y-6">
       {/* Input */}
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">

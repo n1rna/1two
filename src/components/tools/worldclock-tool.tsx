@@ -764,21 +764,19 @@ export function WorldClockPage({ jsonLd, children }: { jsonLd: Record<string, un
   return (
     <ToolLayout
       slug="worldclock"
+      sync={<SyncToggle {...syncToggleProps} />}
       toolbar={
-        <>
-          <SyncToggle {...syncToggleProps} />
-          <button
-            onClick={() => setFocusMode((v) => !v)}
-            className={`flex items-center justify-center gap-1.5 w-[70px] py-1 text-[10px] font-medium rounded-md border transition-colors ${
-              focusMode
-                ? "bg-foreground text-background border-foreground"
-                : "text-muted-foreground hover:text-foreground border-input"
-            }`}
-          >
-            <Eye className="h-3 w-3" />
-            Focus
-          </button>
-        </>
+        <button
+          onClick={() => setFocusMode((v) => !v)}
+          className={`flex items-center justify-center gap-1.5 w-[70px] py-1 text-[10px] font-medium rounded-md border transition-colors ${
+            focusMode
+              ? "bg-foreground text-background border-foreground"
+              : "text-muted-foreground hover:text-foreground border-input"
+          }`}
+        >
+          <Eye className="h-3 w-3" />
+          Focus
+        </button>
       }
     >
       {jsonLd?.map((item, i) => (

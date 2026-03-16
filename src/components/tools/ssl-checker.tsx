@@ -324,7 +324,7 @@ export function SslChecker({ children }: { children?: React.ReactNode }) {
   );
 
   return (
-    <ToolLayout slug="ssl-checker" toolbar={<SyncToggle {...lookupHistory.syncToggleProps} />}>
+    <ToolLayout slug="ssl-checker" sync={<SyncToggle {...lookupHistory.syncToggleProps} />}>
     <div className="space-y-6">
       {/* Input */}
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">

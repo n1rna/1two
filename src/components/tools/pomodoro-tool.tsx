@@ -599,6 +599,7 @@ export function PomodoroTool() {
         <div className="max-w-6xl mx-auto flex items-center gap-2 px-6 py-2">
           <Target className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">Pomodoro</span>
+          <SyncToggle {...syncToggleProps} />
 
           <div className="flex items-center gap-1 ml-2">
             <span className="text-xs text-muted-foreground">
@@ -635,8 +636,6 @@ export function PomodoroTool() {
                 className={`h-3 w-3 ml-0.5 transition-transform ${showSettings ? "rotate-180" : ""}`}
               />
             </Button>
-
-            <SyncToggle {...syncToggleProps} />
           </div>
         </div>
       </div>

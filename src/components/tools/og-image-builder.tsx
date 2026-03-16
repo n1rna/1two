@@ -1628,6 +1628,7 @@ export function OgImageBuilder({
           <span className="hidden sm:inline text-xs text-muted-foreground">
             - {enabledImages.length} image{enabledImages.length !== 1 ? "s" : ""} enabled
           </span>
+          {!isCollection && <SyncToggle {...syncToggleProps} />}
         </div>
         <div className="flex items-center gap-2">
           <NativeSelect
@@ -1798,11 +1799,6 @@ export function OgImageBuilder({
               <Globe className="h-3 w-3" />
               Published
             </Button>
-          )}
-          {!isCollection && (
-            <SyncToggle
-              {...syncToggleProps}
-            />
           )}
         </div>
       </div>

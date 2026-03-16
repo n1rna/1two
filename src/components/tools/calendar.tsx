@@ -487,9 +487,6 @@ export function CalendarTool() {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-        </div>
-
-        <div className="ml-auto">
           <SyncToggle {...syncToggleProps} />
         </div>
       </div>
