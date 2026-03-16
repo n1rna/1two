@@ -3,12 +3,9 @@ import { tools, getSearchItems } from "@/lib/tools/registry";
 import { guides } from "@/lib/guides/registry";
 import { docs } from "@/lib/docs/registry";
 
-// Force dynamic so OpenNext/Cloudflare doesn't serve a stale pre-render
-export const dynamic = "force-dynamic";
-
 const SITE_URL = "https://1tt.dev";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+export default function sitemap(): MetadataRoute.Sitemap {
   const toolPages = tools.map((tool) => ({
     url: `${SITE_URL}/tools/${tool.slug}`,
     lastModified: new Date(),
