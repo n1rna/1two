@@ -34,7 +34,7 @@ export default function BrowserDatabasesGuide() {
         <Guide.H2>No install required</Guide.H2>
         <Guide.P>
           Most database GUIs require downloading an app, managing connections, and keeping
-          software up to date. 1two.dev runs entirely in the browser — open a tab and
+          software up to date. 1tt.dev runs entirely in the browser — open a tab and
           start exploring.
         </Guide.P>
 
@@ -76,13 +76,13 @@ export default function BrowserDatabasesGuide() {
         <Guide.P>
           Because the browser makes requests directly to your cluster, the cluster needs
           to allow cross-origin requests from{" "}
-          <Guide.Code>https://1two.dev</Guide.Code>. If you&apos;re running Elasticsearch
+          <Guide.Code>https://1tt.dev</Guide.Code>. If you&apos;re running Elasticsearch
           locally, add these settings to <Guide.Code>elasticsearch.yml</Guide.Code>:
         </Guide.P>
         <Guide.Callout>
           <pre className="text-xs font-mono overflow-x-auto whitespace-pre">
 {`http.cors.enabled: true
-http.cors.allow-origin: "https://1two.dev"
+http.cors.allow-origin: "https://1tt.dev"
 http.cors.allow-headers: "Authorization,Content-Type"
 http.cors.allow-methods: "GET,POST,PUT,DELETE,HEAD,OPTIONS"`}
           </pre>
@@ -91,7 +91,7 @@ http.cors.allow-methods: "GET,POST,PUT,DELETE,HEAD,OPTIONS"`}
 
         <Guide.H2>Postgres (Database Studio)</Guide.H2>
         <Guide.P>
-          For authenticated users, 1two.dev also provides a{" "}
+          For authenticated users, 1tt.dev also provides a{" "}
           <Guide.Strong>Database Studio</Guide.Strong> for Postgres databases. Connect
           using a standard connection string and get the same sidebar + tab bar experience
           with schema browsing, SQL editing, and data grids.

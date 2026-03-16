@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "1two-web",
+  "name": "onetruetool-web",
   "main": ".open-next/worker.js",
   "compatibility_date": "2025-03-09",
   "compatibility_flags": ["nodejs_compat"],
@@ -23,7 +23,7 @@
   "services": [
     {
       "binding": "API_BACKEND",
-      "service": "onetwo-api"
+      "service": "onetruetool-api"
     }
   ],
 

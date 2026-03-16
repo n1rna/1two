@@ -11,9 +11,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/n1rna/1two/api/internal/billing"
-	"github.com/n1rna/1two/api/internal/middleware"
-	"github.com/n1rna/1two/api/internal/neon"
+	"github.com/n1rna/1tt/api/internal/billing"
+	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/neon"
 )
 
 // DatabaseRecord represents a user_databases row returned to callers.

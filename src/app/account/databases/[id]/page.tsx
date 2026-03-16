@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { DatabaseStudio } from "@/components/account/database-studio";
 
 export const metadata: Metadata = {
-  title: "Database Studio - 1two",
+  title: "Database Studio - 1tt",
   description: "Explore tables, view schemas, and run SQL queries",
 };
 

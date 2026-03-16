@@ -1,5 +1,5 @@
 {
-	"project": "1two-web",
+	"project": "onetruetool-web",
 	"schema": {
 		"variables": {
 			"DATABASE_URL": {
@@ -76,7 +76,7 @@
 		"cloudflare": {
 			"type": "cloudflare",
 			"mode": "individual",
-			"worker": "1two-web"
+			"worker": "onetruetool-web"
 		}
 	}
 }

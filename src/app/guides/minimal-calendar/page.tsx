@@ -41,7 +41,7 @@ export default function MinimalCalendarGuide() {
           distracted by all the meetings you&apos;d rather not think about.
         </Guide.P>
         <Guide.P>
-          The 1two.dev <Guide.Strong>Calendar</Guide.Strong> is built for those moments.
+          The 1tt.dev <Guide.Strong>Calendar</Guide.Strong> is built for those moments.
           It opens instantly, has no accounts to connect, and focuses on one thing:
           letting you look at dates and mark things on them.
         </Guide.P>

@@ -1,4 +1,4 @@
-# 1two.dev — Developer Tools Platform
+# 1tt.dev — Developer Tools Platform
 
 A collection of browser-based developer tools built with Next.js. Each tool is self-contained, fast, and works entirely client-side.
 
@@ -308,9 +308,9 @@ The web worker communicates with the API container via **Service Bindings** (int
 
 ### Config Files
 
-- `wrangler.jsonc` — Web worker config (name: `1two-web`, KV for cache, service binding to `onetwo-api`)
+- `wrangler.jsonc` — Web worker config (name: `onetruetool-web`, KV for cache, service binding to `onetruetool-api`)
 - `open-next.config.ts` — OpenNext adapter config
-- `workers/api-container/wrangler.toml` — Container worker config (name: `onetwo-api`)
+- `workers/api-container/wrangler.toml` — Container worker config (name: `onetruetool-api`)
 - `workers/api-container/src/index.ts` — Container entrypoint (proxies requests to Go container)
 - `api/Dockerfile` — Go backend Docker image
 
@@ -365,7 +365,7 @@ The `n1rna/ee-action` GitHub Action decrypts `ENV_VARS_WEB` and writes `.env.web
 
 Set via `wrangler secret put <NAME>` (or `just cf-secret-web` / `just cf-secret-api`).
 
-**Web worker secrets** (set with `--name 1two-web`):
+**Web worker secrets** (set with `--name onetruetool-web`):
 - `DATABASE_URL` — Neon Postgres connection string
 - `BETTER_AUTH_SECRET` — Auth session signing key
 - `BETTER_AUTH_URL` — Auth callback base URL
@@ -373,7 +373,7 @@ Set via `wrangler secret put <NAME>` (or `just cf-secret-web` / `just cf-secret-
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — OAuth
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — Cloudflare Turnstile
 
-**API container secrets** (set with `--name onetwo-api`):
+**API container secrets** (set with `--name onetruetool-api`):
 - `DATABASE_URL` — Neon Postgres connection string
 - `ALLOWED_ORIGINS` — CORS allowed origins
 - `TURNSTILE_SECRET_KEY` — Turnstile verification
@@ -392,9 +392,9 @@ ee set .ee.web MY_NEW_VAR "the-value"
 ee export .ee.web | gh secret set ENV_VARS_WEB
 
 # 3. Update Cloudflare runtime secret
-echo "the-value" | wrangler secret put MY_NEW_VAR --name 1two-web
+echo "the-value" | wrangler secret put MY_NEW_VAR --name onetruetool-web
 # or for API:
-echo "the-value" | wrangler secret put MY_NEW_VAR --name onetwo-api
+echo "the-value" | wrangler secret put MY_NEW_VAR --name onetruetool-api
 ```
 
 ### ee CLI — Environment Variable Management
@@ -431,12 +431,12 @@ Structure:
       "type": "github",
       "mode": "bundled",
       "secret_name": "ENV_VARS_API",
-      "repo": "n1rna/1two"
+      "repo": "n1rna/1tt"
     },
     "cloudflare": {
       "type": "cloudflare",
       "mode": "individual",
-      "worker": "onetwo-api"
+      "worker": "onetruetool-api"
     }
   }
 }

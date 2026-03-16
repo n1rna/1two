@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getToolBySlug, tools, categoryLabels } from "./registry";
 
-const SITE_URL = "https://1two.dev";
+const SITE_URL = "https://1tt.dev";
 const OG_COLLECTION_SLUG = "c9d65497fec3";
 const OG_BASE = `${SITE_URL}/og/s/${OG_COLLECTION_SLUG}`;
 
@@ -23,16 +23,16 @@ export function toolMetadata({ slug, title, description, keywords }: ToolSeoOpti
     keywords,
     alternates: { canonical: url },
     openGraph: {
-      title: `${title} - 1two.dev`,
+      title: `${title} - 1tt.dev`,
       description,
       url,
       type: "website",
-      siteName: "1two.dev",
+      siteName: "1tt.dev",
       images: [{ url: ogImage, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} - 1two.dev`,
+      title: `${title} - 1tt.dev`,
       description,
       images: [twImage],
     },
@@ -68,7 +68,7 @@ export function toolJsonLd(slug: string) {
       },
       author: {
         "@type": "Organization",
-        name: "1two.dev",
+        name: "1tt.dev",
         url: SITE_URL,
       },
       keywords: tool.keywords.join(", "),
@@ -109,7 +109,7 @@ export function homepageJsonLd() {
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      name: "1two.dev",
+      name: "1tt.dev",
       url: SITE_URL,
       description: "Tools that just work - the developer tools you actually need.",
       potentialAction: {
@@ -138,10 +138,10 @@ export function homepageJsonLd() {
     {
       "@context": "https://schema.org",
       "@type": "Organization",
-      name: "1two.dev",
+      name: "1tt.dev",
       url: SITE_URL,
       logo: `${SITE_URL}/logo.svg`,
-      sameAs: ["https://github.com/n1rna/1two"],
+      sameAs: ["https://github.com/n1rna/1tt"],
     },
   ];
 }

@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Home page", () => {
   test("displays the app name and tool cards", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "1two.dev" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "1tt.dev" })).toBeVisible();
     await expect(page.getByText("JWT Parser")).toBeVisible();
     await expect(page.getByText("JSON Tool")).toBeVisible();
     await expect(page.getByText("Base64 Encoder/Decoder")).toBeVisible();

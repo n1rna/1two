@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { tools, getSearchItems } from "@/lib/tools/registry";
 import { guides } from "@/lib/guides/registry";
 
-const SITE_URL = "https://1two.dev";
+const SITE_URL = "https://1tt.dev";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const toolPages = tools.map((tool) => ({

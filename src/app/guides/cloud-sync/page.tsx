@@ -33,21 +33,21 @@ export default function CloudSyncGuide() {
       <GuideLayout slug={slug}>
         <Guide.H2>How it works</Guide.H2>
         <Guide.P>
-          Every tool on 1two.dev stores its state in{" "}
+          Every tool on 1tt.dev stores its state in{" "}
           <Guide.Code>localStorage</Guide.Code> by default — connections, saved templates,
           color palettes, bookmarks, and more. This works great on a single device but
           doesn&apos;t follow you to a different browser or machine.
         </Guide.P>
         <Guide.P>
           <Guide.Strong>Cloud sync</Guide.Strong> adds a second layer: when enabled, every
-          state change is debounced and pushed to the 1two.dev backend. When you open the
+          state change is debounced and pushed to the 1tt.dev backend. When you open the
           same tool on another device, the latest state is pulled down automatically.
         </Guide.P>
 
         <Guide.H2>Enabling sync</Guide.H2>
         <Guide.Step n={1}>
           <Guide.P>
-            Sign in to your 1two.dev account. Cloud sync requires authentication so we
+            Sign in to your 1tt.dev account. Cloud sync requires authentication so we
             know where to store your data.
           </Guide.P>
         </Guide.Step>
@@ -80,7 +80,7 @@ export default function CloudSyncGuide() {
 
         <Guide.H2>Privacy and storage</Guide.H2>
         <Guide.P>
-          Synced data is stored on 1two.dev&apos;s infrastructure and tied to your account.
+          Synced data is stored on 1tt.dev&apos;s infrastructure and tied to your account.
           Each syncable key has a size limit (typically 32–256 KB) to keep things
           lightweight. No tool state is shared with other users.
         </Guide.P>

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/n1rna/1two/api/internal/config"
+	"github.com/n1rna/1tt/api/internal/config"
 )
 
 const baseURL = "https://console.neon.tech/api/v2"
@@ -81,7 +81,7 @@ type connectionURIResponse struct {
 func (c *Client) CreateProject(ctx context.Context, name, regionID, ownerID string) (*Project, error) {
 	payload := map[string]any{
 		"project": map[string]any{
-			"name":       fmt.Sprintf("1two-%s-%s", ownerID, name),
+			"name":       fmt.Sprintf("1tt-%s-%s", ownerID, name),
 			"region_id":  regionID,
 			"pg_version": 17,
 			"org_id":     c.orgID,

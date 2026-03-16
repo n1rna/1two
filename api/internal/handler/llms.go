@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/n1rna/1two/api/internal/llms"
-	"github.com/n1rna/1two/api/internal/middleware"
-	"github.com/n1rna/1two/api/internal/storage"
+	"github.com/n1rna/1tt/api/internal/llms"
+	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/storage"
 )
 
 // GenerateLlms handles POST /llms/generate.

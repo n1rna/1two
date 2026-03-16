@@ -6,7 +6,7 @@ const slug = "serve-og-images";
 
 export const metadata = guideMetadata({
   slug,
-  title: "Serve OG Images from 1two.dev",
+  title: "Serve OG Images from 1tt.dev",
   description:
     "Design Open Graph images in the browser and serve them directly from a permanent URL — no hosting or build step required.",
   keywords: [
@@ -44,7 +44,7 @@ export default function ServeOgImagesGuide() {
           manual work, cold starts, or infrastructure you have to maintain.
         </Guide.P>
 
-        <Guide.H2>How 1two.dev solves this</Guide.H2>
+        <Guide.H2>How 1tt.dev solves this</Guide.H2>
         <Guide.P>
           The <Guide.Strong>OG Image Builder</Guide.Strong> lets you design your image
           visually in the browser — pick a layout, set your title and subtitle, choose
@@ -54,12 +54,12 @@ export default function ServeOgImagesGuide() {
 
         <Guide.H3>How the URL works</Guide.H3>
         <Guide.P>
-          When you save a design, 1two.dev creates a collection with a unique slug. The
+          When you save a design, 1tt.dev creates a collection with a unique slug. The
           image is served from a URL like:
         </Guide.P>
         <Guide.Callout>
           <Guide.Code>
-            https://1two.dev/og/s/your-collection/open-graph.png?subtitle=Your+Page+Title
+            https://1tt.dev/og/s/your-collection/open-graph.png?subtitle=Your+Page+Title
           </Guide.Code>
         </Guide.Callout>
         <Guide.P>
@@ -101,7 +101,7 @@ export function generateMetadata({ params }) {
   const title = encodeURIComponent(params.slug);
   return {
     openGraph: {
-      images: [\`https://1two.dev/og/s/YOUR_SLUG/open-graph.png?subtitle=\${title}\`],
+      images: [\`https://1tt.dev/og/s/YOUR_SLUG/open-graph.png?subtitle=\${title}\`],
     },
   };
 }`}

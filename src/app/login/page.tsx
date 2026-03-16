@@ -40,7 +40,7 @@ function LoginContent() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="flex flex-col items-center gap-6 max-w-sm w-full px-6">
         <div className="text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Sign in to 1two.dev</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Sign in to 1tt.dev</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Sign in to access your account, sync preferences, and unlock all tools.
           </p>

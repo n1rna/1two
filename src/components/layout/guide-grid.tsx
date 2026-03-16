@@ -33,7 +33,7 @@ export function GuideGrid() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight mb-3">Guides</h1>
         <p className="text-base text-muted-foreground max-w-lg">
-          Deep dives into what you can do with 1two.dev — features, workflows,
+          Deep dives into what you can do with 1tt.dev — features, workflows,
           and things you might not know about.
         </p>
       </div>

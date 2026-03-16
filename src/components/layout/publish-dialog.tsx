@@ -75,7 +75,7 @@ export function PublishDialog({
     typeof window !== "undefined" && publishedId
       ? `${window.location.origin}/p/${publishedId}`
       : publishedId
-      ? `https://1two.dev/p/${publishedId}`
+      ? `https://1tt.dev/p/${publishedId}`
       : "";
 
   const copyUrl = async () => {

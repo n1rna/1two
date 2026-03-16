@@ -1,6 +1,6 @@
-// 1two.dev Tools — Chrome Extension Background (Omnibox Handler)
+// 1tt.dev Tools — Chrome Extension Background (Omnibox Handler)
 // Change this URL for local development (e.g., "http://localhost:3000")
-const BASE_URL = "https://1two.dev";
+const BASE_URL = "https://1tt.dev";
 
 // ---------- Tool registry (synced from src/lib/tools/registry.ts) ----------
 
@@ -157,7 +157,7 @@ function searchTools(query, limit = 5) {
   if (results.length === 0) {
     results.push({
       content: BASE_URL,
-      description: `Search 1two.dev for &quot;<match>${esc(q)}</match>&quot;`,
+      description: `Search 1tt.dev for &quot;<match>${esc(q)}</match>&quot;`,
     });
   }
 
@@ -168,7 +168,7 @@ function searchTools(query, limit = 5) {
 
 chrome.omnibox.onInputStarted.addListener(() => {
   chrome.omnibox.setDefaultSuggestion({
-    description: "Search 1two.dev tools...",
+    description: "Search 1tt.dev tools...",
   });
 });
 

@@ -8,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
       },
     ],
-    sitemap: "https://1two.dev/sitemap.xml",
+    sitemap: "https://1tt.dev/sitemap.xml",
   };
 }

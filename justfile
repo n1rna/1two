@@ -1,4 +1,4 @@
-# 1two.dev Development Commands
+# 1tt.dev Development Commands
 # Run with: just <command>
 
 # Default recipe to display help
@@ -74,7 +74,7 @@ api-build:
 
 # Build Go API Docker image
 api-docker-build:
-    cd api && docker build -t 1two-api .
+    cd api && docker build -t 1tt-api .
 
 # =========================================
 # Testing

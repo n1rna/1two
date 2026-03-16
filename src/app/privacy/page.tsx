@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "Privacy policy for 1two.dev developer tools.",
+  description: "Privacy policy for 1tt.dev developer tools.",
 };
 
 export default function PrivacyPage() {
@@ -11,7 +11,7 @@ export default function PrivacyPage() {
       <h1 className="text-2xl font-bold mb-6">Privacy Policy</h1>
       <div className="prose prose-sm dark:prose-invert text-muted-foreground space-y-4">
         <p>
-          1two.dev is designed with privacy in mind. All tools run entirely in
+          1tt.dev is designed with privacy in mind. All tools run entirely in
           your browser - no data is sent to any server.
         </p>
         <h2 className="text-lg font-semibold text-foreground">Data Collection</h2>

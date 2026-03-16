@@ -2644,12 +2644,12 @@ function NoTabState({ onNewQuery }: { onNewQuery: () => void }) {
 
 export function ElasticsearchExplorer() {
   // Synced connections
-  const connSync = useSyncedState<EsConnection[]>("1two:es-connections", []);
+  const connSync = useSyncedState<EsConnection[]>("1tt:es-connections", []);
   const connections = connSync.data;
   const setConnections = connSync.setData;
 
   // Synced explorer state (tabs, active connection, query counter, saved queries)
-  const stateSync = useSyncedState<EsPersistedState>("1two:es-state", DEFAULT_ES_STATE);
+  const stateSync = useSyncedState<EsPersistedState>("1tt:es-state", DEFAULT_ES_STATE);
   const esState = stateSync.data;
   const setEsState = stateSync.setData;
 

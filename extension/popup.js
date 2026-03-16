@@ -1,5 +1,5 @@
-// 1two.dev Tools — Popup
-const BASE_URL = "https://1two.dev";
+// 1tt.dev Tools — Popup
+const BASE_URL = "https://1tt.dev";
 
 const CATEGORY_LABELS = {
   encoding: "Encoding / Decoding",

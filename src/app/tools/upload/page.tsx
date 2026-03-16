@@ -33,7 +33,7 @@ export default function UploadPage() {
       <ToolInfo>
         <ToolInfo.H2>What is this tool?</ToolInfo.H2>
         <ToolInfo.P>
-          A simple file upload and sharing service tied to your 1two.dev account. Upload files, get shareable links, and manage your uploads from one place.
+          A simple file upload and sharing service tied to your 1tt.dev account. Upload files, get shareable links, and manage your uploads from one place.
         </ToolInfo.P>
 
         <ToolInfo.H2>How to use this tool</ToolInfo.H2>

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/n1rna/1two/api/internal/crawl"
+	"github.com/n1rna/1tt/api/internal/crawl"
 )
 
 // GitHubInfo holds the parsed owner and repo name from a GitHub URL.

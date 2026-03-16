@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/n1rna/1two/api/internal/agent"
-	"github.com/n1rna/1two/api/internal/billing"
-	"github.com/n1rna/1two/api/internal/crawl"
-	"github.com/n1rna/1two/api/internal/gitclone"
-	"github.com/n1rna/1two/api/internal/storage"
+	"github.com/n1rna/1tt/api/internal/agent"
+	"github.com/n1rna/1tt/api/internal/billing"
+	"github.com/n1rna/1tt/api/internal/crawl"
+	"github.com/n1rna/1tt/api/internal/gitclone"
+	"github.com/n1rna/1tt/api/internal/storage"
 )
 
 // maxWorkers is the maximum number of jobs processed concurrently.

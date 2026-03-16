@@ -219,7 +219,7 @@ export function PasteTool() {
 
             <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
               <code className="flex-1 text-sm font-mono truncate text-foreground">
-                {typeof window !== "undefined" ? window.location.origin : "https://1two.dev"}/p/{createdPaste.id}
+                {typeof window !== "undefined" ? window.location.origin : "https://1tt.dev"}/p/{createdPaste.id}
               </code>
               <button
                 onClick={copyCreatedUrl}

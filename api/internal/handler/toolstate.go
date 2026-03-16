@@ -7,26 +7,26 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/n1rna/1two/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/middleware"
 )
 
 // allowedToolStateKeys maps each syncable localStorage key to its maximum
 // permitted size in bytes. Keys not present in this map are rejected.
 // Keep in sync with src/lib/sync/schema.ts on the frontend.
 var allowedToolStateKeys = map[string]int64{
-	"1two:calendar-markers": 65536,
+	"1tt:calendar-markers": 65536,
 	"pomodoro-state":        32768,
 	"worldclock-state":      32768,
 	"lookup-history":        262144,
-	"1two-saved-logos":      262144,
+	"1tt-saved-logos":      262144,
 	"og-custom-layouts":     262144,
-	"1two-saved-colors":     65536,
-	"1two-saved-themes":     65536,
-	"1two-saved-invoices":   262144,
-	"1two:es-connections":   32768,
-	"1two:es-state":         65536,
-	"1two:bookmarks":        8192,
-	"1two:tool-order":       8192,
+	"1tt-saved-colors":     65536,
+	"1tt-saved-themes":     65536,
+	"1tt-saved-invoices":   262144,
+	"1tt:es-connections":   32768,
+	"1tt:es-state":         65536,
+	"1tt:bookmarks":        8192,
+	"1tt:tool-order":       8192,
 }
 
 // validator checks that a JSON payload conforms to the expected schema.
@@ -34,17 +34,17 @@ type validator func(data json.RawMessage) error
 
 // toolStateValidators maps each key to a structural validator.
 var toolStateValidators = map[string]validator{
-	"1two:bookmarks":        validateStringArray(200),
-	"1two:tool-order":       validateStringArray(200),
-	"1two:calendar-markers": validateCalendarMarkers,
+	"1tt:bookmarks":        validateStringArray(200),
+	"1tt:tool-order":       validateStringArray(200),
+	"1tt:calendar-markers": validateCalendarMarkers,
 	"pomodoro-state":        validatePomodoroState,
 	"worldclock-state":      validateWorldclockState,
 	"lookup-history":        validateLookupHistory,
-	"1two-saved-logos":      validateSavedLogos,
+	"1tt-saved-logos":      validateSavedLogos,
 	"og-custom-layouts":     validateOgLayouts,
-	"1two-saved-invoices":   validateSavedInvoices,
-	"1two-saved-colors":     validateSavedColors,
-	"1two-saved-themes":     validateSavedThemes,
+	"1tt-saved-invoices":   validateSavedInvoices,
+	"1tt-saved-colors":     validateSavedColors,
+	"1tt-saved-themes":     validateSavedThemes,
 }
 
 // ── Validators ──────────────────────────────────────────

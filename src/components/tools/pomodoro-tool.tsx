@@ -515,10 +515,10 @@ export function PomodoroTool() {
     if (status === "running" || status === "paused") {
       document.title = `${formatTime(remaining)} - Pomodoro`;
     } else {
-      document.title = "Pomodoro Timer - 1two";
+      document.title = "Pomodoro Timer - 1tt";
     }
     return () => {
-      document.title = "Pomodoro Timer - 1two";
+      document.title = "Pomodoro Timer - 1tt";
     };
   }, [remaining, status]);
 

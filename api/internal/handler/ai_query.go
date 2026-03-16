@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/n1rna/1two/api/internal/billing"
-	"github.com/n1rna/1two/api/internal/config"
-	"github.com/n1rna/1two/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/billing"
+	"github.com/n1rna/1tt/api/internal/config"
+	"github.com/n1rna/1tt/api/internal/middleware"
 )
 
 // --- Request / response types ---

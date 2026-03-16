@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Terms of Use",
-  description: "Terms of use for 1two.dev developer tools.",
+  description: "Terms of use for 1tt.dev developer tools.",
 };
 
 export default function TermsPage() {
@@ -11,7 +11,7 @@ export default function TermsPage() {
       <h1 className="text-2xl font-bold mb-6">Terms of Use</h1>
       <div className="prose prose-sm dark:prose-invert text-muted-foreground space-y-4">
         <p>
-          By using 1two.dev, you agree to these terms. All tools are provided
+          By using 1tt.dev, you agree to these terms. All tools are provided
           &quot;as is&quot; without warranties of any kind.
         </p>
         <p>

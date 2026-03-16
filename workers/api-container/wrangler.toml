@@ -1,4 +1,4 @@
-name = "onetwo-api"
+name = "onetruetool-api"
 main = "src/index.ts"
 compatibility_date = "2025-03-09"
 compatibility_flags = ["nodejs_compat"]

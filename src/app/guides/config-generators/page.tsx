@@ -37,7 +37,7 @@ export default function ConfigGeneratorsGuide() {
           Config files are one of the most copy-pasted artifacts in software development.
           You know the drill: open a docs page, scroll past the explanations, find the
           example, paste it, then tweak the parts you need. The{" "}
-          <Guide.Strong>Config Generator</Guide.Strong> on 1two.dev skips the docs and
+          <Guide.Strong>Config Generator</Guide.Strong> on 1tt.dev skips the docs and
           gives you an interactive form instead.
         </Guide.P>
 

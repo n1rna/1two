@@ -20,12 +20,12 @@ export function Footer() {
           <div className="flex items-center gap-1.5">
             <Image
               src="/logo.svg"
-              alt="1two.dev"
+              alt="1tt.dev"
               width={12}
               height={12}
               className="rounded-sm opacity-60"
             />
-            <span>1two.dev</span>
+            <span>1tt.dev</span>
           </div>
           <nav className="flex items-center gap-3">
             <Link href="/terms" className="hover:text-muted-foreground transition-colors">
@@ -46,12 +46,12 @@ export function Footer() {
         <div className="flex items-center gap-2">
           <Image
             src="/logo.svg"
-            alt="1two.dev"
+            alt="1tt.dev"
             width={20}
             height={20}
             className="rounded-sm"
           />
-          <span className="font-semibold text-foreground">1two.dev</span>
+          <span className="font-semibold text-foreground">1tt.dev</span>
           <span>&copy; {new Date().getFullYear()}</span>
         </div>
 

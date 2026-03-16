@@ -57,11 +57,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const paste = await fetchPaste(id);
-  if (!paste) return { title: "Paste not found - 1two.dev" };
+  if (!paste) return { title: "Paste not found - 1tt.dev" };
   const title = paste.title || "Untitled paste";
   const desc = paste.content.slice(0, 160).replace(/\n/g, " ");
   return {
-    title: `${title} - 1two.dev`,
+    title: `${title} - 1tt.dev`,
     description: desc,
     openGraph: { title, description: desc },
   };
@@ -105,7 +105,7 @@ export default async function PasteViewerPage({
               href="/"
               className="text-xs font-semibold text-foreground hover:opacity-70 transition-opacity"
             >
-              1two.dev
+              1tt.dev
             </a>
           </div>
 

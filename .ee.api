@@ -1,5 +1,5 @@
 {
-	"project": "1two-api",
+	"project": "onetruetool-api",
 	"schema": {
 		"variables": {
 			"DATABASE_URL": {
@@ -198,7 +198,7 @@
 		"cloudflare": {
 			"type": "cloudflare",
 			"mode": "individual",
-			"worker": "onetwo-api"
+			"worker": "onetruetool-api"
 		}
 	}
 }

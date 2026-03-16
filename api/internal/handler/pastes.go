@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/n1rna/1two/api/internal/billing"
-	"github.com/n1rna/1two/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/billing"
+	"github.com/n1rna/1tt/api/internal/middleware"
 )
 
 const shortIDAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

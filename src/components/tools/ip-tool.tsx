@@ -205,9 +205,9 @@ export function IpTool({ ipv4, ipv6, info, error }: IpToolProps) {
           Use from Terminal
         </h2>
         <div className="rounded-xl border bg-card p-4 space-y-2">
-          <CodeBlock label="Get your IPv4 address" command="curl -4 1two.dev/ip" />
-          <CodeBlock label="Get your IPv6 address" command="curl -6 1two.dev/ip" />
-          <CodeBlock label="Get detailed IP info" command="curl 1two.dev/ip/info" />
+          <CodeBlock label="Get your IPv4 address" command="curl -4 1tt.dev/ip" />
+          <CodeBlock label="Get your IPv6 address" command="curl -6 1tt.dev/ip" />
+          <CodeBlock label="Get detailed IP info" command="curl 1tt.dev/ip/info" />
         </div>
       </section>
 

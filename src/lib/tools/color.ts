@@ -413,8 +413,8 @@ export interface SavedTheme {
 
 // ── LocalStorage ───────────────────────────────────────
 
-const COLORS_KEY = "1two-saved-colors";
-const THEMES_KEY = "1two-saved-themes";
+const COLORS_KEY = "1tt-saved-colors";
+const THEMES_KEY = "1tt-saved-themes";
 
 export function loadSavedColors(): SavedColor[] {
   try {

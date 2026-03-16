@@ -44,7 +44,7 @@ export default function SqliteBrowserGuide() {
           round-trips.
         </Guide.P>
         <Guide.P>
-          The 1two.dev SQLite Browser lets you open and query these files
+          The 1tt.dev SQLite Browser lets you open and query these files
           directly in the browser. Drag and drop a{" "}
           <Guide.Code>.sqlite</Guide.Code>, <Guide.Code>.db</Guide.Code>, or{" "}
           <Guide.Code>.sqlite3</Guide.Code> file and start exploring — nothing
@@ -161,14 +161,14 @@ export default function SqliteBrowserGuide() {
           <li>
             <Guide.Strong>SQLite compatibility</Guide.Strong> — Turso databases
             are real SQLite files. You can export them and open them in any
-            SQLite tool — including the 1two.dev SQLite Browser
+            SQLite tool — including the 1tt.dev SQLite Browser
           </li>
         </Guide.UL>
 
-        <Guide.H2>Using Turso databases with 1two.dev</Guide.H2>
+        <Guide.H2>Using Turso databases with 1tt.dev</Guide.H2>
         <Guide.P>
           If you use Turso or libSQL, you can export your database as a{" "}
-          <Guide.Code>.sqlite</Guide.Code> file and open it in the 1two.dev
+          <Guide.Code>.sqlite</Guide.Code> file and open it in the 1tt.dev
           SQLite Browser for inspection. This is useful for:
         </Guide.P>
         <Guide.UL>

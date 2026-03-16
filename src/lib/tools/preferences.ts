@@ -1,8 +1,8 @@
 // Cloud sync for bookmarks and tool-order is managed via useSyncedState in the settings UI.
 // These functions remain as the localStorage interface used by components.
 
-const BOOKMARKS_KEY = "1two:bookmarks";
-const ORDER_KEY = "1two:tool-order";
+const BOOKMARKS_KEY = "1tt:bookmarks";
+const ORDER_KEY = "1tt:tool-order";
 
 export function loadBookmarks(): string[] {
   if (typeof window === "undefined") return [];

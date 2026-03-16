@@ -114,7 +114,7 @@ export function NotificationTester() {
 
   // Test notification
   const [testTitle, setTestTitle] = useState("Test Notification");
-  const [testBody, setTestBody] = useState("This is a test notification from 1two.dev");
+  const [testBody, setTestBody] = useState("This is a test notification from 1tt.dev");
 
   // Notification log
   const [logs, setLogs] = useState<NotificationLog[]>([]);

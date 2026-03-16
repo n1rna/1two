@@ -3,7 +3,7 @@ import type { GuideDefinition } from "./types";
 export const guides: GuideDefinition[] = [
   {
     slug: "serve-og-images",
-    title: "Serve OG Images from 1two.dev",
+    title: "Serve OG Images from 1tt.dev",
     description:
       "Design Open Graph images in the browser and serve them directly from a permanent URL — no hosting or build step required.",
     icon: "Image",

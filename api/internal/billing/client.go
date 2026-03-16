@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/n1rna/1two/api/internal/config"
+	"github.com/n1rna/1tt/api/internal/config"
 )
 
 // Client wraps the Polar HTTP API.

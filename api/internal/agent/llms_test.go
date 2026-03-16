@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/n1rna/1two/api/internal/crawl"
+	"github.com/n1rna/1tt/api/internal/crawl"
 )
 
 // TestGenerateLlmsTxtIntegration is an integration test that verifies the full

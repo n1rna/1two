@@ -38,7 +38,7 @@ export default function PostgresqlStudioGuide() {
         <Guide.H2>A database GUI that lives in your browser</Guide.H2>
         <Guide.P>
           Most PostgreSQL clients — pgAdmin, DBeaver, DataGrip — are desktop
-          apps that need to be installed, updated, and configured. The 1two.dev
+          apps that need to be installed, updated, and configured. The 1tt.dev
           Database Studio runs entirely in the browser. Open a tab, paste a
           connection string, and start querying.
         </Guide.P>
@@ -58,7 +58,7 @@ export default function PostgresqlStudioGuide() {
           </pre>
         </Guide.Callout>
         <Guide.P>
-          The connection is proxied through the 1two.dev backend so your database
+          The connection is proxied through the 1tt.dev backend so your database
           does not need to allow browser-origin CORS requests. As long as the
           host is reachable from the internet (or from your network if you are
           connecting to a local instance), it will work.
@@ -118,9 +118,9 @@ export default function PostgresqlStudioGuide() {
 
         <Guide.H2>Hosted Postgres databases</Guide.H2>
         <Guide.P>
-          Don&apos;t have a database yet? 1two.dev can provision a hosted
+          Don&apos;t have a database yet? 1tt.dev can provision a hosted
           PostgreSQL instance for you. Each hosted database runs on dedicated
-          infrastructure managed by 1two — no AWS console, no Terraform, no
+          infrastructure managed by 1tt — no AWS console, no Terraform, no
           connection pooler to configure. You get a connection string and
           start building.
         </Guide.P>

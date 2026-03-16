@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/n1rna/1two/api/internal/billing"
-	"github.com/n1rna/1two/api/internal/middleware"
-	"github.com/n1rna/1two/api/internal/turso"
+	"github.com/n1rna/1tt/api/internal/billing"
+	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/turso"
 )
 
 // sqliteMagic is the first 16 bytes of every valid SQLite database file.

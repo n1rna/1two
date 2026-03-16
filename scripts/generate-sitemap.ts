@@ -2,7 +2,7 @@ import { tools } from "../src/lib/tools/registry";
 import { writeFileSync } from "fs";
 import { join } from "path";
 
-const SITE_URL = "https://1two.dev";
+const SITE_URL = "https://1tt.dev";
 const today = new Date().toISOString().split("T")[0];
 
 const urls = [

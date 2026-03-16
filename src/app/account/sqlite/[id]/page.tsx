@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { HostedSqliteStudio } from "@/components/account/hosted-sqlite-studio";
 
 export const metadata: Metadata = {
-  title: "SQLite Studio - 1two",
+  title: "SQLite Studio - 1tt",
   description: "Browse and query your hosted SQLite database",
 };
 

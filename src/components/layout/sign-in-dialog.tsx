@@ -32,7 +32,7 @@ export function SignInDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <DialogHeader className="items-center text-center">
-          <DialogTitle>Welcome to 1two.dev</DialogTitle>
+          <DialogTitle>Welcome to 1tt.dev</DialogTitle>
           <DialogDescription>
             Sign in to sync your preferences and unlock all tools.
           </DialogDescription>

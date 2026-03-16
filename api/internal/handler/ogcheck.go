@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/net/html"
 
-	"github.com/n1rna/1two/api/internal/config"
+	"github.com/n1rna/1tt/api/internal/config"
 )
 
 // ogCacheTTL is how long a parsed result is considered fresh.
@@ -25,7 +25,7 @@ const ogFetchTimeout = 10 * time.Second
 const ogMaxRedirects = 5
 
 // ogUserAgent is sent with every outbound request so servers don't reject us.
-const ogUserAgent = "Mozilla/5.0 (compatible; 1two-og-checker/1.0; +https://1two.app)"
+const ogUserAgent = "Mozilla/5.0 (compatible; 1tt-og-checker/1.0; +https://1tt.dev)"
 
 // ogMaxBodyBytes caps how much HTML we read to avoid large downloads.
 const ogMaxBodyBytes = 2 * 1024 * 1024 // 2 MiB

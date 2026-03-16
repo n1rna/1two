@@ -254,7 +254,7 @@ function decodeConfig(encoded: string): LogoConfig | null {
   }
 }
 
-const SAVED_LOGOS_KEY = "1two-saved-logos";
+const SAVED_LOGOS_KEY = "1tt-saved-logos";
 
 interface SavedLogo {
   id: string;
@@ -923,8 +923,8 @@ function CopyBtn({ text }: { text: string }) {
 
 type PublishAction = "update" | "new-url";
 
-const PUBLISH_DEFAULT_KEY = "1two-logo-publish-default";
-const PUBLISH_SIZE_KEY = "1two-logo-publish-size";
+const PUBLISH_DEFAULT_KEY = "1tt-logo-publish-default";
+const PUBLISH_SIZE_KEY = "1tt-logo-publish-size";
 
 const PUBLISH_SIZES = [
   { size: 16, label: "16px", tag: "favicon" },

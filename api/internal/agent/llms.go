@@ -14,7 +14,7 @@ import (
 	openaioption "github.com/openai/openai-go/v2/option"
 	"github.com/openai/openai-go/v2/packages/param"
 
-	"github.com/n1rna/1two/api/internal/crawl"
+	"github.com/n1rna/1tt/api/internal/crawl"
 )
 
 // LLMConfig holds the configuration for the LLM provider.

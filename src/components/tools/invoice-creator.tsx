@@ -248,7 +248,7 @@ export function InvoiceCreator({
   const [showLoadDropdown, setShowLoadDropdown] = useState(false);
 
   const { data: savedTemplates, setData: setSavedTemplates, syncToggleProps } =
-    useSyncedState<SavedTemplate[]>("1two-saved-invoices", []);
+    useSyncedState<SavedTemplate[]>("1tt-saved-invoices", []);
 
   // Helpers
   const update = useCallback(

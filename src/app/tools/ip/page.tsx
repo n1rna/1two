@@ -9,7 +9,7 @@ export const metadata = toolMetadata({
   slug: "ip",
   title: "What Is My IP Address - Geolocation & Network Info",
   description:
-    "View your public IP address, geolocation, ISP, and network details. Also available via curl 1two.dev/ip from your terminal.",
+    "View your public IP address, geolocation, ISP, and network details. Also available via curl 1tt.dev/ip from your terminal.",
   keywords: [
     "ip address",
     "what is my ip",
@@ -100,7 +100,7 @@ export default async function IpPage() {
           <li>Open the page to instantly see your <ToolInfo.Strong>public IP address</ToolInfo.Strong></li>
           <li>View <ToolInfo.Strong>geolocation data</ToolInfo.Strong> including city, region, country, and coordinates</li>
           <li>Check your <ToolInfo.Strong>ISP</ToolInfo.Strong> and network organization details</li>
-          <li>Use <ToolInfo.Code>curl 1two.dev/ip</ToolInfo.Code> from a terminal to get your IP in plain text</li>
+          <li>Use <ToolInfo.Code>curl 1tt.dev/ip</ToolInfo.Code> from a terminal to get your IP in plain text</li>
         </ToolInfo.UL>
 
         <ToolInfo.H2>Common use cases</ToolInfo.H2>

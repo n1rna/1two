@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: 1two API
+  title: 1tt API
   version: 0.1.0
-  description: Backend API for 1two.dev developer tools
+  description: Backend API for 1tt.dev developer tools
 
 servers:
   - url: /api/proxy

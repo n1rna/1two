@@ -1,6 +1,6 @@
 -- +goose Up
 
--- Map 1two users to Polar customers
+-- Map 1tt users to Polar customers
 CREATE TABLE IF NOT EXISTS billing_customers (
     user_id           TEXT        NOT NULL PRIMARY KEY,
     polar_customer_id TEXT        NOT NULL UNIQUE,

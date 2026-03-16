@@ -236,7 +236,7 @@ function DatabaseFeaturedCard({ loggedIn }: { loggedIn: boolean }) {
             <AuthBadge requiresAuth loggedIn={loggedIn} />
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-            Provision and manage PostgreSQL databases directly from 1two.dev — no infrastructure setup required.
+            Provision and manage PostgreSQL databases directly from 1tt.dev — no infrastructure setup required.
           </p>
         </div>
       </Link>
@@ -425,7 +425,7 @@ export function ToolGrid() {
     setData: setBookmarkSlugs,
     syncToggleProps,
     isLoggedIn: loggedIn,
-  } = useSyncedState<string[]>("1two:bookmarks", []);
+  } = useSyncedState<string[]>("1tt:bookmarks", []);
   const [mounted, setMounted] = useState(false);
   const [bookmarkOrder, setBookmarkOrder] = useState<string[]>([]);
 
@@ -558,7 +558,7 @@ export function ToolGrid() {
                   slug: "_databases",
                   name: "Hosted Databases",
                   description:
-                    "Provision and manage PostgreSQL databases directly from 1two.dev — no infrastructure setup required.",
+                    "Provision and manage PostgreSQL databases directly from 1tt.dev — no infrastructure setup required.",
                   icon: "Database",
                   category: "data",
                   keywords: [],

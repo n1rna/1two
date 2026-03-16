@@ -19,12 +19,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_URL = "https://1two.dev";
+const SITE_URL = "https://1tt.dev";
 
 export const metadata: Metadata = {
   title: {
-    default: "1two.dev - Tools that just work",
-    template: "%s - 1two.dev",
+    default: "1tt.dev - Tools that just work",
+    template: "%s - 1tt.dev",
   },
   description:
     "The tools you actually need - JWT parser, JSON formatter, Base64 encoder, diff viewer, cron builder, timestamp converter, color picker, UUID generator, DNS lookup, and more. Free, fast, no sign-up.",
@@ -47,21 +47,21 @@ export const metadata: Metadata = {
     "microphone test",
     "markdown editor",
   ],
-  authors: [{ name: "1two.dev" }],
-  creator: "1two.dev",
+  authors: [{ name: "1tt.dev" }],
+  creator: "1tt.dev",
   openGraph: {
     type: "website",
     locale: "en_US",
     url: SITE_URL,
-    siteName: "1two.dev",
-    title: "1two.dev - Tools that just work",
+    siteName: "1tt.dev",
+    title: "1tt.dev - Tools that just work",
     description:
       "The tools you actually need - JWT parser, JSON formatter, Base64 encoder, diff viewer, cron builder, timestamp converter, color picker, UUID generator, DNS lookup, and more. Free, fast, no sign-up.",
     images: [{ url: `${SITE_URL}/og/s/4d4a67930504/open-graph.png`, width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "1two.dev - Tools that just work",
+    title: "1tt.dev - Tools that just work",
     description:
       "The tools you actually need - free, fast, no sign-up. JWT parser, JSON formatter, Base64 encoder, diff viewer, cron builder, and more.",
     images: [`${SITE_URL}/og/s/4d4a67930504/twitter-card.png`],

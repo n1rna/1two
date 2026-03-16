@@ -1,5 +1,5 @@
 {
-  "name": "1two-api-container",
+  "name": "1tt-api-container",
   "private": true,
   "scripts": {
     "deploy": "wrangler deploy"

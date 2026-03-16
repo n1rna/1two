@@ -2,6 +2,10 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { migrateStorageKeys } from "@/lib/migrate-storage";
+
+// Run once on first client load — migrates "1two:" localStorage keys to "1tt:"
+if (typeof window !== "undefined") migrateStorageKeys();
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(

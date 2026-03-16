@@ -350,8 +350,8 @@ export function ColorTool() {
   const [mounted, setMounted] = useState(false);
   const selectingRef = useRef(false);
 
-  const colorsSync = useSyncedState<SavedColor[]>("1two-saved-colors", []);
-  const themesSync = useSyncedState<SavedTheme[]>("1two-saved-themes", []);
+  const colorsSync = useSyncedState<SavedColor[]>("1tt-saved-colors", []);
+  const themesSync = useSyncedState<SavedTheme[]>("1tt-saved-themes", []);
 
   const savedColors = colorsSync.data;
   const savedThemes = themesSync.data;

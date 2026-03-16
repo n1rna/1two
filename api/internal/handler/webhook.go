@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/n1rna/1two/api/internal/billing"
-	"github.com/n1rna/1two/api/internal/config"
+	"github.com/n1rna/1tt/api/internal/billing"
+	"github.com/n1rna/1tt/api/internal/config"
 )
 
 // PolarWebhook handles incoming Polar webhook events.

@@ -78,7 +78,7 @@ export default function LlmsTxtGuide() {
 
         <Guide.H2>How the generator works</Guide.H2>
         <Guide.P>
-          The 1two.dev <Guide.Strong>llms.txt Generator</Guide.Strong> automates the
+          The 1tt.dev <Guide.Strong>llms.txt Generator</Guide.Strong> automates the
           entire process. You provide a URL, and it handles crawling, content extraction,
           and AI-powered summarization.
         </Guide.P>
@@ -164,7 +164,7 @@ export default function LlmsTxtGuide() {
         <Guide.H2>Publishing your llms.txt</Guide.H2>
         <Guide.P>
           After generating a file, you can publish it to get a permanent URL like{" "}
-          <Guide.Code>https://1two.dev/llms/your-site/llms.txt</Guide.Code>. Add this
+          <Guide.Code>https://1tt.dev/llms/your-site/llms.txt</Guide.Code>. Add this
           to your site&apos;s root or reference it in your{" "}
           <Guide.Code>robots.txt</Guide.Code>:
         </Guide.P>
@@ -175,7 +175,7 @@ User-agent: *
 Allow: /
 
 # LLM context
-Llms-txt: https://1two.dev/llms/your-site/llms.txt`}
+Llms-txt: https://1tt.dev/llms/your-site/llms.txt`}
           </pre>
         </Guide.Callout>
         <Guide.P>

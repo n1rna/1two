@@ -1,4 +1,4 @@
-module github.com/n1rna/1two/api
+module github.com/n1rna/1tt/api
 
 go 1.25.0
 

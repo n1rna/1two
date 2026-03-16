@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/n1rna/1two/api/internal/billing"
-	"github.com/n1rna/1two/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/billing"
+	"github.com/n1rna/1tt/api/internal/middleware"
 )
 
 // GetBillingStatus returns the user's current plan, usage, and limits.

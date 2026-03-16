@@ -13,12 +13,12 @@ export function Header() {
         <Link href="/" className="flex items-center gap-2 font-bold text-lg shrink-0">
           <Image
             src="/logo.svg"
-            alt="1two.dev"
+            alt="1tt.dev"
             width={28}
             height={28}
             className="rounded-md"
           />
-          <span>1two.dev</span>
+          <span>1tt.dev</span>
         </Link>
 
         <button
@@ -43,7 +43,7 @@ export function Header() {
             <BookOpen className="h-4 w-4" />
           </Link>
           <a
-            href="https://github.com/n1rna/1two"
+            href="https://github.com/n1rna/1tt"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub repository"

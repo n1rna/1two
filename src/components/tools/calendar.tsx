@@ -63,7 +63,7 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const STORAGE_KEY = "1two:calendar-markers";
+const STORAGE_KEY = "1tt:calendar-markers";
 
 // 24 hours for the time grid
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
