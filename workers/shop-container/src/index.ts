@@ -17,8 +17,13 @@ interface Env {
 
 export class ShopContainer extends Container<Env> {
   defaultPort = 9000;
-  sleepAfter = "5m";
+  sleepAfter = "10m";
   enableInternet = true;
+
+  // Medusa takes ~30-60s to boot — allow up to 120s
+  override get startTimeoutMs() {
+    return 120_000;
+  }
 
   constructor(ctx: DurableObject["ctx"], env: Env) {
     super(ctx, env);

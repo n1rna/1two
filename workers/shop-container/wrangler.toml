@@ -6,6 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [[containers]]
 class_name = "ShopContainer"
 image = "./../../shop/Dockerfile"
+instance_type = "basic"
 max_instances = 1
 
 [[durable_objects.bindings]]
