@@ -10,7 +10,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build needs a dummy DATABASE_URL to pass config validation
 ENV DATABASE_URL=postgres://localhost/dummy
 RUN npx medusa build
 
@@ -22,7 +21,10 @@ COPY --from=builder /app/.medusa ./.medusa
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/medusa-config.ts ./
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/src ./src
 
 EXPOSE 9000
 
-CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
+# Start server directly — run migrations separately via exec
+CMD ["npx", "medusa", "start"]
