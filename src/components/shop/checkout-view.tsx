@@ -128,11 +128,23 @@ export function CheckoutView() {
   const isLoggedIn = !!session?.user;
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState<"details" | "payment" | "complete">("details");
+  const [step, setStep] = useState<"details" | "shipping" | "payment" | "complete">("details");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [useAccountInfo, setUseAccountInfo] = useState(true);
+
+  // Shipping
+  interface ShippingOption {
+    id: string;
+    name: string;
+    amount: number;
+    calculated_price?: { calculated_amount: number; currency_code: string };
+    type?: { label: string; description: string };
+  }
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<string | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
 
   // Form fields
   const [email, setEmail] = useState("");
@@ -186,6 +198,7 @@ export function CheckoutView() {
     }
   }, [isLoggedIn, useAccountInfo, session?.user]);
 
+  // Step 1 → Step 2: Save address, fetch shipping options
   const handleDetailsSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cart) return;
@@ -212,9 +225,40 @@ export function CheckoutView() {
         shipping_address: address,
         billing_address: address,
       });
-      const updatedCart = (updatedCartRes as unknown as { cart: Cart }).cart;
+      setCart((updatedCartRes as unknown as { cart: Cart }).cart);
 
-      // Initialize Stripe payment session — SDK handles creating payment collection if needed
+      // Fetch shipping options for this cart
+      setShippingLoading(true);
+      const shippingRes = await medusa.store.fulfillment.listCartOptions({ cart_id: cartId });
+      const options = (shippingRes as unknown as { shipping_options: ShippingOption[] }).shipping_options ?? [];
+      setShippingOptions(options);
+      if (options.length > 0) setSelectedShipping(options[0].id);
+      setShippingLoading(false);
+
+      setStep("shipping");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to proceed");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [cart, email, firstName, lastName, address1, address2, city, province, postalCode, countryCode, phone]);
+
+  // Step 2 → Step 3: Set shipping method, init payment
+  const handleShippingSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cart || !selectedShipping) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      // Add shipping method to cart
+      const shippingRes = await medusa.store.cart.addShippingMethod(cart.id, {
+        option_id: selectedShipping,
+      });
+      const updatedCart = (shippingRes as unknown as { cart: Cart }).cart;
+      setCart(updatedCart);
+
+      // Initialize Stripe payment session
       const sessionRes = await medusa.store.payment.initiatePaymentSession(
         updatedCart as never,
         {
@@ -222,7 +266,6 @@ export function CheckoutView() {
         }
       );
 
-      // Get the client secret from the payment session
       const paymentCollection = (sessionRes as unknown as {
         payment_collection: {
           payment_sessions: { data: { client_secret?: string } }[];
@@ -243,7 +286,7 @@ export function CheckoutView() {
     } finally {
       setSubmitting(false);
     }
-  }, [cart, email, firstName, lastName, address1, address2, city, province, postalCode, countryCode, phone]);
+  }, [cart, selectedShipping]);
 
   const handlePaymentSuccess = useCallback(async () => {
     const cartId = getCartId();
@@ -330,9 +373,16 @@ export function CheckoutView() {
           <div className="h-px flex-1 bg-border" />
           <span className={cn(
             "text-xs font-medium px-2.5 py-1 rounded-full",
+            step === "shipping" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+          )}>
+            2. Shipping
+          </span>
+          <div className="h-px flex-1 bg-border" />
+          <span className={cn(
+            "text-xs font-medium px-2.5 py-1 rounded-full",
             step === "payment" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
           )}>
-            2. Payment
+            3. Payment
           </span>
         </div>
 
@@ -503,6 +553,84 @@ export function CheckoutView() {
             {error && <p className="text-destructive text-sm">{error}</p>}
 
             <Button type="submit" className="w-full gap-2" size="lg" disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Continue to payment
+            </Button>
+          </form>
+        )}
+
+        {step === "shipping" && (
+          <form onSubmit={handleShippingSubmit} className="space-y-4">
+            <button
+              type="button"
+              onClick={() => setStep("details")}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to details
+            </button>
+
+            <h2 className="text-sm font-semibold">Choose shipping method</h2>
+
+            {shippingLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="rounded-lg border p-4 animate-pulse">
+                    <div className="h-4 bg-muted rounded w-1/3" />
+                    <div className="h-3 bg-muted rounded w-1/2 mt-2" />
+                  </div>
+                ))}
+              </div>
+            ) : shippingOptions.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center">
+                <p className="text-sm text-muted-foreground">No shipping options available for your address.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {shippingOptions.map((option) => {
+                  const price = option.calculated_price?.calculated_amount ?? option.amount;
+                  const currency = option.calculated_price?.currency_code ?? cart?.currency_code ?? "eur";
+                  return (
+                    <label
+                      key={option.id}
+                      className={cn(
+                        "flex items-center gap-4 rounded-lg border p-4 cursor-pointer transition-all",
+                        selectedShipping === option.id
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                          : "hover:border-foreground/25"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="shipping"
+                        value={option.id}
+                        checked={selectedShipping === option.id}
+                        onChange={() => setSelectedShipping(option.id)}
+                        className="accent-primary"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{option.name}</p>
+                        {option.type?.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{option.type.description}</p>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold shrink-0">
+                        {price === 0 ? "Free" : formatPrice(price, currency)}
+                      </p>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            {error && <p className="text-destructive text-sm">{error}</p>}
+
+            <Button
+              type="submit"
+              className="w-full gap-2"
+              size="lg"
+              disabled={submitting || !selectedShipping}
+            >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Continue to payment
             </Button>
