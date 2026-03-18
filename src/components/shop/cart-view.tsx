@@ -2,15 +2,17 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { medusa } from "@/lib/shop/client";
+import { medusa, formatPrice } from "@/lib/shop/client";
 import { getCartId, clearCartId } from "@/lib/shop/cart";
 import { Button } from "@/components/ui/button";
-import { Trash2, Minus, Plus, ShoppingBag, Loader2, ArrowLeft } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingBag, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
 
-interface LineItem {
+interface CartLineItem {
   id: string;
   title: string;
   quantity: number;
+  unit_price: number;
+  total: number;
   variant: {
     id: string;
     title: string;
@@ -18,24 +20,15 @@ interface LineItem {
       title: string;
       thumbnail: string | null;
     };
-  };
-  unit_price: number;
-  total: number;
+  } | null;
 }
 
 interface Cart {
   id: string;
-  items: LineItem[];
+  items: CartLineItem[];
   total: number;
   subtotal: number;
   currency_code: string;
-}
-
-function formatPrice(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-  }).format(amount / 100);
 }
 
 export function CartView() {
@@ -99,7 +92,7 @@ export function CartView() {
     return (
       <div className="space-y-4">
         {[1, 2].map((i) => (
-          <div key={i} className="flex gap-4 animate-pulse">
+          <div key={i} className="flex gap-4 animate-pulse border rounded-xl p-4">
             <div className="w-20 h-20 bg-muted rounded-lg" />
             <div className="flex-1 space-y-2">
               <div className="h-4 bg-muted rounded w-1/2" />
@@ -113,7 +106,7 @@ export function CartView() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="text-center py-16">
+      <div className="text-center py-20">
         <ShoppingBag className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
         <p className="text-muted-foreground text-sm">Your cart is empty.</p>
         <Link
@@ -130,11 +123,11 @@ export function CartView() {
   return (
     <div>
       {/* Items */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {cart.items.map((item) => (
-          <div key={item.id} className="flex gap-4 border rounded-lg p-3">
+          <div key={item.id} className="flex gap-4 border rounded-xl p-4 bg-card transition-colors hover:border-foreground/10">
             {/* Thumbnail */}
-            <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden shrink-0">
+            <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden shrink-0 border">
               {item.variant?.product?.thumbnail ? (
                 <img
                   src={item.variant.product.thumbnail}
@@ -143,14 +136,14 @@ export function CartView() {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <ShoppingBag className="h-6 w-6 text-muted-foreground/20" />
+                  <ShoppingBag className="h-6 w-6 text-muted-foreground/15" />
                 </div>
               )}
             </div>
 
             {/* Details */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-sm truncate">
+              <h3 className="font-semibold text-sm tracking-tight truncate">
                 {item.variant?.product?.title ?? item.title}
               </h3>
               {item.variant?.title && item.variant.title !== "Default" && (
@@ -158,17 +151,17 @@ export function CartView() {
               )}
 
               {/* Quantity controls */}
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1.5 mt-2.5">
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-6 w-6"
+                  className="h-7 w-7"
                   onClick={() => updateQuantity(item.id, item.quantity - 1)}
                   disabled={updating === item.id}
                 >
-                  <Minus className="h-2.5 w-2.5" />
+                  <Minus className="h-3 w-3" />
                 </Button>
-                <span className="text-xs font-medium tabular-nums w-5 text-center">
+                <span className="text-xs font-medium tabular-nums w-6 text-center">
                   {updating === item.id ? (
                     <Loader2 className="h-3 w-3 animate-spin mx-auto" />
                   ) : (
@@ -178,17 +171,17 @@ export function CartView() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-6 w-6"
+                  className="h-7 w-7"
                   onClick={() => updateQuantity(item.id, item.quantity + 1)}
                   disabled={updating === item.id}
                 >
-                  <Plus className="h-2.5 w-2.5" />
+                  <Plus className="h-3 w-3" />
                 </Button>
 
                 <button
                   onClick={() => removeItem(item.id)}
                   disabled={updating === item.id}
-                  className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
+                  className="ml-auto text-muted-foreground/50 hover:text-destructive transition-colors p-1"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -197,11 +190,11 @@ export function CartView() {
 
             {/* Price */}
             <div className="text-right shrink-0">
-              <p className="text-sm font-medium">
+              <p className="text-sm font-semibold">
                 {formatPrice(item.total, cart.currency_code)}
               </p>
               {item.quantity > 1 && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground/60 mt-0.5">
                   {formatPrice(item.unit_price, cart.currency_code)} each
                 </p>
               )}
@@ -211,26 +204,34 @@ export function CartView() {
       </div>
 
       {/* Summary */}
-      <div className="mt-6 border-t pt-4 space-y-2">
+      <div className="mt-6 rounded-xl border bg-card p-5">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Subtotal</span>
           <span className="font-medium">{formatPrice(cart.subtotal, cart.currency_code)}</span>
         </div>
-        <div className="flex justify-between text-sm font-semibold">
+        <div className="h-px bg-border my-3" />
+        <div className="flex justify-between text-base font-bold">
           <span>Total</span>
-          <span>{formatPrice(cart.total, cart.currency_code)}</span>
+          <span className="text-primary">{formatPrice(cart.total, cart.currency_code)}</span>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="mt-6 flex flex-col sm:flex-row gap-3">
+      <div className="mt-5 flex flex-col sm:flex-row gap-3">
         <Link href="/shop" className="flex-1">
-          <Button variant="outline" className="w-full">Continue shopping</Button>
+          <Button variant="outline" className="w-full gap-2">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Continue shopping
+          </Button>
         </Link>
-        <Button className="flex-1" disabled>
-          Checkout (coming soon)
+        <Button className="flex-1 gap-2" disabled>
+          Checkout
+          <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
+      <p className="text-[11px] text-muted-foreground/50 text-center mt-3">
+        Checkout will be available soon.
+      </p>
     </div>
   );
 }
