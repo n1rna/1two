@@ -61,6 +61,19 @@
 				"title": "Cloudflare Turnstile site key",
 				"type": "string",
 				"required": true
+			},
+			"NEXT_PUBLIC_MEDUSA_URL": {
+				"name": "NEXT_PUBLIC_MEDUSA_URL",
+				"title": "Medusa shop backend URL",
+				"type": "string",
+				"default": "http://localhost:9000",
+				"required": false
+			},
+			"NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY": {
+				"name": "NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY",
+				"title": "Medusa publishable API key",
+				"type": "string",
+				"required": false
 			}
 		}
 	},

@@ -6,6 +6,9 @@ COPY package.json package-lock.json* ./
 RUN npm install
 
 COPY . .
+
+# Build needs a dummy DATABASE_URL to pass config validation
+ENV DATABASE_URL=postgres://localhost/dummy
 RUN npx medusa build
 
 FROM node:20-alpine
@@ -17,7 +20,6 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/medusa-config.ts ./
 
-# Medusa listens on 9000 by default
 EXPOSE 9000
 
 # Run migrations then start the server
