@@ -1,15 +1,43 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Github, BookOpen, Menu, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Search, Github, BookOpen, Menu, X, ShoppingCart } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
+import { getCartId } from "@/lib/shop/cart";
+import { medusa } from "@/lib/shop/client";
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const isShop = pathname?.startsWith("/shop");
+  const [cartCount, setCartCount] = useState(0);
+
+  const refreshCartCount = useCallback(async () => {
+    const cartId = getCartId();
+    if (!cartId) { setCartCount(0); return; }
+    try {
+      const data = await medusa.store.cart.retrieve(cartId);
+      const items = (data as unknown as { cart: { items: { quantity: number }[] } }).cart?.items ?? [];
+      setCartCount(items.reduce((sum, i) => sum + i.quantity, 0));
+    } catch {
+      setCartCount(0);
+    }
+  }, []);
+
+  // Refresh cart count when on shop pages
+  useEffect(() => {
+    if (!isShop) return;
+    refreshCartCount();
+    // Listen for cart updates from other components
+    const handler = () => refreshCartCount();
+    window.addEventListener("cart-updated", handler);
+    return () => window.removeEventListener("cart-updated", handler);
+  }, [isShop, refreshCartCount, pathname]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -68,6 +96,22 @@ export function Header() {
           >
             <Search className="h-4 w-4" />
           </button>
+
+          {/* Cart icon — shop pages only */}
+          {isShop && (
+            <Link
+              href="/shop/cart"
+              aria-label="Shopping cart"
+              className="relative inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent hover:text-accent-foreground transition-colors text-muted-foreground"
+            >
+              <ShoppingCart className="h-4 w-4" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-none">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
+            </Link>
+          )}
 
           {/* Desktop-only nav */}
           <Link

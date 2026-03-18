@@ -67,6 +67,7 @@ export function CartView() {
         await medusa.store.cart.updateLineItem(cartId, itemId, { quantity });
       }
       await fetchCart();
+      window.dispatchEvent(new Event("cart-updated"));
     } catch {
       // ignore
     } finally {
@@ -81,6 +82,7 @@ export function CartView() {
     try {
       await medusa.store.cart.deleteLineItem(cartId, itemId);
       await fetchCart();
+      window.dispatchEvent(new Event("cart-updated"));
     } catch {
       // ignore
     } finally {
@@ -224,14 +226,13 @@ export function CartView() {
             Continue shopping
           </Button>
         </Link>
-        <Button className="flex-1 gap-2" disabled>
-          Checkout
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        <Link href="/shop/checkout" className="flex-1">
+          <Button className="w-full gap-2">
+            Checkout
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
       </div>
-      <p className="text-[11px] text-muted-foreground/50 text-center mt-3">
-        Checkout will be available soon.
-      </p>
     </div>
   );
 }

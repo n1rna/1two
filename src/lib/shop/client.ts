@@ -87,12 +87,14 @@ export interface Cart {
 export function getLowestPrice(variant: ProductVariant, currency = "eur"): { amount: number; currency_code: string } | null {
   const price = variant.prices?.find((p) => p.currency_code === currency) ?? variant.prices?.[0];
   if (!price) return null;
-  return { amount: Number(price.raw_amount?.value ?? price.amount) * 100, currency_code: price.currency_code };
+  // Medusa stores prices as-is (49.99 = $49.99, NOT in cents)
+  return { amount: Number(price.raw_amount?.value ?? price.amount), currency_code: price.currency_code };
 }
 
 export function formatPrice(amount: number, currency: string) {
+  // Prices from Medusa are already in the correct unit (not cents)
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
-  }).format(amount / 100);
+  }).format(amount);
 }

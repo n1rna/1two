@@ -74,6 +74,12 @@
 				"title": "Medusa publishable API key",
 				"type": "string",
 				"required": false
+			},
+			"NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": {
+				"name": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+				"title": "Stripe publishable key for shop checkout",
+				"type": "string",
+				"required": false
 			}
 		}
 	},

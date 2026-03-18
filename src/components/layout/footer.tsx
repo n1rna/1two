@@ -56,14 +56,14 @@ export function Footer() {
         </div>
 
         <nav className="flex items-center gap-4">
+          <Link href="/shop" className="hover:text-foreground transition-colors">
+            Shop
+          </Link>
           <Link href="/terms" className="hover:text-foreground transition-colors">
             Terms of Use
           </Link>
           <Link href="/privacy" className="hover:text-foreground transition-colors">
             Privacy Policy
-          </Link>
-          <Link href="/support" className="hover:text-foreground transition-colors">
-            Support
           </Link>
         </nav>
       </div>
