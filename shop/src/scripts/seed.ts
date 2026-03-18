@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ExecArgs } from "@medusajs/framework/types";
 import { Modules } from "@medusajs/framework/utils";
 
 export default async function seed({ container }: ExecArgs) {
-  const productService = container.resolve(Modules.PRODUCT);
-  const salesChannelService = container.resolve(Modules.SALES_CHANNEL);
-  const regionService = container.resolve(Modules.REGION);
+  const productService: any = container.resolve(Modules.PRODUCT);
+  const salesChannelService: any = container.resolve(Modules.SALES_CHANNEL);
+  const regionService: any = container.resolve(Modules.REGION);
 
   // Create default sales channel
   const salesChannel = await salesChannelService.createSalesChannels({
