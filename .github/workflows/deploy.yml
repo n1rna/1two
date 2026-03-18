@@ -15,7 +15,6 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
-      shop: ${{ steps.filter.outputs.shop }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,9 +36,6 @@ jobs:
             api:
               - 'api/**'
               - 'workers/api-container/**'
-            shop:
-              - 'shop/**'
-              - 'workers/shop-container/**'
 
   deploy-web:
     name: Deploy Web (Cloudflare Workers)
@@ -115,33 +111,3 @@ jobs:
           workingDirectory: workers/api-container
           command: deploy --config wrangler.toml
           packageManager: bun
-
-  deploy-shop:
-    name: Deploy Shop (Cloudflare Container)
-    needs: changes
-    if: needs.changes.outputs.shop == 'true' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      deployments: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        working-directory: workers/shop-container
-        run: npm install
-
-      - name: Deploy Shop Container
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: workers/shop-container
-          command: deploy --config wrangler.toml

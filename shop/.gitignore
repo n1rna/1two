@@ -1,6 +1,0 @@
-node_modules
-dist
-.medusa
-.env
-.env.*
-!.env.template
