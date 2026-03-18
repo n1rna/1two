@@ -1,0 +1,24 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+RUN npx medusa build
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/.medusa ./.medusa
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/medusa-config.ts ./
+
+# Medusa listens on 9000 by default
+EXPOSE 9000
+
+# Run migrations then start the server
+CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]

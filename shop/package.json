@@ -1,0 +1,22 @@
+{
+  "name": "1tt-shop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "1tt.dev Medusa Commerce Backend",
+  "scripts": {
+    "dev": "medusa develop",
+    "start": "medusa start",
+    "build": "medusa build",
+    "seed": "medusa exec ./src/scripts/seed.ts",
+    "db:migrate": "medusa db:migrate",
+    "db:generate": "medusa db:generate"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@medusajs/cli": "^2.13.4",
+    "@medusajs/framework": "^2.13.4",
+    "@medusajs/medusa": "^2.13.4"
+  }
+}

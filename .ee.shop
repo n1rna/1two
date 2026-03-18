@@ -1,0 +1,89 @@
+{
+	"project": "onetruetool-shop",
+	"schema": {
+		"variables": {
+			"DATABASE_URL": {
+				"name": "DATABASE_URL",
+				"title": "PostgreSQL connection string (Neon — 1tt_shop database)",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"REDIS_URL": {
+				"name": "REDIS_URL",
+				"title": "Redis URL (Upstash)",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"STORE_CORS": {
+				"name": "STORE_CORS",
+				"title": "CORS allowed origins for storefront",
+				"type": "string",
+				"default": "https://1tt.dev",
+				"required": true
+			},
+			"ADMIN_CORS": {
+				"name": "ADMIN_CORS",
+				"title": "CORS allowed origins for admin panel",
+				"type": "string",
+				"default": "https://shop.1tt.dev",
+				"required": true
+			},
+			"AUTH_CORS": {
+				"name": "AUTH_CORS",
+				"title": "CORS allowed origins for auth",
+				"type": "string",
+				"default": "https://1tt.dev",
+				"required": true
+			},
+			"JWT_SECRET": {
+				"name": "JWT_SECRET",
+				"title": "JWT signing secret",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"COOKIE_SECRET": {
+				"name": "COOKIE_SECRET",
+				"title": "Cookie signing secret",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"STRIPE_API_KEY": {
+				"name": "STRIPE_API_KEY",
+				"title": "Stripe secret API key",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"STRIPE_WEBHOOK_SECRET": {
+				"name": "STRIPE_WEBHOOK_SECRET",
+				"title": "Stripe webhook signing secret",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"MEDUSA_BACKEND_URL": {
+				"name": "MEDUSA_BACKEND_URL",
+				"title": "Public URL of the Medusa backend",
+				"type": "string",
+				"default": "https://shop.1tt.dev",
+				"required": true
+			}
+		}
+	},
+	"environments": {
+		"production": {
+			"sheets": [".env.shop.production"]
+		}
+	},
+	"origins": {
+		"cloudflare": {
+			"type": "cloudflare",
+			"mode": "individual",
+			"worker": "onetruetool-shop"
+		}
+	}
+}
