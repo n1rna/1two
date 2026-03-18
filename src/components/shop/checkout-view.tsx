@@ -8,8 +8,9 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import { medusa, formatPrice } from "@/lib/shop/client";
 import { getCartId, clearCartId } from "@/lib/shop/cart";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, ShoppingBag, Lock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, ShoppingBag, Lock, CheckCircle2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/lib/auth-client";
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -22,12 +23,9 @@ interface CartItem {
   title: string;
   quantity: number;
   unit_price: number;
-  total: number;
-  variant: {
-    id: string;
-    title: string;
-    product: { title: string; thumbnail: string | null };
-  } | null;
+  thumbnail: string | null;
+  product_title: string | null;
+  variant_title: string | null;
 }
 
 interface Cart {
@@ -126,12 +124,15 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
 
 export function CheckoutView() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<"details" | "payment" | "complete">("details");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [useAccountInfo, setUseAccountInfo] = useState(true);
 
   // Form fields
   const [email, setEmail] = useState("");
@@ -172,6 +173,18 @@ export function CheckoutView() {
   }, []);
 
   useEffect(() => { fetchCart(); }, [fetchCart]);
+
+  // Auto-fill from logged-in user when toggled on
+  useEffect(() => {
+    if (!isLoggedIn || !useAccountInfo) return;
+    const user = session.user;
+    if (user.email) setEmail(user.email);
+    if (user.name) {
+      const parts = user.name.trim().split(/\s+/);
+      setFirstName(parts[0] ?? "");
+      setLastName(parts.slice(1).join(" ") ?? "");
+    }
+  }, [isLoggedIn, useAccountInfo, session?.user]);
 
   const handleDetailsSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,6 +338,36 @@ export function CheckoutView() {
 
         {step === "details" && (
           <form onSubmit={handleDetailsSubmit} className="space-y-4">
+            {/* Account info toggle */}
+            {isLoggedIn && (
+              <div className="rounded-lg border bg-card p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useAccountInfo}
+                    onChange={(e) => {
+                      setUseAccountInfo(e.target.checked);
+                      if (!e.target.checked) {
+                        setEmail("");
+                        setFirstName("");
+                        setLastName("");
+                      }
+                    }}
+                    className="rounded border-input"
+                  />
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">Use my account info</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {session.user.name} &middot; {session.user.email}
+                      </p>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            )}
+
             {/* Email */}
             <div>
               <label className="text-sm font-medium mb-1.5 block">Email</label>
@@ -334,7 +377,11 @@ export function CheckoutView() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                disabled={isLoggedIn && useAccountInfo}
+                className={cn(
+                  "w-full h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring",
+                  isLoggedIn && useAccountInfo && "opacity-60 cursor-not-allowed"
+                )}
               />
             </div>
 
@@ -347,7 +394,11 @@ export function CheckoutView() {
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                  disabled={isLoggedIn && useAccountInfo}
+                  className={cn(
+                    "w-full h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring",
+                    isLoggedIn && useAccountInfo && "opacity-60 cursor-not-allowed"
+                  )}
                 />
               </div>
               <div>
@@ -357,7 +408,11 @@ export function CheckoutView() {
                   required
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring"
+                  disabled={isLoggedIn && useAccountInfo}
+                  className={cn(
+                    "w-full h-10 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring",
+                    isLoggedIn && useAccountInfo && "opacity-60 cursor-not-allowed"
+                  )}
                 />
               </div>
             </div>
@@ -488,8 +543,8 @@ export function CheckoutView() {
             {cart.items.map((item) => (
               <div key={item.id} className="flex gap-3">
                 <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden shrink-0 border">
-                  {item.variant?.product?.thumbnail ? (
-                    <img src={item.variant.product.thumbnail} alt="" className="w-full h-full object-cover" />
+                  {item.thumbnail ? (
+                    <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <ShoppingBag className="h-4 w-4 text-muted-foreground/15" />
@@ -497,10 +552,10 @@ export function CheckoutView() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{item.variant?.product?.title ?? item.title}</p>
+                  <p className="text-xs font-medium truncate">{item.product_title ?? item.title}</p>
                   <p className="text-[11px] text-muted-foreground">Qty: {item.quantity}</p>
                 </div>
-                <p className="text-xs font-medium shrink-0">{formatPrice(item.total, cart.currency_code)}</p>
+                <p className="text-xs font-medium shrink-0">{formatPrice(item.unit_price * item.quantity, cart.currency_code)}</p>
               </div>
             ))}
           </div>

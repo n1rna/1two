@@ -12,15 +12,9 @@ interface CartLineItem {
   title: string;
   quantity: number;
   unit_price: number;
-  total: number;
-  variant: {
-    id: string;
-    title: string;
-    product: {
-      title: string;
-      thumbnail: string | null;
-    };
-  } | null;
+  thumbnail: string | null;
+  product_title: string | null;
+  variant_title: string | null;
 }
 
 interface Cart {
@@ -130,9 +124,9 @@ export function CartView() {
           <div key={item.id} className="flex gap-4 border rounded-xl p-4 bg-card transition-colors hover:border-foreground/10">
             {/* Thumbnail */}
             <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden shrink-0 border">
-              {item.variant?.product?.thumbnail ? (
+              {item.thumbnail ? (
                 <img
-                  src={item.variant.product.thumbnail}
+                  src={item.thumbnail}
                   alt={item.title}
                   className="w-full h-full object-cover"
                 />
@@ -146,10 +140,10 @@ export function CartView() {
             {/* Details */}
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-sm tracking-tight truncate">
-                {item.variant?.product?.title ?? item.title}
+                {item.product_title ?? item.title}
               </h3>
-              {item.variant?.title && item.variant.title !== "Default" && (
-                <p className="text-xs text-muted-foreground mt-0.5">{item.variant.title}</p>
+              {item.variant_title && item.variant_title !== "Default" && (
+                <p className="text-xs text-muted-foreground mt-0.5">{item.variant_title}</p>
               )}
 
               {/* Quantity controls */}
@@ -179,27 +173,26 @@ export function CartView() {
                 >
                   <Plus className="h-3 w-3" />
                 </Button>
-
-                <button
-                  onClick={() => removeItem(item.id)}
-                  disabled={updating === item.id}
-                  className="ml-auto text-muted-foreground/50 hover:text-destructive transition-colors p-1"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
               </div>
             </div>
 
-            {/* Price */}
-            <div className="text-right shrink-0">
+            {/* Price + remove */}
+            <div className="flex flex-col items-end justify-between shrink-0">
               <p className="text-sm font-semibold">
-                {formatPrice(item.total, cart.currency_code)}
+                {formatPrice(item.unit_price * item.quantity, cart.currency_code)}
               </p>
               {item.quantity > 1 && (
-                <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                <p className="text-[11px] text-muted-foreground/60">
                   {formatPrice(item.unit_price, cart.currency_code)} each
                 </p>
               )}
+              <button
+                onClick={() => removeItem(item.id)}
+                disabled={updating === item.id}
+                className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5 mt-auto"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         ))}
