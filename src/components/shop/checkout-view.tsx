@@ -585,7 +585,7 @@ export function CheckoutView() {
 
             <Button type="submit" className="w-full gap-2" size="lg" disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Continue to payment
+              Continue to shipping
             </Button>
           </form>
         )}

@@ -96,6 +96,12 @@
 			"type": "cloudflare",
 			"mode": "individual",
 			"worker": "onetruetool-web"
+		},
+		"github": {
+			"type": "github",
+			"mode": "bundled",
+			"repo": "n1rna/1tt",
+			"secret_name": "ENV_VARS_WEB"
 		}
 	}
 }
