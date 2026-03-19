@@ -214,7 +214,7 @@ function FeaturedCard({
 
 function DatabaseFeaturedCard({ loggedIn }: { loggedIn: boolean }) {
   const Icon = getIcon("Database");
-  const href = loggedIn ? "/account/databases" : "/guides/postgresql-studio";
+  const href = loggedIn ? "/account/managed" : "/guides/postgresql-studio";
 
   return (
     <div className="relative group">

@@ -15,7 +15,7 @@ const PROMOTIONS: Promotion[] = [
   {
     text: "New: Serverless Postgres databases — create and manage databases instantly",
     slug: "databases",
-    href: "/account/databases",
+    href: "/account/managed",
   },
   {
     text: "Try our OG Image Builder — generate social preview images for any URL",

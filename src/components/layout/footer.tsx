@@ -8,7 +8,7 @@ export function Footer() {
   const pathname = usePathname();
 
   // Hide footer entirely on full-screen pages
-  const isFullScreen = /^\/account\/(databases|sqlite)\/[^/]+$/.test(pathname);
+  const isFullScreen = /^\/account\/(postgres|redis|sqlite|storage)\/[^/]+/.test(pathname);
   if (isFullScreen) return null;
 
   const isToolPage = pathname.startsWith("/tools/");

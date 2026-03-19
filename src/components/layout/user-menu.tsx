@@ -69,7 +69,7 @@ export function UserMenu({ variant = "icon", onNavigate }: UserMenuProps) {
           Cloud Sync
         </Link>
         <Link
-          href="/account/databases"
+          href="/account/managed"
           className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-md hover:bg-accent transition-colors"
           onClick={onNavigate}
         >
@@ -147,7 +147,7 @@ export function UserMenu({ variant = "icon", onNavigate }: UserMenuProps) {
               Cloud Sync
             </Link>
             <Link
-              href="/account/databases"
+              href="/account/managed"
               className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
               onClick={() => setMenuOpen(false)}
             >

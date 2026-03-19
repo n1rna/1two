@@ -152,7 +152,7 @@ function RedisTunnelStudioInner({ token }: { token: string }) {
             Make sure the CLI is running with this tunnel token.
           </p>
         </div>
-        <Link href="/account/databases" className="text-sm text-primary hover:underline underline-offset-2">
+        <Link href="/account/managed" className="text-sm text-primary hover:underline underline-offset-2">
           Back to databases
         </Link>
       </div>
@@ -164,7 +164,7 @@ function RedisTunnelStudioInner({ token }: { token: string }) {
       {/* Sidebar header */}
       <div className="px-3 py-2.5 border-b space-y-1.5 shrink-0">
         <Link
-          href="/account/databases"
+          href="/account/managed"
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-3 w-3" />

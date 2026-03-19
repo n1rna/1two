@@ -97,7 +97,7 @@ function DatabaseStudioInner() {
   const sidebarHeader = (
     <div className="px-3 py-2.5 border-b space-y-1.5">
       <Link
-        href="/account/databases"
+        href="/account/managed"
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="h-3 w-3" />

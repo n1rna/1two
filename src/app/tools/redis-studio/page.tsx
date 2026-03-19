@@ -157,7 +157,7 @@ export default function RedisStudioPage() {
               monitor, and stream groups.
             </p>
             <Link
-              href="/account/databases"
+              href="/account/managed"
               className="inline-flex items-center gap-1.5 rounded-lg bg-foreground text-background text-xs font-medium px-4 py-2 hover:bg-foreground/90 transition-colors"
             >
               Create Redis

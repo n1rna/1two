@@ -742,7 +742,7 @@ export function StorageBrowser({ bucketId }: { bucketId: string }) {
         {/* Sidebar header */}
         <div className="flex items-center gap-2 px-3 py-3 border-b min-h-[52px]">
           <Link
-            href="/account/databases"
+            href="/account/managed"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <span className="text-muted-foreground/60">&larr;</span>

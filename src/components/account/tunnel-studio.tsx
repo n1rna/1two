@@ -153,7 +153,7 @@ function TunnelStudioInner({ token }: { token: string }) {
   const sidebarHeader = (
     <div className="px-3 py-2.5 border-b space-y-1.5">
       <Link
-        href="/account/databases"
+        href="/account/managed"
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="h-3 w-3" />
@@ -188,7 +188,7 @@ function TunnelStudioInner({ token }: { token: string }) {
         </div>
         <p className="text-xs text-destructive">{error}</p>
         <Link
-          href="/account/databases"
+          href="/account/managed"
           className="text-sm text-primary hover:underline underline-offset-2"
         >
           Back to databases

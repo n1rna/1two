@@ -126,7 +126,7 @@ export function TunnelConnectDialog({
     if (dialect === "redis") {
       router.push(`/account/redis/tunnel/${tunnel.token}`);
     } else {
-      router.push(`/account/databases/tunnel/${tunnel.token}`);
+      router.push(`/account/postgres/tunnel/${tunnel.token}`);
     }
   };
 

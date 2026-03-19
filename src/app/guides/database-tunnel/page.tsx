@@ -86,7 +86,7 @@ export default function DatabaseTunnelGuide() {
         <Guide.OL>
           <li>
             Go to{" "}
-            <Guide.Code>1tt.dev/account/databases</Guide.Code> and click{" "}
+            <Guide.Code>1tt.dev/account/managed</Guide.Code> and click{" "}
             <Guide.Strong>Connect External</Guide.Strong>.
           </li>
           <li>

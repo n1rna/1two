@@ -478,7 +478,7 @@ function NeonDatabaseCard({
     <div className="px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <Link
-          href={`/account/databases/${db.id}`}
+          href={`/account/postgres/${db.id}`}
           className="flex items-center gap-3 min-w-0 flex-1 group"
         >
           <Database className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />

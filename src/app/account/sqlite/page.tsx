@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function HostedSqlitePage() {
-  redirect("/account/databases");
+  redirect("/account/managed");
 }
