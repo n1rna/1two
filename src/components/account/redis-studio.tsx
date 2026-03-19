@@ -1099,7 +1099,7 @@ function QueryTab({ dbId, tabId, state, onChange, disabled, aiEnabled, aiSession
   const resultRef = useRef<HTMLDivElement>(null);
   const [aiBarOpen, setAiBarOpen] = useState(false);
   const [expandedTs, setExpandedTs] = useState<number | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [historyHeight, setHistoryHeight] = useState(180);
   const historyResizing = useRef(false);
 
