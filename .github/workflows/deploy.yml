@@ -219,27 +219,34 @@ jobs:
 
             Connect your local PostgreSQL or Redis databases to [1tt.dev](https://1tt.dev) studio via a secure tunnel.
 
-            ### Quick Install
+            ### Install (recommended)
 
-            **macOS (Apple Silicon):**
             ```bash
-            curl -L https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-darwin-arm64 -o 1tt
-            chmod +x 1tt && sudo mv 1tt /usr/local/bin/
+            curl -sSfL https://1tt.dev/cli/install.sh | sh
             ```
 
-            **macOS (Intel):**
+            This auto-detects your OS/architecture, downloads the correct binary, and installs it. If you already have the latest version, it skips the download.
+
+            ### Install + Run in one command
+
             ```bash
-            curl -L https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-darwin-amd64 -o 1tt
-            chmod +x 1tt && sudo mv 1tt /usr/local/bin/
+            curl -sSfL https://1tt.dev/cli/install.sh | sh -s -- tunnel --token <TOKEN> --db postgres://localhost:5432/mydb
             ```
 
-            **Linux (x86_64):**
-            ```bash
-            curl -L https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-linux-amd64 -o 1tt
-            chmod +x 1tt && sudo mv 1tt /usr/local/bin/
-            ```
+            ### Manual download
 
-            **Windows:** Download `1tt-windows-amd64.exe` below.
+            | Platform | Binary |
+            |----------|--------|
+            | macOS (Apple Silicon) | [`1tt-darwin-arm64`](https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-darwin-arm64) |
+            | macOS (Intel) | [`1tt-darwin-amd64`](https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-darwin-amd64) |
+            | Linux (x86_64) | [`1tt-linux-amd64`](https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-linux-amd64) |
+            | Linux (ARM64) | [`1tt-linux-arm64`](https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-linux-arm64) |
+            | Windows (x86_64) | [`1tt-windows-amd64.exe`](https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-windows-amd64.exe) |
+
+            After downloading manually, make it executable and move to your PATH:
+            ```bash
+            chmod +x 1tt-* && sudo mv 1tt-* /usr/local/bin/1tt
+            ```
 
             ### Usage
 
@@ -247,7 +254,7 @@ jobs:
             1tt tunnel --token <TOKEN> --db postgres://user:pass@localhost:5432/mydb
             ```
 
-            Get your token from [1tt.dev/account/databases](https://1tt.dev/account/databases) → Connect External.
+            Get your token from [1tt.dev/account/databases](https://1tt.dev/account/databases) → **Connect External**.
           files: |
             dist/1tt-*
             dist/checksums.txt
