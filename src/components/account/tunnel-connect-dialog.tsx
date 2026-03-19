@@ -104,9 +104,15 @@ export function TunnelConnectDialog({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const cliCommand = tunnel
-    ? `npx @1tt/cli tunnel --token ${tunnel.token} --db <YOUR_CONNECTION_STRING>`
-    : "";
+  const cliCommand = (() => {
+    if (!tunnel) return "";
+    // Extract the server base from ws_url (everything before the token path)
+    const wsUrl = tunnel.ws_url;
+    const serverBase = wsUrl.replace(/\/[^/]+\/ws$/, "");
+    const isDefault = serverBase === "wss://api.1tt.dev/api/v1/tunnel";
+    const serverFlag = isDefault ? "" : ` --server ${serverBase}`;
+    return `1tt tunnel --token ${tunnel.token}${serverFlag} --db <YOUR_CONNECTION_STRING>`;
+  })();
 
   const handleOpenStudio = () => {
     if (!tunnel) return;

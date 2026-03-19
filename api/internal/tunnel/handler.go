@@ -50,7 +50,19 @@ func HandleCreateToken(hub *TunnelHub) http.HandlerFunc {
 		}
 
 		token := hub.CreateToken(userID)
-		wsURL := fmt.Sprintf("wss://api.1tt.dev/api/v1/tunnel/%s/ws", token)
+
+		// Derive WebSocket URL from the incoming request so it works for
+		// both production (wss://api.1tt.dev) and local dev (ws://localhost:8090).
+		scheme := "wss"
+		if r.TLS == nil {
+			scheme = "ws"
+		}
+		// Trust X-Forwarded-Proto from reverse proxies (Cloudflare, etc.)
+		if proto := r.Header.Get("X-Forwarded-Proto"); proto == "https" {
+			scheme = "wss"
+		}
+		host := r.Host
+		wsURL := fmt.Sprintf("%s://%s/api/v1/tunnel/%s/ws", scheme, host, token)
 		writeJSON(w, http.StatusOK, createTokenResponse{Token: token, WSURL: wsURL})
 	}
 }
