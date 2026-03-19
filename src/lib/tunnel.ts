@@ -40,6 +40,16 @@ export async function queryTunnel(
   return res.json();
 }
 
+export async function getTunnelStatus(
+  token: string
+): Promise<{ connected: boolean; dialect?: string }> {
+  const res = await fetch(`/api/proxy/tunnel/${token}/status`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 export async function getTunnelSchema(
   token: string
 ): Promise<{ tables?: { schema: string; name: string; columns: { name: string; type: string; is_primary?: boolean }[] }[] }> {

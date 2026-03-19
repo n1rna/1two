@@ -18,7 +18,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { createTunnel, getTunnelSchema, type TunnelToken } from "@/lib/tunnel";
+import { createTunnel, getTunnelStatus, type TunnelToken } from "@/lib/tunnel";
 import { cn } from "@/lib/utils";
 
 interface TunnelConnectDialogProps {
@@ -61,10 +61,10 @@ export function TunnelConnectDialog({
 
     const check = async () => {
       try {
-        const schema = await getTunnelSchema(tunnel.token);
-        if (schema.tables !== undefined) {
+        const status = await getTunnelStatus(tunnel.token);
+        if (status.connected) {
           setStep("connected");
-          // Try to detect dialect from schema response
+          if (status.dialect) setDialect(status.dialect);
           if (pollRef.current) {
             clearInterval(pollRef.current);
             pollRef.current = null;

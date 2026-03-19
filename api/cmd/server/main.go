@@ -167,6 +167,7 @@ func main() {
 
 			// Tunnel hub
 			r.Post("/tunnel/create", tunnel.HandleCreateToken(tunnelHub))
+			r.Get("/tunnel/{token}/status", tunnel.HandleStatus(tunnelHub))
 			r.Post("/tunnel/{token}/query", tunnel.HandleQuery(tunnelHub))
 			r.Get("/tunnel/{token}/schema", tunnel.HandleSchema(tunnelHub))
 

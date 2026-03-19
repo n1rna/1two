@@ -192,6 +192,37 @@ func runPingLoop(conn *websocket.Conn, sess *TunnelSession, stop <-chan struct{}
 // POST /api/v1/tunnel/{token}/query  (authenticated)
 // ---------------------------------------------------------------------------
 
+// HandleStatus returns the connection status of a tunnel session.
+// This is a lightweight check that does NOT relay through the WebSocket.
+//
+//	GET /api/v1/tunnel/{token}/status
+func HandleStatus(hub *TunnelHub) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+
+		token := chi.URLParam(r, "token")
+		sess := hub.GetSession(token)
+		if sess == nil || sess.UserID != userID {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "tunnel not found"})
+			return
+		}
+
+		sess.mu.Lock()
+		connected := sess.Conn != nil
+		dialect := sess.Dialect
+		sess.mu.Unlock()
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"connected": connected,
+			"dialect":   dialect,
+		})
+	}
+}
+
 // HandleQuery forwards a SQL/Redis query to the CLI and waits for the result.
 //
 //	POST /api/v1/tunnel/{token}/query
