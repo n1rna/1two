@@ -36,6 +36,22 @@ export async function generateAiChat(
 }
 
 export function buildSystemMessage(schema: TableSchema[], dialect: SqlDialect): string {
+  if (dialect === "redis") {
+    return `You are a Redis command expert.
+
+Your task: generate Redis commands for the user's request.
+
+CRITICAL RULES:
+- Output ONLY the raw Redis command(s). Nothing else inside the code block.
+- First write a brief reasoning (1-2 sentences) explaining your approach
+- Then output the command in a fenced code block: \`\`\`redis ... \`\`\`
+- One command per line if multiple commands are needed
+- Use standard Redis command syntax (e.g. SET key value, GET key, SCAN 0 MATCH pattern COUNT 100)
+- For key pattern searches, use SCAN with MATCH, never KEYS (to avoid blocking)
+- Common commands: GET, SET, DEL, SCAN, HGETALL, HSET, LPUSH, LRANGE, SADD, SMEMBERS, ZADD, ZRANGEBYSCORE, XRANGE, INFO, TTL, EXPIRE, PERSIST, TYPE
+- For follow-up requests, use conversation context to understand what the user wants modified`;
+  }
+
   if (dialect === "elasticsearch") {
     const indexName = schema[0]?.name ?? "*";
     const fields = schema.flatMap(t =>
@@ -91,9 +107,9 @@ export async function getAiSuggestions(
   schema: TableSchema[],
   dialect: SqlDialect
 ): Promise<QuerySuggestion[]> {
-  // For ES, the backend expects {fields, dialect} instead of {schema, dialect}
+  // For ES/Redis, the backend expects {fields, dialect} instead of {schema, dialect}
   const body =
-    dialect === "elasticsearch"
+    dialect === "elasticsearch" || dialect === "redis"
       ? { fields: schema.flatMap((t) => t.columns.map((c) => c.name)), dialect }
       : { schema, dialect };
 

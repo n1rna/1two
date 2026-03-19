@@ -4,26 +4,39 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
+  Activity,
+  BarChart3,
+  Boxes,
   Check,
+  ChevronDown,
   ChevronLeft,
+  ChevronRight,
+  Clock,
   Copy,
   Database,
   Eye,
   EyeOff,
   Globe,
+  GripHorizontal,
   Link2,
   Loader2,
   Play,
+  Plus,
   RefreshCw,
-  Search,
-  Trash2,
+  RotateCw,
+  Terminal,
   X,
 } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthGate } from "@/components/layout/auth-gate";
+import { useBillingStatus } from "@/lib/billing";
+import { AiQueryBar } from "@/components/account/database-studio/ai-query-bar";
+import type { AiSession } from "@/components/account/database-studio/types";
 import {
   getRedisDetail,
+  getRedisInfo,
   executeCommand,
   executePipeline,
   type RedisDetail,
@@ -34,10 +47,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { BullMQView, SidekiqView, CeleryView, KeyNamespaceView, StreamGroupsView } from "@/components/account/redis-views";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type RedisKeyType = "string" | "hash" | "list" | "set" | "zset" | "stream" | "unknown";
+type RedisKeyType =
+  | "string"
+  | "hash"
+  | "list"
+  | "set"
+  | "zset"
+  | "stream"
+  | "unknown";
 
 interface RedisKey {
   name: string;
@@ -77,6 +99,30 @@ interface HistoryEntry {
   result: string;
   error: boolean;
   ts: number;
+}
+
+type RedisTabType = "query" | "metrics" | "monitor" | "bullmq" | "sidekiq" | "celery" | "namespaces" | "streams";
+
+interface RedisTab {
+  id: string;
+  type: RedisTabType;
+  title: string;
+}
+
+// Parsed Redis INFO section
+interface InfoSection {
+  name: string;
+  entries: { key: string; value: string }[];
+}
+
+// Monitor snapshot
+interface MonitorSnapshot {
+  ts: number;
+  keys: number;
+  usedMemory: number;
+  connectedClients: number;
+  opsPerSec: number;
+  hitRate: number;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -123,6 +169,52 @@ function parseCommand(raw: string): string[] {
   return parts;
 }
 
+function parseInfoResponse(raw: string): InfoSection[] {
+  const sections: InfoSection[] = [];
+  let currentSection: InfoSection | null = null;
+
+  const lines = raw.split(/\r?\n/);
+  for (const line of lines) {
+    if (line.startsWith("# ")) {
+      if (currentSection) sections.push(currentSection);
+      currentSection = { name: line.slice(2).trim(), entries: [] };
+    } else if (line.includes(":") && currentSection) {
+      const colonIdx = line.indexOf(":");
+      const key = line.slice(0, colonIdx).trim();
+      const value = line.slice(colonIdx + 1).trim();
+      if (key) currentSection.entries.push({ key, value });
+    }
+  }
+  if (currentSection) sections.push(currentSection);
+  return sections;
+}
+
+function extractInfoMetric(
+  sections: InfoSection[],
+  key: string
+): string | null {
+  for (const section of sections) {
+    const entry = section.entries.find((e) => e.key === key);
+    if (entry) return entry.value;
+  }
+  return null;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
 // ── Type Badge ────────────────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<RedisKeyType, string> = {
@@ -134,8 +226,7 @@ const TYPE_COLORS: Record<RedisKeyType, string> = {
   zset: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/30",
   stream:
     "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30",
-  unknown:
-    "bg-muted text-muted-foreground border-border",
+  unknown: "bg-muted text-muted-foreground border-border",
 };
 
 function TypeBadge({ type }: { type: RedisKeyType }) {
@@ -191,7 +282,16 @@ function ConnectionInfoDialog({
   const obfuscatedUrl = `redis://default:${"•".repeat(8)}@${host}:6379`;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setRevealed(false); setCopiedField(null); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v);
+        if (!v) {
+          setRevealed(false);
+          setCopiedField(null);
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
@@ -203,7 +303,9 @@ function ConnectionInfoDialog({
         <div className="space-y-4 min-w-0 overflow-hidden">
           {/* Redis URL */}
           <div className="space-y-1.5 min-w-0">
-            <label className="text-xs font-medium text-muted-foreground">Redis URL</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              Redis URL
+            </label>
             <div className="flex items-center gap-1.5 min-w-0">
               <code className="flex-1 min-w-0 block rounded-md border bg-muted/40 px-3 py-2 text-xs font-mono break-all leading-relaxed select-all overflow-hidden">
                 {revealed ? redisUrl : obfuscatedUrl}
@@ -216,7 +318,11 @@ function ConnectionInfoDialog({
                   onClick={() => setRevealed((v) => !v)}
                   title={revealed ? "Hide password" : "Show password"}
                 >
-                  {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {revealed ? (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5" />
+                  )}
                 </Button>
                 <CopyBtn field="redis-url" value={redisUrl} />
               </div>
@@ -225,14 +331,16 @@ function ConnectionInfoDialog({
 
           {/* Individual fields */}
           <div className="rounded-md border divide-y min-w-0 overflow-hidden">
-            {([
-              ["Host", host, "host"],
-              ["Port", "6379", "port"],
-              ["Password", revealed ? db.password : "••••••••", "password"],
-              ["REST Endpoint", db.endpoint, "endpoint"],
-              ["REST Token", db.restToken, "token"],
-              ["Region", db.region, "region"],
-            ] as [string, string, string][]).map(([label, value, key]) => (
+            {(
+              [
+                ["Host", host, "host"],
+                ["Port", "6379", "port"],
+                ["Password", revealed ? db.password : "••••••••", "password"],
+                ["REST Endpoint", db.endpoint, "endpoint"],
+                ["REST Token", db.restToken, "token"],
+                ["Region", db.region, "region"],
+              ] as [string, string, string][]
+            ).map(([label, value, key]) => (
               <div
                 key={key}
                 className="flex items-center gap-3 px-3 py-2 text-xs min-w-0"
@@ -248,10 +356,7 @@ function ConnectionInfoDialog({
                   size="icon"
                   className="h-6 w-6 shrink-0"
                   onClick={() =>
-                    copyValue(
-                      key === "password" ? db.password : value,
-                      key
-                    )
+                    copyValue(key === "password" ? db.password : value, key)
                   }
                   title={`Copy ${label.toLowerCase()}`}
                 >
@@ -326,7 +431,9 @@ function HashViewer({ entries }: { entries: HashEntry[] }) {
         {entries.map((e) => (
           <div key={e.field} className="grid grid-cols-2 px-3 py-1.5 gap-2">
             <span className="font-mono truncate text-foreground">{e.field}</span>
-            <span className="font-mono truncate text-muted-foreground">{e.value}</span>
+            <span className="font-mono truncate text-muted-foreground">
+              {e.value}
+            </span>
           </div>
         ))}
       </div>
@@ -378,7 +485,9 @@ function SetViewer({ members }: { members: string[] }) {
 
 function ZsetViewer({ entries }: { entries: ZsetEntry[] }) {
   if (entries.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">Empty sorted set</p>;
+    return (
+      <p className="text-xs text-muted-foreground italic">Empty sorted set</p>
+    );
   }
   return (
     <div className="rounded border overflow-hidden text-xs">
@@ -389,7 +498,9 @@ function ZsetViewer({ entries }: { entries: ZsetEntry[] }) {
       <div className="divide-y">
         {entries.map((e, i) => (
           <div key={i} className="grid grid-cols-2 px-3 py-1.5 gap-2">
-            <span className="font-mono truncate text-foreground">{e.member}</span>
+            <span className="font-mono truncate text-foreground">
+              {e.member}
+            </span>
             <span className="font-mono text-muted-foreground">{e.score}</span>
           </div>
         ))}
@@ -400,7 +511,9 @@ function ZsetViewer({ entries }: { entries: ZsetEntry[] }) {
 
 function StreamViewer({ entries }: { entries: StreamEntry[] }) {
   if (entries.length === 0) {
-    return <p className="text-xs text-muted-foreground italic">Empty stream</p>;
+    return (
+      <p className="text-xs text-muted-foreground italic">Empty stream</p>
+    );
   }
   return (
     <div className="space-y-2">
@@ -412,7 +525,9 @@ function StreamViewer({ entries }: { entries: StreamEntry[] }) {
           <div className="divide-y">
             {Object.entries(e.fields).map(([k, v]) => (
               <div key={k} className="grid grid-cols-2 px-3 py-1.5 gap-2">
-                <span className="font-mono text-muted-foreground truncate">{k}</span>
+                <span className="font-mono text-muted-foreground truncate">
+                  {k}
+                </span>
                 <span className="font-mono text-foreground truncate">{v}</span>
               </div>
             ))}
@@ -423,7 +538,1291 @@ function StreamViewer({ entries }: { entries: StreamEntry[] }) {
   );
 }
 
+// ── Key Value Panel (shared by query tab SCAN results) ─────────────────────────
+
+interface KeyPanelProps {
+  dbId: string;
+  keyName: string;
+  onClose: () => void;
+}
+
+function KeyPanel({ dbId, keyName, onClose }: KeyPanelProps) {
+  const [keyValue, setKeyValue] = useState<KeyValue | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [rawMode, setRawMode] = useState(false);
+  const [ttlEdit, setTtlEdit] = useState("");
+  const [ttlEditing, setTtlEditing] = useState(false);
+  const [ttlSaving, setTtlSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+
+  const loadKeyValue = useCallback(async () => {
+    setLoading(true);
+    setKeyValue(null);
+    try {
+      const typeRes = await executeCommand(dbId, ["TYPE", keyName]);
+      const ttlRes = await executeCommand(dbId, ["TTL", keyName]);
+
+      const type = (typeRes.result as RedisKeyType) ?? "unknown";
+      const ttl = typeof ttlRes.result === "number" ? ttlRes.result : -1;
+
+      let value: KeyValue["value"] = null;
+
+      if (type === "string") {
+        const r = await executeCommand(dbId, ["GET", keyName]);
+        value = typeof r.result === "string" ? r.result : null;
+      } else if (type === "hash") {
+        const r = await executeCommand(dbId, ["HGETALL", keyName]);
+        const flat = r.result as string[];
+        const entries: HashEntry[] = [];
+        for (let i = 0; i + 1 < flat.length; i += 2) {
+          entries.push({ field: flat[i], value: flat[i + 1] });
+        }
+        value = entries;
+      } else if (type === "list") {
+        const r = await executeCommand(dbId, ["LRANGE", keyName, "0", "199"]);
+        value = (r.result as string[]) ?? [];
+      } else if (type === "set") {
+        const r = await executeCommand(dbId, ["SMEMBERS", keyName]);
+        value = (r.result as string[]) ?? [];
+      } else if (type === "zset") {
+        const r = await executeCommand(dbId, [
+          "ZRANGEBYSCORE",
+          keyName,
+          "-inf",
+          "+inf",
+          "WITHSCORES",
+        ]);
+        const flat = (r.result as string[]) ?? [];
+        const entries: ZsetEntry[] = [];
+        for (let i = 0; i + 1 < flat.length; i += 2) {
+          entries.push({ member: flat[i], score: flat[i + 1] });
+        }
+        value = entries;
+      } else if (type === "stream") {
+        const r = await executeCommand(dbId, [
+          "XRANGE",
+          keyName,
+          "-",
+          "+",
+          "COUNT",
+          "100",
+        ]);
+        const raw = (r.result as Array<[string, string[]]>) ?? [];
+        const entries: StreamEntry[] = raw.map(([id, fieldArr]) => {
+          const fields: Record<string, string> = {};
+          for (let i = 0; i + 1 < fieldArr.length; i += 2) {
+            fields[fieldArr[i]] = fieldArr[i + 1];
+          }
+          return { id, fields };
+        });
+        value = entries;
+      }
+
+      setKeyValue({ type, ttl, value });
+      setTtlEdit(ttl >= 0 ? String(ttl) : "");
+      setTtlEditing(false);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, [dbId, keyName]);
+
+  useEffect(() => {
+    void loadKeyValue();
+  }, [loadKeyValue]);
+
+  const handleSaveTtl = async () => {
+    setTtlSaving(true);
+    try {
+      const seconds = parseInt(ttlEdit, 10);
+      if (isNaN(seconds) || ttlEdit.trim() === "") {
+        await executeCommand(dbId, ["PERSIST", keyName]);
+      } else {
+        await executeCommand(dbId, ["EXPIRE", keyName, String(seconds)]);
+      }
+      await loadKeyValue();
+      setTtlEditing(false);
+    } catch {
+      // silently fail
+    } finally {
+      setTtlSaving(false);
+    }
+  };
+
+  const handleDeleteKey = async () => {
+    setDeleting(true);
+    try {
+      await executeCommand(dbId, ["DEL", keyName]);
+      setDeleted(true);
+    } catch {
+      // silently fail
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (deleted) {
+    return (
+      <div className="rounded border p-4 text-xs text-muted-foreground italic">
+        Key deleted.{" "}
+        <button
+          className="underline underline-offset-2 hover:text-foreground transition-colors"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Loading key...
+      </div>
+    );
+  }
+
+  if (!keyValue) return null;
+
+  return (
+    <div className="rounded border overflow-hidden">
+      {/* Key header */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-muted/30 border-b">
+        <TypeBadge type={keyValue.type} />
+        {keyValue.ttl >= 0 && <TtlBadge ttl={keyValue.ttl} />}
+        <span className="text-xs font-mono font-medium truncate flex-1 min-w-0">
+          {keyName}
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs px-2"
+            onClick={() => setRawMode((v) => !v)}
+          >
+            {rawMode ? "Formatted" : "Raw"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => void loadKeyValue()}
+            title="Refresh"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-destructive hover:text-destructive"
+            onClick={() => void handleDeleteKey()}
+            disabled={deleting}
+            title="Delete key"
+          >
+            {deleting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <X className="h-3 w-3" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={onClose}
+            title="Close panel"
+          >
+            <ChevronDown className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      {/* TTL row */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/10">
+        <p className="text-[11px] text-muted-foreground w-8 shrink-0">TTL</p>
+        {ttlEditing ? (
+          <div className="flex items-center gap-1.5">
+            <Input
+              className="h-6 text-xs w-32 font-mono"
+              placeholder="seconds (empty = persist)"
+              value={ttlEdit}
+              onChange={(e) => setTtlEdit(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void handleSaveTtl();
+                if (e.key === "Escape") setTtlEditing(false);
+              }}
+              autoFocus
+            />
+            <Button
+              size="sm"
+              className="h-6 text-xs px-2"
+              onClick={() => void handleSaveTtl()}
+              disabled={ttlSaving}
+            >
+              {ttlSaving ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setTtlEditing(false)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ) : (
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+            onClick={() => setTtlEditing(true)}
+          >
+            {keyValue.ttl < 0 ? "No expiry" : formatTtl(keyValue.ttl)}
+          </button>
+        )}
+      </div>
+
+      {/* Value */}
+      <div className="p-3">
+        {rawMode ? (
+          <pre className="text-xs font-mono bg-muted rounded p-3 overflow-auto whitespace-pre-wrap break-all">
+            {formatResult(keyValue.value)}
+          </pre>
+        ) : (
+          <>
+            {keyValue.type === "string" && (
+              <StringViewer value={keyValue.value as string | null} />
+            )}
+            {keyValue.type === "hash" && (
+              <HashViewer entries={keyValue.value as HashEntry[]} />
+            )}
+            {keyValue.type === "list" && (
+              <ListViewer items={keyValue.value as string[]} />
+            )}
+            {keyValue.type === "set" && (
+              <SetViewer members={keyValue.value as string[]} />
+            )}
+            {keyValue.type === "zset" && (
+              <ZsetViewer entries={keyValue.value as ZsetEntry[]} />
+            )}
+            {keyValue.type === "stream" && (
+              <StreamViewer entries={keyValue.value as StreamEntry[]} />
+            )}
+            {keyValue.type === "unknown" && (
+              <p className="text-xs text-muted-foreground italic">
+                Unknown type
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Query Tab Result ─────────────────────────────────────────────────────────
+
+interface ScanResult {
+  cursor: string;
+  keys: string[];
+}
+
+function isScanResult(result: unknown): result is [string, string[]] {
+  return (
+    Array.isArray(result) &&
+    result.length === 2 &&
+    typeof result[0] === "string" &&
+    Array.isArray(result[1])
+  );
+}
+
+interface QueryResultAreaProps {
+  dbId: string;
+  result: unknown;
+  error: string | null;
+  loading: boolean;
+}
+
+function QueryResultArea({
+  dbId,
+  result,
+  error,
+  loading,
+}: QueryResultAreaProps) {
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [scanKeys, setScanKeys] = useState<string[]>([]);
+
+  // Reset expanded key when result changes
+  useEffect(() => {
+    setExpandedKey(null);
+    if (isScanResult(result)) {
+      setScanKeys(result[1] as string[]);
+    } else {
+      setScanKeys([]);
+    }
+  }, [result]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Running...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <pre className="p-4 text-xs font-mono text-destructive whitespace-pre-wrap break-all">
+        {error}
+      </pre>
+    );
+  }
+
+  if (result === undefined) {
+    return (
+      <div className="flex items-center justify-center h-full text-xs text-muted-foreground/50">
+        Run a command to see results
+      </div>
+    );
+  }
+
+  if (isScanResult(result) && scanKeys.length > 0) {
+    return (
+      <div className="p-3 space-y-2">
+        <p className="text-[11px] text-muted-foreground font-medium">
+          {scanKeys.length} key{scanKeys.length !== 1 ? "s" : ""} — cursor{" "}
+          <span className="font-mono">{(result as [string, string[]])[0]}</span>
+        </p>
+        <div className="space-y-1">
+          {scanKeys.map((key) => (
+            <div key={key}>
+              <button
+                className="w-full text-left flex items-center gap-1.5 px-2 py-1 rounded hover:bg-accent/50 transition-colors group"
+                onClick={() =>
+                  setExpandedKey((prev) => (prev === key ? null : key))
+                }
+              >
+                <ChevronRight
+                  className={cn(
+                    "h-3 w-3 text-muted-foreground shrink-0 transition-transform",
+                    expandedKey === key && "rotate-90"
+                  )}
+                />
+                <span className="text-xs font-mono text-foreground truncate">
+                  {key}
+                </span>
+              </button>
+              {expandedKey === key && (
+                <div className="ml-4 mt-1 mb-2">
+                  <KeyPanel
+                    dbId={dbId}
+                    keyName={key}
+                    onClose={() => setExpandedKey(null)}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <pre className="p-4 text-xs font-mono whitespace-pre-wrap break-all text-foreground">
+      {formatResult(result)}
+    </pre>
+  );
+}
+
+// ── Query Tab ─────────────────────────────────────────────────────────────────
+
+interface QueryTabState {
+  input: string;
+  history: HistoryEntry[];
+  historyIndex: number;
+  result: unknown;
+  error: string | null;
+  running: boolean;
+}
+
+interface QueryTabProps {
+  dbId: string;
+  tabId: string;
+  state: QueryTabState;
+  onChange: (update: Partial<QueryTabState>) => void;
+  disabled: boolean;
+  aiEnabled: boolean;
+  aiSession?: AiSession;
+  onAiSessionChange?: (session: AiSession) => void;
+}
+
+function QueryTab({ dbId, tabId, state, onChange, disabled, aiEnabled, aiSession, onAiSessionChange }: QueryTabProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const [aiBarOpen, setAiBarOpen] = useState(false);
+  const [expandedTs, setExpandedTs] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(true);
+  const [historyHeight, setHistoryHeight] = useState(180);
+  const historyResizing = useRef(false);
+
+  const handleHistoryResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    historyResizing.current = true;
+    const startY = e.clientY;
+    const startH = historyHeight;
+    const onMove = (ev: MouseEvent) => {
+      if (!historyResizing.current) return;
+      // Dragging up = increasing height (startY - ev.clientY is positive when dragging up)
+      setHistoryHeight(Math.max(60, Math.min(500, startH + (startY - ev.clientY))));
+    };
+    const onUp = () => {
+      historyResizing.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [historyHeight]);
+
+  // Auto-scroll result area when new results appear
+  useEffect(() => {
+    if (resultRef.current) {
+      resultRef.current.scrollTop = resultRef.current.scrollHeight;
+    }
+  }, [state.result, state.running]);
+
+  const runCommand = async () => {
+    const raw = state.input.trim();
+    if (!raw) return;
+    const parts = parseCommand(raw);
+    if (parts.length === 0) return;
+
+    onChange({ running: true, error: null, result: undefined });
+
+    const entry: HistoryEntry = {
+      command: raw,
+      result: "",
+      error: false,
+      ts: Date.now(),
+    };
+
+    try {
+      const res = await executeCommand(dbId, parts);
+      const output = res.error ? `(error) ${res.error}` : formatResult(res.result);
+      entry.result = output;
+      entry.error = !!res.error;
+      onChange({
+        running: false,
+        result: res.error ? undefined : res.result,
+        error: res.error ? `(error) ${res.error}` : null,
+        history: [entry, ...state.history].slice(0, 50),
+        historyIndex: -1,
+        input: "",
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      entry.result = `(error) ${msg}`;
+      entry.error = true;
+      onChange({
+        running: false,
+        result: undefined,
+        error: `(error) ${msg}`,
+        history: [entry, ...state.history].slice(0, 50),
+        historyIndex: -1,
+        input: "",
+      });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      void runCommand();
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = Math.min(state.historyIndex + 1, state.history.length - 1);
+      onChange({
+        historyIndex: next,
+        input: state.history[next]?.command ?? state.input,
+      });
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = Math.max(state.historyIndex - 1, -1);
+      onChange({
+        historyIndex: next,
+        input: next === -1 ? "" : (state.history[next]?.command ?? ""),
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Input row */}
+      <div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b bg-muted/10">
+        <span className="text-xs font-mono text-muted-foreground shrink-0">
+          {">"}
+        </span>
+        <input
+          ref={inputRef}
+          key={tabId}
+          className="flex-1 bg-transparent text-xs font-mono outline-none placeholder:text-muted-foreground/50"
+          placeholder="Enter a Redis command (e.g. SCAN 0 MATCH * COUNT 20)"
+          value={state.input}
+          onChange={(e) => onChange({ input: e.target.value })}
+          onKeyDown={handleKeyDown}
+          disabled={state.running || disabled}
+          spellCheck={false}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          autoFocus
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={() => void runCommand()}
+          disabled={state.running || !state.input.trim() || disabled}
+          title="Run command"
+        >
+          {state.running ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Play className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
+
+      {/* AI Assistant — collapsible */}
+      {aiEnabled && (
+        <>
+          <button
+            className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b hover:bg-muted/30 transition-colors"
+            onClick={() => setAiBarOpen((v) => !v)}
+          >
+            <Sparkles className={cn("h-3 w-3", aiBarOpen ? "text-primary" : "text-muted-foreground/50")} />
+            <span className={cn("text-xs font-medium", aiBarOpen ? "text-primary" : "text-muted-foreground/50")}>
+              AI Assistant
+            </span>
+            {aiSession && aiSession.entries.length > 0 && (
+              <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+                {aiSession.entries.length} {aiSession.entries.length === 1 ? "prompt" : "prompts"}
+              </span>
+            )}
+          </button>
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-in-out shrink-0"
+            style={{ gridTemplateRows: aiBarOpen ? "1fr" : "0fr" }}
+          >
+            <div className="overflow-hidden">
+              <AiQueryBar
+                schema={[]}
+                dialect="redis"
+                onSqlGenerated={(cmd) => onChange({ input: cmd })}
+                aiEnabled={aiEnabled}
+                aiSession={aiSession}
+                onAiSessionChange={onAiSessionChange}
+                getEditorContent={() => state.input}
+                lastQuerySummary={
+                  state.result !== undefined
+                    ? formatResult(state.result).slice(0, 100)
+                    : undefined
+                }
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Main area: split between result and history */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Current result */}
+        <div className="flex-1 overflow-y-auto" ref={resultRef}>
+          {state.result === undefined && !state.error && !state.running ? (
+            <div className="flex items-center justify-center h-full text-xs text-muted-foreground/50">
+              Run a command to see results
+            </div>
+          ) : (
+            <QueryResultArea
+              dbId={dbId}
+              result={state.result}
+              error={state.error}
+              loading={state.running}
+            />
+          )}
+        </div>
+
+        {/* History panel — collapsible + resizable */}
+        {state.history.length > 0 && (
+          <div className="shrink-0 flex flex-col overflow-hidden">
+            {/* Resize handle (only when expanded) */}
+            {historyOpen && (
+              <div
+                onMouseDown={handleHistoryResize}
+                className="h-1 shrink-0 cursor-row-resize bg-transparent hover:bg-primary/20 active:bg-primary/30 transition-colors flex items-center justify-center group"
+                title="Drag to resize"
+              >
+                <GripHorizontal className="h-2.5 w-2.5 text-muted-foreground/30 group-hover:text-muted-foreground/60" />
+              </div>
+            )}
+
+            {/* Header — click to toggle */}
+            <button
+              className="px-3 py-1.5 bg-muted/20 border-t border-b flex items-center gap-2 hover:bg-muted/30 transition-colors"
+              onClick={() => setHistoryOpen((v) => !v)}
+            >
+              <ChevronRight
+                className={cn(
+                  "h-3 w-3 text-muted-foreground/50 transition-transform",
+                  historyOpen && "rotate-90"
+                )}
+              />
+              <Clock className="h-3 w-3 text-muted-foreground/50" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                History
+              </span>
+              <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+                {state.history.length}
+              </span>
+            </button>
+
+            {/* History list */}
+            {historyOpen && (
+              <div className="overflow-y-auto" style={{ height: `${historyHeight}px` }}>
+                {state.history.map((h) => (
+                  <div key={h.ts} className="border-b border-border/20 last:border-b-0">
+                    <div
+                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent/40 transition-colors text-left group cursor-pointer"
+                      onClick={() => setExpandedTs((prev) => prev === h.ts ? null : h.ts)}
+                    >
+                      <ChevronRight
+                        className={cn(
+                          "h-2.5 w-2.5 text-muted-foreground/40 shrink-0 transition-transform",
+                          expandedTs === h.ts && "rotate-90"
+                        )}
+                      />
+                      <span className="text-[11px] font-mono text-foreground truncate flex-1 min-w-0">
+                        {h.command}
+                      </span>
+                      {h.error && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                      )}
+                      <span className="text-[10px] text-muted-foreground/40 shrink-0 tabular-nums opacity-0 group-hover:opacity-100 transition-opacity">
+                        {new Date(h.ts).toLocaleTimeString()}
+                      </span>
+                      <button
+                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onChange({ input: h.command });
+                          // Trigger run
+                          setTimeout(() => {
+                            const parts = parseCommand(h.command);
+                            if (parts.length === 0) return;
+                            onChange({ running: true, error: null, result: undefined, input: h.command });
+                            executeCommand(dbId, parts).then((res) => {
+                              const output = res.error ? `(error) ${res.error}` : formatResult(res.result);
+                              const entry: HistoryEntry = { command: h.command, result: output, error: !!res.error, ts: Date.now() };
+                              onChange({
+                                running: false,
+                                result: res.error ? undefined : res.result,
+                                error: res.error ? `(error) ${res.error}` : null,
+                                history: [entry, ...state.history].slice(0, 50),
+                                historyIndex: -1,
+                                input: "",
+                              });
+                            }).catch((err) => {
+                              const msg = err instanceof Error ? err.message : "Unknown error";
+                              const entry: HistoryEntry = { command: h.command, result: `(error) ${msg}`, error: true, ts: Date.now() };
+                              onChange({
+                                running: false,
+                                result: undefined,
+                                error: `(error) ${msg}`,
+                                history: [entry, ...state.history].slice(0, 50),
+                                historyIndex: -1,
+                                input: "",
+                              });
+                            });
+                          }, 0);
+                        }}
+                        title="Re-run this command"
+                      >
+                        <RotateCw className="h-3 w-3 text-muted-foreground/50 hover:text-foreground" />
+                      </button>
+                    </div>
+                    {expandedTs === h.ts && (
+                      <div className={cn(
+                        "px-3 py-2 pl-8 text-[11px] font-mono whitespace-pre-wrap break-all bg-muted/10",
+                        h.error ? "text-destructive" : "text-foreground/60"
+                      )}>
+                        {h.result}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Metrics Tab ───────────────────────────────────────────────────────────────
+
+interface MetricsTabProps {
+  dbId: string;
+}
+
+function MetricsTab({ dbId }: MetricsTabProps) {
+  const [sections, setSections] = useState<InfoSection[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<string, boolean>
+  >({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getRedisInfo(dbId);
+      if (typeof res.result === "string") {
+        setSections(parseInfoResponse(res.result));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, [dbId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const toggleSection = (name: string) => {
+    setCollapsedSections((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
+
+  const totalKeys = sections.length
+    ? (() => {
+        // Sum db0..dbN keyspace entries
+        const keyspace = sections.find((s) => s.name === "Keyspace");
+        if (!keyspace) return extractInfoMetric(sections, "db0") ? null : "0";
+        let total = 0;
+        for (const entry of keyspace.entries) {
+          const m = entry.value.match(/keys=(\d+)/);
+          if (m) total += parseInt(m[1], 10);
+        }
+        return String(total);
+      })()
+    : null;
+
+  const usedMemoryRaw = extractInfoMetric(sections, "used_memory");
+  const connectedClientsRaw = extractInfoMetric(sections, "connected_clients");
+  const uptimeRaw = extractInfoMetric(sections, "uptime_in_seconds");
+  const opsRaw = extractInfoMetric(sections, "instantaneous_ops_per_sec");
+  const hitsRaw = extractInfoMetric(sections, "keyspace_hits");
+  const missesRaw = extractInfoMetric(sections, "keyspace_misses");
+
+  const hitRate =
+    hitsRaw !== null && missesRaw !== null
+      ? (() => {
+          const hits = parseInt(hitsRaw, 10);
+          const misses = parseInt(missesRaw, 10);
+          const total = hits + misses;
+          return total === 0 ? "N/A" : `${((hits / total) * 100).toFixed(1)}%`;
+        })()
+      : "N/A";
+
+  const summaryCards = [
+    {
+      label: "Total Keys",
+      value: totalKeys ?? "—",
+    },
+    {
+      label: "Used Memory",
+      value: usedMemoryRaw
+        ? formatBytes(parseInt(usedMemoryRaw, 10))
+        : "—",
+    },
+    {
+      label: "Clients",
+      value: connectedClientsRaw ?? "—",
+    },
+    {
+      label: "Uptime",
+      value: uptimeRaw ? formatUptime(parseInt(uptimeRaw, 10)) : "—",
+    },
+    {
+      label: "Ops/sec",
+      value: opsRaw ?? "—",
+    },
+    {
+      label: "Hit Rate",
+      value: hitRate,
+    },
+  ];
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Top bar */}
+      <div className="shrink-0 flex items-center justify-between px-4 py-2 border-b">
+        <p className="text-xs font-medium text-muted-foreground">
+          Redis INFO
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs gap-1.5"
+          onClick={() => void load()}
+          disabled={loading}
+        >
+          {loading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3" />
+          )}
+          Refresh
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {loading && sections.length === 0 ? (
+          <div className="flex items-center gap-2 p-8 justify-center text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading...
+          </div>
+        ) : (
+          <div className="p-4 space-y-6">
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {summaryCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded border bg-muted/20 px-3 py-2.5 text-center"
+                >
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mb-1">
+                    {card.label}
+                  </p>
+                  <p className="text-sm font-semibold font-mono">
+                    {card.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* INFO sections */}
+            <div className="space-y-3">
+              {sections.map((section) => (
+                <div key={section.name} className="rounded border overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => toggleSection(section.name)}
+                  >
+                    <span className="text-xs font-medium">{section.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        {section.entries.length} entries
+                      </span>
+                      <ChevronRight
+                        className={cn(
+                          "h-3 w-3 text-muted-foreground transition-transform",
+                          !collapsedSections[section.name] && "rotate-90"
+                        )}
+                      />
+                    </div>
+                  </button>
+                  {!collapsedSections[section.name] && (
+                    <div className="divide-y">
+                      {section.entries.map((entry) => (
+                        <div
+                          key={entry.key}
+                          className="grid grid-cols-2 px-3 py-1.5 gap-3 text-xs"
+                        >
+                          <span className="font-mono text-muted-foreground truncate">
+                            {entry.key}
+                          </span>
+                          <span className="font-mono text-foreground break-all">
+                            {entry.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Monitor Tab ───────────────────────────────────────────────────────────────
+
+interface MonitorTabProps {
+  dbId: string;
+}
+
+const POLL_INTERVALS = [5, 10, 30] as const;
+type PollInterval = (typeof POLL_INTERVALS)[number];
+
+function MonitorTab({ dbId }: MonitorTabProps) {
+  const [snapshots, setSnapshots] = useState<MonitorSnapshot[]>([]);
+  const [running, setRunning] = useState(false);
+  const [pollInterval, setPollInterval] = useState<PollInterval>(5);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const takeSnapshot = useCallback(async () => {
+    try {
+      const res = await getRedisInfo(dbId);
+      if (typeof res.result !== "string") return;
+      const secs = parseInfoResponse(res.result);
+
+      const usedMemoryStr = extractInfoMetric(secs, "used_memory");
+      const clientsStr = extractInfoMetric(secs, "connected_clients");
+      const opsStr = extractInfoMetric(secs, "instantaneous_ops_per_sec");
+      const hitsStr = extractInfoMetric(secs, "keyspace_hits");
+      const missesStr = extractInfoMetric(secs, "keyspace_misses");
+
+      const keyspace = secs.find((s) => s.name === "Keyspace");
+      let totalKeys = 0;
+      if (keyspace) {
+        for (const entry of keyspace.entries) {
+          const m = entry.value.match(/keys=(\d+)/);
+          if (m) totalKeys += parseInt(m[1], 10);
+        }
+      }
+
+      const hits = hitsStr ? parseInt(hitsStr, 10) : 0;
+      const misses = missesStr ? parseInt(missesStr, 10) : 0;
+      const total = hits + misses;
+      const hitRate = total === 0 ? 0 : (hits / total) * 100;
+
+      const snap: MonitorSnapshot = {
+        ts: Date.now(),
+        keys: totalKeys,
+        usedMemory: usedMemoryStr ? parseInt(usedMemoryStr, 10) : 0,
+        connectedClients: clientsStr ? parseInt(clientsStr, 10) : 0,
+        opsPerSec: opsStr ? parseFloat(opsStr) : 0,
+        hitRate,
+      };
+
+      setSnapshots((prev) => [snap, ...prev].slice(0, 60));
+    } catch {
+      // silently fail
+    }
+  }, [dbId]);
+
+  const start = useCallback(() => {
+    void takeSnapshot();
+    intervalRef.current = setInterval(() => {
+      void takeSnapshot();
+    }, pollInterval * 1000);
+    setRunning(true);
+  }, [takeSnapshot, pollInterval]);
+
+  const stop = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setRunning(false);
+  }, []);
+
+  // Restart interval when pollInterval changes while running
+  useEffect(() => {
+    if (running) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => {
+        void takeSnapshot();
+      }, pollInterval * 1000);
+    }
+  }, [pollInterval, running, takeSnapshot]);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const latest = snapshots[0] ?? null;
+  const prev = snapshots[1] ?? null;
+
+  function delta(
+    curr: number | null,
+    prevVal: number | null
+  ): { value: number; positive: boolean } | null {
+    if (curr === null || prevVal === null) return null;
+    const d = curr - prevVal;
+    return { value: d, positive: d > 0 };
+  }
+
+  const statCards = latest
+    ? [
+        {
+          label: "Keys",
+          value: String(latest.keys),
+          delta: delta(latest.keys, prev?.keys ?? null),
+        },
+        {
+          label: "Memory",
+          value: formatBytes(latest.usedMemory),
+          delta: delta(latest.usedMemory, prev?.usedMemory ?? null),
+        },
+        {
+          label: "Clients",
+          value: String(latest.connectedClients),
+          delta: delta(
+            latest.connectedClients,
+            prev?.connectedClients ?? null
+          ),
+        },
+        {
+          label: "Ops/sec",
+          value: latest.opsPerSec.toFixed(1),
+          delta: delta(latest.opsPerSec, prev?.opsPerSec ?? null),
+        },
+        {
+          label: "Hit Rate",
+          value: `${latest.hitRate.toFixed(1)}%`,
+          delta: null,
+        },
+      ]
+    : [];
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Controls */}
+      <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b">
+        <Button
+          variant={running ? "outline" : "default"}
+          size="sm"
+          className="h-7 text-xs gap-1.5"
+          onClick={running ? stop : start}
+        >
+          {running ? (
+            <>
+              <Activity className="h-3 w-3" />
+              Stop
+            </>
+          ) : (
+            <>
+              <Play className="h-3 w-3" />
+              Start
+            </>
+          )}
+        </Button>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Interval:</span>
+          {POLL_INTERVALS.map((interval) => (
+            <button
+              key={interval}
+              className={cn(
+                "px-2 py-0.5 rounded text-xs transition-colors",
+                pollInterval === interval
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+              onClick={() => setPollInterval(interval)}
+            >
+              {interval}s
+            </button>
+          ))}
+        </div>
+
+        {snapshots.length > 0 && (
+          <span className="text-xs text-muted-foreground ml-auto">
+            {snapshots.length} snapshot{snapshots.length !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {snapshots.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-center p-8">
+            <Activity className="h-8 w-8 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">
+              Press Start to begin monitoring
+            </p>
+            <p className="text-xs text-muted-foreground/60">
+              Polls Redis INFO every {pollInterval}s
+            </p>
+          </div>
+        ) : (
+          <div className="p-4 space-y-6">
+            {/* Current stat cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {statCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="rounded border bg-muted/20 px-3 py-2.5"
+                >
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mb-1">
+                    {card.label}
+                  </p>
+                  <div className="flex items-end justify-between gap-1">
+                    <p className="text-sm font-semibold font-mono">
+                      {card.value}
+                    </p>
+                    {card.delta !== null && card.delta.value !== 0 && (
+                      <span
+                        className={cn(
+                          "text-[10px] font-mono",
+                          card.delta.positive
+                            ? "text-green-500"
+                            : "text-red-500"
+                        )}
+                      >
+                        {card.delta.positive ? "+" : ""}
+                        {card.delta.value}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Snapshots table */}
+            <div className="rounded border overflow-hidden">
+              <div className="grid grid-cols-[1fr,auto,auto,auto,auto] bg-muted/50 px-3 py-1.5 text-[11px] font-medium text-muted-foreground gap-4">
+                <span>Time</span>
+                <span className="text-right">Keys</span>
+                <span className="text-right">Memory</span>
+                <span className="text-right">Ops/sec</span>
+                <span className="text-right">Clients</span>
+              </div>
+              <div className="divide-y max-h-96 overflow-y-auto">
+                {snapshots.map((snap) => (
+                  <div
+                    key={snap.ts}
+                    className="grid grid-cols-[1fr,auto,auto,auto,auto] px-3 py-1.5 text-xs gap-4"
+                  >
+                    <span className="font-mono text-muted-foreground">
+                      {new Date(snap.ts).toLocaleTimeString()}
+                    </span>
+                    <span className="font-mono text-right">{snap.keys}</span>
+                    <span className="font-mono text-right">
+                      {formatBytes(snap.usedMemory)}
+                    </span>
+                    <span className="font-mono text-right">
+                      {snap.opsPerSec.toFixed(1)}
+                    </span>
+                    <span className="font-mono text-right">
+                      {snap.connectedClients}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Tab Bar ───────────────────────────────────────────────────────────────────
+
+interface RedisTabBarProps {
+  tabs: RedisTab[];
+  activeTabId: string | null;
+  onSwitch: (id: string) => void;
+  onClose: (id: string) => void;
+  onNewQuery: () => void;
+}
+
+function tabIcon(type: RedisTabType) {
+  if (type === "metrics") return BarChart3;
+  if (type === "monitor") return Activity;
+  if (type === "bullmq" || type === "sidekiq" || type === "celery") return Boxes;
+  if (type === "namespaces") return Database;
+  if (type === "streams") return Activity;
+  return Terminal;
+}
+
+function RedisTabBar({
+  tabs,
+  activeTabId,
+  onSwitch,
+  onClose,
+  onNewQuery,
+}: RedisTabBarProps) {
+  return (
+    <div className="flex items-end border-b bg-muted/10 overflow-x-auto shrink-0 min-h-[36px]">
+      <div className="flex items-end min-w-0">
+        {tabs.map((tab) => {
+          const isActive = tab.id === activeTabId;
+          const Icon = tabIcon(tab.type);
+          return (
+            <div
+              key={tab.id}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer select-none",
+                "border-r border-border/50 shrink-0 max-w-[160px] group transition-colors",
+                isActive
+                  ? "bg-background border-b-2 border-b-primary text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              )}
+              onClick={() => onSwitch(tab.id)}
+            >
+              <Icon className="h-3 w-3 shrink-0" />
+              <span className="truncate font-medium">{tab.title}</span>
+              <button
+                className={cn(
+                  "shrink-0 rounded hover:bg-muted transition-colors p-0.5 -mr-0.5",
+                  isActive
+                    ? "opacity-60 hover:opacity-100"
+                    : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose(tab.id);
+                }}
+                aria-label={`Close ${tab.title}`}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        className="flex items-center justify-center h-8 w-8 shrink-0 ml-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-sm transition-colors"
+        onClick={onNewQuery}
+        aria-label="New query tab"
+        title="New Query"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="flex-1" />
+    </div>
+  );
+}
+
 // ── Main Studio Inner ─────────────────────────────────────────────────────────
+
+let queryTabCounter = 1;
+
+function makeQueryTabId() {
+  return `query-${queryTabCounter++}`;
+}
 
 function RedisStudioInner() {
   const params = useParams();
@@ -433,35 +1832,19 @@ function RedisStudioInner() {
   const [dbLoading, setDbLoading] = useState(true);
   const [connOpen, setConnOpen] = useState(false);
 
-  // Key list state
-  const [keys, setKeys] = useState<RedisKey[]>([]);
-  const [keysLoading, setKeysLoading] = useState(false);
-  const [scanCursor, setScanCursor] = useState("0");
-  const [hasMore, setHasMore] = useState(false);
-  const [pattern, setPattern] = useState("*");
-  const [patternInput, setPatternInput] = useState("*");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<RedisTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
-  // Selected key value state
-  const [keyValue, setKeyValue] = useState<KeyValue | null>(null);
-  const [keyValueLoading, setKeyValueLoading] = useState(false);
-  const [rawMode, setRawMode] = useState(false);
+  // Per-tab query state, keyed by tab id
+  const [queryStates, setQueryStates] = useState<
+    Record<string, QueryTabState>
+  >({});
 
-  // TTL editing
-  const [ttlEdit, setTtlEdit] = useState("");
-  const [ttlEditing, setTtlEditing] = useState(false);
-  const [ttlSaving, setTtlSaving] = useState(false);
+  // Per-tab AI sessions
+  const [aiSessions, setAiSessions] = useState<Record<string, AiSession>>({});
 
-  // Delete state
-  const [deleting, setDeleting] = useState(false);
-
-  // Command console
-  const [consoleInput, setConsoleInput] = useState("");
-  const [consoleRunning, setConsoleRunning] = useState(false);
-  const [consoleOutput, setConsoleOutput] = useState<string>("");
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const consoleRef = useRef<HTMLInputElement>(null);
+  const { data: billing } = useBillingStatus();
+  const aiEnabled = billing != null && (billing.plan === "pro" || billing.plan === "max");
 
   // Load DB detail once
   useEffect(() => {
@@ -478,282 +1861,124 @@ function RedisStudioInner() {
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [dbId]);
 
-  // Scan keys
-  const scanKeys = useCallback(
-    async (cursor: string, pat: string, append: boolean) => {
-      setKeysLoading(true);
-      try {
-        const scanResult = await executeCommand(dbId, [
-          "SCAN",
-          cursor,
-          "MATCH",
-          pat,
-          "COUNT",
-          "100",
-        ]);
+  const openQueryTab = useCallback(() => {
+    const id = makeQueryTabId();
+    const num = queryTabCounter - 1;
+    const tab: RedisTab = { id, type: "query", title: `Query ${num}` };
+    setTabs((prev) => [...prev, tab]);
+    setQueryStates((prev) => ({
+      ...prev,
+      [id]: {
+        input: "",
+        history: [],
+        historyIndex: -1,
+        result: undefined,
+        error: null,
+        running: false,
+      },
+    }));
+    setActiveTabId(id);
+  }, []);
 
-        if (scanResult.error) {
-          setKeysLoading(false);
-          return;
+  const openMetricsTab = useCallback(() => {
+    const existingId = "metrics";
+    if (!tabs.find((t) => t.id === existingId)) {
+      setTabs((prev) => [
+        ...prev,
+        { id: existingId, type: "metrics", title: "Metrics" },
+      ]);
+    }
+    setActiveTabId(existingId);
+  }, [tabs]);
+
+  const openMonitorTab = useCallback(() => {
+    const existingId = "monitor";
+    if (!tabs.find((t) => t.id === existingId)) {
+      setTabs((prev) => [
+        ...prev,
+        { id: existingId, type: "monitor", title: "Monitor" },
+      ]);
+    }
+    setActiveTabId(existingId);
+  }, [tabs]);
+
+  const openViewTab = useCallback((type: "bullmq" | "sidekiq" | "celery" | "namespaces" | "streams", title: string) => {
+    const existingId = type;
+    if (!tabs.find((t) => t.id === existingId)) {
+      setTabs((prev) => [
+        ...prev,
+        { id: existingId, type, title },
+      ]);
+    }
+    setActiveTabId(existingId);
+  }, [tabs]);
+
+  const closeTab = useCallback((id: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === id);
+      const next = prev.filter((t) => t.id !== id);
+      setActiveTabId((current) => {
+        if (current === id) {
+          return next[Math.min(idx, next.length - 1)]?.id ?? null;
         }
+        return current;
+      });
+      return next;
+    });
+    setQueryStates((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
+    setAiSessions((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
+  }, []);
 
-        const [nextCursor, keyNames] = scanResult.result as [string, string[]];
-
-        if (keyNames.length === 0 && !append) {
-          setKeys([]);
-          setScanCursor(nextCursor);
-          setHasMore(nextCursor !== "0");
-          setKeysLoading(false);
-          return;
-        }
-
-        // Fetch types in a pipeline
-        const typeCommands = keyNames.map((k) => ["TYPE", k]);
-        const ttlCommands = keyNames.map((k) => ["TTL", k]);
-
-        const [typeResults, ttlResults] = await Promise.all([
-          executePipeline(dbId, typeCommands),
-          executePipeline(dbId, ttlCommands),
-        ]);
-
-        const newKeys: RedisKey[] = keyNames.map((name, i) => ({
-          name,
-          type: (typeResults[i]?.result as RedisKeyType) ?? "unknown",
-          ttl: typeof ttlResults[i]?.result === "number"
-            ? (ttlResults[i].result as number)
-            : -1,
-        }));
-
-        setKeys((prev) => (append ? [...prev, ...newKeys] : newKeys));
-        setScanCursor(nextCursor);
-        setHasMore(nextCursor !== "0");
-      } catch {
-        // silently fail
-      } finally {
-        setKeysLoading(false);
-      }
+  const updateQueryState = useCallback(
+    (tabId: string, update: Partial<QueryTabState>) => {
+      setQueryStates((prev) => ({
+        ...prev,
+        [tabId]: { ...prev[tabId], ...update },
+      }));
     },
-    [dbId]
+    []
   );
 
-  // Initial scan once DB is loaded
-  useEffect(() => {
-    if (!dbLoading && db) {
-      void scanKeys("0", pattern, false);
-    }
-  }, [dbLoading, db, pattern, scanKeys]);
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
 
-  // Load key value
-  const loadKeyValue = useCallback(
-    async (keyName: string) => {
-      setKeyValueLoading(true);
-      setKeyValue(null);
-      try {
-        const typeRes = await executeCommand(dbId, ["TYPE", keyName]);
-        const ttlRes = await executeCommand(dbId, ["TTL", keyName]);
-
-        const type = (typeRes.result as RedisKeyType) ?? "unknown";
-        const ttl =
-          typeof ttlRes.result === "number" ? ttlRes.result : -1;
-
-        let value: KeyValue["value"] = null;
-
-        if (type === "string") {
-          const r = await executeCommand(dbId, ["GET", keyName]);
-          value = typeof r.result === "string" ? r.result : null;
-        } else if (type === "hash") {
-          const r = await executeCommand(dbId, ["HGETALL", keyName]);
-          const flat = r.result as string[];
-          const entries: HashEntry[] = [];
-          for (let i = 0; i + 1 < flat.length; i += 2) {
-            entries.push({ field: flat[i], value: flat[i + 1] });
-          }
-          value = entries;
-        } else if (type === "list") {
-          const r = await executeCommand(dbId, ["LRANGE", keyName, "0", "199"]);
-          value = (r.result as string[]) ?? [];
-        } else if (type === "set") {
-          const r = await executeCommand(dbId, ["SMEMBERS", keyName]);
-          value = (r.result as string[]) ?? [];
-        } else if (type === "zset") {
-          const r = await executeCommand(dbId, [
-            "ZRANGEBYSCORE",
-            keyName,
-            "-inf",
-            "+inf",
-            "WITHSCORES",
-          ]);
-          const flat = (r.result as string[]) ?? [];
-          const entries: ZsetEntry[] = [];
-          for (let i = 0; i + 1 < flat.length; i += 2) {
-            entries.push({ member: flat[i], score: flat[i + 1] });
-          }
-          value = entries;
-        } else if (type === "stream") {
-          const r = await executeCommand(dbId, [
-            "XRANGE",
-            keyName,
-            "-",
-            "+",
-            "COUNT",
-            "100",
-          ]);
-          const raw = (r.result as Array<[string, string[]]>) ?? [];
-          const entries: StreamEntry[] = raw.map(([id, fieldArr]) => {
-            const fields: Record<string, string> = {};
-            for (let i = 0; i + 1 < fieldArr.length; i += 2) {
-              fields[fieldArr[i]] = fieldArr[i + 1];
-            }
-            return { id, fields };
-          });
-          value = entries;
-        }
-
-        setKeyValue({ type, ttl, value });
-        setTtlEdit(ttl >= 0 ? String(ttl) : "");
-        setTtlEditing(false);
-      } catch {
-        // silently fail
-      } finally {
-        setKeyValueLoading(false);
-      }
+  const navItems = [
+    {
+      id: "metrics",
+      icon: BarChart3,
+      label: "Metrics",
+      action: openMetricsTab,
     },
-    [dbId]
-  );
-
-  useEffect(() => {
-    if (selectedKey) {
-      void loadKeyValue(selectedKey);
-    }
-  }, [selectedKey, loadKeyValue]);
-
-  const handleSaveTtl = async () => {
-    if (!selectedKey) return;
-    setTtlSaving(true);
-    try {
-      const seconds = parseInt(ttlEdit, 10);
-      if (isNaN(seconds) || ttlEdit.trim() === "") {
-        await executeCommand(dbId, ["PERSIST", selectedKey]);
-      } else {
-        await executeCommand(dbId, ["EXPIRE", selectedKey, String(seconds)]);
-      }
-      await loadKeyValue(selectedKey);
-      setTtlEditing(false);
-    } catch {
-      // silently fail
-    } finally {
-      setTtlSaving(false);
-    }
-  };
-
-  const handleDeleteKey = async () => {
-    if (!selectedKey) return;
-    setDeleting(true);
-    try {
-      await executeCommand(dbId, ["DEL", selectedKey]);
-      setKeys((prev) => prev.filter((k) => k.name !== selectedKey));
-      setSelectedKey(null);
-      setKeyValue(null);
-    } catch {
-      // silently fail
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleRefresh = () => {
-    setKeys([]);
-    setScanCursor("0");
-    void scanKeys("0", pattern, false);
-    if (selectedKey) void loadKeyValue(selectedKey);
-  };
-
-  const handlePatternSearch = () => {
-    const p = patternInput.trim() || "*";
-    setPattern(p);
-    setKeys([]);
-    setScanCursor("0");
-    setSelectedKey(null);
-    setKeyValue(null);
-    void scanKeys("0", p, false);
-  };
-
-  const handleLoadMore = () => {
-    void scanKeys(scanCursor, pattern, true);
-  };
-
-  // Console
-  const runCommand = async () => {
-    const raw = consoleInput.trim();
-    if (!raw) return;
-    const parts = parseCommand(raw);
-    if (parts.length === 0) return;
-
-    setConsoleRunning(true);
-    setConsoleOutput("");
-
-    const entry: HistoryEntry = {
-      command: raw,
-      result: "",
-      error: false,
-      ts: Date.now(),
-    };
-
-    try {
-      const res = await executeCommand(dbId, parts);
-      const output = res.error
-        ? `(error) ${res.error}`
-        : formatResult(res.result);
-      entry.result = output;
-      entry.error = !!res.error;
-      setConsoleOutput(output);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      entry.result = `(error) ${msg}`;
-      entry.error = true;
-      setConsoleOutput(`(error) ${msg}`);
-    } finally {
-      setConsoleRunning(false);
-    }
-
-    setHistory((prev) => [entry, ...prev].slice(0, 20));
-    setHistoryIndex(-1);
-    setConsoleInput("");
-  };
-
-  const handleConsoleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      void runCommand();
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      const next = Math.min(historyIndex + 1, history.length - 1);
-      setHistoryIndex(next);
-      if (history[next]) setConsoleInput(history[next].command);
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      const next = Math.max(historyIndex - 1, -1);
-      setHistoryIndex(next);
-      if (next === -1) {
-        setConsoleInput("");
-      } else if (history[next]) {
-        setConsoleInput(history[next].command);
-      }
-    }
-  };
+    {
+      id: "monitor",
+      icon: Activity,
+      label: "Live Monitor",
+      action: openMonitorTab,
+    },
+    {
+      id: "query",
+      icon: Terminal,
+      label: "New Query",
+      action: openQueryTab,
+    },
+  ] as const;
 
   return (
     <div className="flex h-full overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 shrink-0 border-r flex flex-col overflow-hidden">
-        {/* Sidebar header — matches database studio pattern */}
-        <div className="px-3 py-2.5 border-b space-y-1.5">
+        {/* Header */}
+        <div className="px-3 py-2.5 border-b space-y-1.5 shrink-0">
           <Link
             href="/account/databases"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -791,304 +2016,154 @@ function RedisStudioInner() {
           </div>
         </div>
 
-        {/* Pattern search */}
-        <div className="p-2 border-b flex items-center gap-1">
-          <Input
-            className="h-7 text-xs font-mono"
-            placeholder="Pattern (e.g. user:*)"
-            value={patternInput}
-            onChange={(e) => setPatternInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handlePatternSearch();
-            }}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            onClick={handlePatternSearch}
-            disabled={keysLoading}
-            title="Search"
-          >
-            <Search className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            onClick={handleRefresh}
-            disabled={keysLoading}
-            title="Refresh"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${keysLoading ? "animate-spin" : ""}`} />
-          </Button>
+        {/* Navigation */}
+        <div className="shrink-0 border-b py-1">
+          {navItems.map((item) => {
+            const isActiveNav =
+              item.id === "query"
+                ? false // query always opens a new tab
+                : activeTab?.id === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors",
+                  isActiveNav
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+                onClick={item.action}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {item.label}
+                {item.id === "query" && (
+                  <Plus className="h-3 w-3 ml-auto shrink-0 opacity-50" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Key list */}
-        <div className="flex-1 overflow-y-auto">
-          {keysLoading && keys.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : keys.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <p className="text-xs text-muted-foreground">No keys found</p>
-            </div>
-          ) : (
-            <>
-              {keys.map((key) => (
-                <button
-                  key={key.name}
-                  className={`w-full text-left px-3 py-2 border-b last:border-b-0 hover:bg-accent/50 transition-colors ${
-                    selectedKey === key.name ? "bg-accent" : ""
-                  }`}
-                  onClick={() => setSelectedKey(key.name)}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <TypeBadge type={key.type} />
-                    {key.ttl >= 0 && (
-                      <TtlBadge ttl={key.ttl} />
-                    )}
-                  </div>
-                  <p className="text-xs font-mono truncate mt-0.5 text-foreground">
-                    {key.name}
-                  </p>
-                </button>
-              ))}
-              {hasMore && (
-                <div className="p-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-xs h-7"
-                    onClick={handleLoadMore}
-                    disabled={keysLoading}
-                  >
-                    {keysLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                    ) : null}
-                    Load more
-                  </Button>
-                </div>
+        {/* Views section */}
+        <div className="flex-1 overflow-y-auto py-2">
+          <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+            Data
+          </p>
+          {([
+            { id: "namespaces" as const, label: "Key Explorer", icon: Database },
+            { id: "streams" as const, label: "Stream Groups", icon: Activity },
+          ]).map((view) => {
+            const Icon = view.icon;
+            return (
+              <button
+                key={view.id}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors",
+                  activeTab?.id === view.id
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+                onClick={() => openViewTab(view.id, view.label)}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {view.label}
+              </button>
+            );
+          })}
+
+          <p className="px-3 py-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+            Frameworks
+          </p>
+          {([
+            { id: "bullmq" as const, label: "BullMQ" },
+            { id: "sidekiq" as const, label: "Sidekiq" },
+            { id: "celery" as const, label: "Celery" },
+          ]).map((view) => (
+            <button
+              key={view.id}
+              className={cn(
+                "w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors",
+                activeTab?.id === view.id
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
               )}
-            </>
-          )}
+              onClick={() => openViewTab(view.id, view.label)}
+            >
+              <Boxes className="h-3.5 w-3.5 shrink-0" />
+              {view.label}
+            </button>
+          ))}
         </div>
-
-        {/* Key count footer */}
-        {keys.length > 0 && (
-          <div className="border-t px-3 py-1.5">
-            <p className="text-[10px] text-muted-foreground">
-              {keys.length} key{keys.length !== 1 ? "s" : ""} loaded
-            </p>
-          </div>
-        )}
       </aside>
 
-      {/* Main panel */}
+      {/* Main area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Key inspector */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {!selectedKey ? (
-            <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-muted-foreground">
-              <Database className="h-8 w-8 opacity-30" />
-              <p className="text-sm">Select a key to inspect its value</p>
-            </div>
-          ) : keyValueLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : keyValue ? (
-            <div className="space-y-4 max-w-3xl">
-              {/* Key header */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-sm font-semibold font-mono break-all">
-                      {selectedKey}
-                    </h2>
-                    <TypeBadge type={keyValue.type} />
-                    {keyValue.ttl >= 0 && <TtlBadge ttl={keyValue.ttl} />}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs px-2 gap-1.5"
-                    onClick={() => setRawMode((v) => !v)}
-                  >
-                    {rawMode ? "Formatted" : "Raw"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    onClick={() => void handleDeleteKey()}
-                    disabled={deleting}
-                    title="Delete key"
-                  >
-                    {deleting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </div>
-              </div>
+        <RedisTabBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSwitch={setActiveTabId}
+          onClose={closeTab}
+          onNewQuery={openQueryTab}
+        />
 
-              {/* TTL control */}
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-muted-foreground w-8 shrink-0">TTL</p>
-                {ttlEditing ? (
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      className="h-6 text-xs w-28 font-mono"
-                      placeholder="seconds (empty = persist)"
-                      value={ttlEdit}
-                      onChange={(e) => setTtlEdit(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") void handleSaveTtl();
-                        if (e.key === "Escape") setTtlEditing(false);
-                      }}
-                      autoFocus
-                    />
-                    <Button
-                      size="sm"
-                      className="h-6 text-xs px-2"
-                      onClick={() => void handleSaveTtl()}
-                      disabled={ttlSaving}
-                    >
-                      {ttlSaving ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        "Save"
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => setTtlEditing(false)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-                    onClick={() => setTtlEditing(true)}
-                  >
-                    {keyValue.ttl < 0 ? "No expiry" : formatTtl(keyValue.ttl)}
-                  </button>
-                )}
-              </div>
-
-              {/* Value */}
+        <div className="flex-1 overflow-hidden">
+          {activeTab === null ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8">
+              <Database className="h-10 w-10 text-muted-foreground/30" />
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Value</p>
-                {rawMode ? (
-                  <pre className="text-xs font-mono bg-muted rounded p-3 overflow-auto whitespace-pre-wrap break-all">
-                    {formatResult(keyValue.value)}
-                  </pre>
-                ) : (
-                  <>
-                    {keyValue.type === "string" && (
-                      <StringViewer value={keyValue.value as string | null} />
-                    )}
-                    {keyValue.type === "hash" && (
-                      <HashViewer entries={keyValue.value as HashEntry[]} />
-                    )}
-                    {keyValue.type === "list" && (
-                      <ListViewer items={keyValue.value as string[]} />
-                    )}
-                    {keyValue.type === "set" && (
-                      <SetViewer members={keyValue.value as string[]} />
-                    )}
-                    {keyValue.type === "zset" && (
-                      <ZsetViewer entries={keyValue.value as ZsetEntry[]} />
-                    )}
-                    {keyValue.type === "stream" && (
-                      <StreamViewer entries={keyValue.value as StreamEntry[]} />
-                    )}
-                    {keyValue.type === "unknown" && (
-                      <p className="text-xs text-muted-foreground italic">Unknown type</p>
-                    )}
-                  </>
-                )}
+                <p className="text-sm font-medium text-muted-foreground">
+                  Open a tab from the sidebar
+                </p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  or{" "}
+                  <button
+                    className="underline underline-offset-2 hover:text-foreground transition-colors"
+                    onClick={openQueryTab}
+                  >
+                    open a new query tab
+                  </button>
+                </p>
               </div>
             </div>
-          ) : null}
-        </div>
-
-        {/* Command console */}
-        <div className="border-t shrink-0">
-          {/* History strip */}
-          {history.length > 0 && (
-            <div className="border-b max-h-36 overflow-y-auto bg-muted/30">
-              {history.map((h) => (
-                <div
-                  key={h.ts}
-                  className="px-3 py-1.5 text-xs font-mono border-b last:border-b-0"
-                >
-                  <span className="text-muted-foreground mr-2">{">"}</span>
-                  <span
-                    className="cursor-pointer hover:underline underline-offset-2"
-                    onClick={() => setConsoleInput(h.command)}
-                  >
-                    {h.command}
-                  </span>
-                  <div
-                    className={`mt-0.5 pl-4 whitespace-pre-wrap break-all ${
-                      h.error ? "text-destructive" : "text-foreground/70"
-                    }`}
-                  >
-                    {h.result}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Current output */}
-          {consoleOutput && (
-            <div className="px-3 py-2 text-xs font-mono bg-muted/20 border-b">
-              <span className="text-muted-foreground mr-2">{"<"}</span>
-              <span className="whitespace-pre-wrap break-all">{consoleOutput}</span>
-            </div>
-          )}
-
-          {/* Input */}
-          <div className="flex items-center gap-2 px-3 py-2">
-            <span className="text-xs font-mono text-muted-foreground shrink-0">{">"}</span>
-            <input
-              ref={consoleRef}
-              className="flex-1 bg-transparent text-xs font-mono outline-none placeholder:text-muted-foreground/50"
-              placeholder="Enter a Redis command (e.g. GET mykey)"
-              value={consoleInput}
-              onChange={(e) => setConsoleInput(e.target.value)}
-              onKeyDown={handleConsoleKeyDown}
-              disabled={consoleRunning || dbLoading}
-              spellCheck={false}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
+          ) : activeTab.type === "query" ? (
+            <QueryTab
+              key={activeTab.id}
+              dbId={dbId}
+              tabId={activeTab.id}
+              state={
+                queryStates[activeTab.id] ?? {
+                  input: "",
+                  history: [],
+                  historyIndex: -1,
+                  result: undefined,
+                  error: null,
+                  running: false,
+                          }
+              }
+              onChange={(update) => updateQueryState(activeTab.id, update)}
+              disabled={dbLoading}
+              aiEnabled={aiEnabled}
+              aiSession={aiSessions[activeTab.id]}
+              onAiSessionChange={(session) =>
+                setAiSessions((prev) => ({ ...prev, [activeTab.id]: session }))
+              }
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 shrink-0"
-              onClick={() => void runCommand()}
-              disabled={consoleRunning || !consoleInput.trim() || dbLoading}
-              title="Run command"
-            >
-              {consoleRunning ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Play className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          </div>
+          ) : activeTab.type === "metrics" ? (
+            <MetricsTab key={activeTab.id} dbId={dbId} />
+          ) : activeTab.type === "monitor" ? (
+            <MonitorTab key={activeTab.id} dbId={dbId} />
+          ) : activeTab.type === "bullmq" ? (
+            <BullMQView key={activeTab.id} dbId={dbId} />
+          ) : activeTab.type === "sidekiq" ? (
+            <SidekiqView key={activeTab.id} dbId={dbId} />
+          ) : activeTab.type === "celery" ? (
+            <CeleryView key={activeTab.id} dbId={dbId} />
+          ) : activeTab.type === "namespaces" ? (
+            <KeyNamespaceView key={activeTab.id} dbId={dbId} />
+          ) : activeTab.type === "streams" ? (
+            <StreamGroupsView key={activeTab.id} dbId={dbId} />
+          ) : null}
         </div>
       </div>
 

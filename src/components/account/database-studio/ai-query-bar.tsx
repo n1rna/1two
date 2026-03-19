@@ -57,8 +57,8 @@ interface AiQueryBarProps {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractQueryFromResponse(text: string): { sql: string; reasoning: string } {
-  // Try fenced ```sql or ```json block
-  const match = text.match(/```(?:sql|json)\s*([\s\S]*?)```/i) ?? text.match(/```\s*([\s\S]*?)```/);
+  // Try fenced ```sql, ```json, or ```redis block
+  const match = text.match(/```(?:sql|json|redis)\s*([\s\S]*?)```/i) ?? text.match(/```\s*([\s\S]*?)```/);
   const sql = match ? match[1].trim() : text.trim();
 
   // Reasoning is everything before the code block

@@ -140,6 +140,20 @@ func buildSystemPrompt(dialect string, tables []aiQueryTable) string {
 		dialect = "postgres"
 	}
 
+	if dialect == "redis" {
+		return `You are a Redis command expert.
+
+Your task: generate Redis commands for the user's request.
+
+CRITICAL RULES:
+- Output ONLY the raw Redis command(s). Nothing else.
+- One command per line if multiple commands are needed
+- Use standard Redis command syntax (e.g. SET key value, GET key, SCAN 0 MATCH pattern COUNT 100)
+- For key pattern searches, use SCAN with MATCH, never KEYS
+- Common commands: GET, SET, DEL, SCAN, HGETALL, HSET, LPUSH, LRANGE, SADD, SMEMBERS, ZADD, ZRANGEBYSCORE, XRANGE, INFO, TTL, EXPIRE, PERSIST, TYPE
+- Do NOT include markdown formatting or code fences`
+	}
+
 	if dialect == "elasticsearch" {
 		return `You are an Elasticsearch query expert.
 
@@ -177,6 +191,9 @@ Rules:
 // system message in conversation mode, instructing the LLM to emit reasoning
 // followed by a fenced code block.
 func conversationSystemSuffix(dialect string) string {
+	if dialect == "redis" {
+		return "\n\nBriefly explain your approach in 1-2 sentences, then output the Redis command(s) in a fenced code block: ```redis ... ```. One command per line. No text inside the code block."
+	}
 	if dialect == "elasticsearch" {
 		return "\n\nBriefly explain your approach in 1-2 sentences, then output the JSON in a fenced code block: ```json ... ```. CRITICAL: The JSON must be a raw JSON object starting with { — no HTTP method/path prefix, no comments, no text inside the JSON block."
 	}
