@@ -15,6 +15,7 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
+      cli: ${{ steps.filter.outputs.cli }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,6 +37,8 @@ jobs:
             api:
               - 'api/**'
               - 'workers/api-container/**'
+            cli:
+              - 'cli/**'
 
   deploy-web:
     name: Deploy Web (Cloudflare Workers)
@@ -111,3 +114,143 @@ jobs:
           workingDirectory: workers/api-container
           command: deploy --config wrangler.toml
           packageManager: bun
+
+  release-cli:
+    name: Release CLI
+    needs: changes
+    if: needs.changes.outputs.cli == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: cli/go.sum
+
+      - name: Compute version
+        id: version
+        run: |
+          # Count commits touching cli/ to auto-increment patch version
+          CLI_COMMITS=$(git log --oneline -- cli/ | wc -l)
+          VERSION="0.1.${CLI_COMMITS}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "CLI version: ${VERSION}"
+
+      - name: Build
+        working-directory: cli
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          go build -ldflags "-s -w -X github.com/n1rna/1tt/cli/cmd.Version=v${{ steps.version.outputs.version }}" \
+            -o "../dist/1tt-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 1tt-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/1tt-*
+
+  publish-cli:
+    name: Publish CLI Release
+    needs: release-cli
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute version
+        id: version
+        run: |
+          CLI_COMMITS=$(git log --oneline -- cli/ | wc -l)
+          VERSION="0.1.${CLI_COMMITS}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create checksums
+        working-directory: dist
+        run: sha256sum 1tt-* > checksums.txt
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "cli/v${{ steps.version.outputs.version }}"
+          name: "CLI v${{ steps.version.outputs.version }}"
+          body: |
+            ## 1tt CLI v${{ steps.version.outputs.version }}
+
+            Connect your local PostgreSQL or Redis databases to [1tt.dev](https://1tt.dev) studio via a secure tunnel.
+
+            ### Quick Install
+
+            **macOS (Apple Silicon):**
+            ```bash
+            curl -L https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-darwin-arm64 -o 1tt
+            chmod +x 1tt && sudo mv 1tt /usr/local/bin/
+            ```
+
+            **macOS (Intel):**
+            ```bash
+            curl -L https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-darwin-amd64 -o 1tt
+            chmod +x 1tt && sudo mv 1tt /usr/local/bin/
+            ```
+
+            **Linux (x86_64):**
+            ```bash
+            curl -L https://github.com/n1rna/1tt/releases/download/cli/v${{ steps.version.outputs.version }}/1tt-linux-amd64 -o 1tt
+            chmod +x 1tt && sudo mv 1tt /usr/local/bin/
+            ```
+
+            **Windows:** Download `1tt-windows-amd64.exe` below.
+
+            ### Usage
+
+            ```bash
+            1tt tunnel --token <TOKEN> --db postgres://user:pass@localhost:5432/mydb
+            ```
+
+            Get your token from [1tt.dev/account/databases](https://1tt.dev/account/databases) → Connect External.
+          files: |
+            dist/1tt-*
+            dist/checksums.txt
+          draft: false
+          prerelease: false
+          make_latest: true
