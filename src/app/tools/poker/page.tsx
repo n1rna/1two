@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { PokerLanding } from "@/components/tools/poker-landing";
 
 export const metadata: Metadata = {
@@ -21,7 +22,9 @@ export default function PokerPage() {
   return (
     <>
       <style>{`body { overflow: hidden; } footer { display: none; }`}</style>
-      <PokerLanding />
+      <Suspense>
+        <PokerLanding />
+      </Suspense>
     </>
   );
 }
