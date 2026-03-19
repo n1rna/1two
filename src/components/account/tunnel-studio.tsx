@@ -20,34 +20,119 @@ function TunnelStudioInner({ token }: { token: string }) {
   const aiEnabled = billing != null && billing.plan !== "free";
 
   // Load schema (also checks if tunnel is connected)
+  // Track whether this is the initial load (show full-page spinner) vs a refresh (keep StudioShell mounted)
+  const [initialLoad, setInitialLoad] = useState(true);
+
   const loadSchema = useCallback(async () => {
     setSchemaLoading(true);
     setError(null);
     try {
-      const result = await getTunnelSchema(token);
-      const tables = (result.tables ?? []).map((t) => ({
-        schema: t.schema ?? "public",
-        name: t.name,
-        type: "table",
-        columns: (t.columns ?? []).map((c) => ({
-          name: c.name,
-          type: c.type,
-          isPrimary: c.is_primary ?? false,
-          isUnique: false,
-          foreignKey: undefined,
-        })),
-        indexes: [],
-        rowEstimate: 0,
-      })) as unknown as TableSchema[];
+      // First try the CLI schema endpoint
+      let tables: TableSchema[] = [];
+      try {
+        const result = await getTunnelSchema(token);
+        if (result.tables && result.tables.length > 0) {
+          tables = result.tables.map((t) => ({
+            schema: t.schema ?? "public",
+            name: t.name,
+            type: "table",
+            columns: (t.columns ?? []).map((c) => ({
+              name: c.name,
+              type: c.type,
+              nullable: c.nullable ?? true,
+              default: c.default_value ?? null,
+              isPrimary: c.is_primary ?? false,
+              isUnique: false,
+              foreignKey: undefined,
+            })),
+            indexes: [],
+            rowEstimate: 0,
+          })) as unknown as TableSchema[];
+        }
+      } catch {
+        // CLI schema endpoint failed — fall through to SQL introspection
+      }
+
+      // Fallback: introspect via SQL queries through the tunnel
+      if (tables.length === 0) {
+        try {
+          const tablesResult = await queryTunnel(token, {
+            sql: `SELECT table_schema, table_name
+                  FROM information_schema.tables
+                  WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                    AND table_type = 'BASE TABLE'
+                  ORDER BY table_schema, table_name`,
+          });
+
+          const tableRows = (tablesResult.rows ?? []) as string[][];
+          if (tableRows.length > 0) {
+            const colsResult = await queryTunnel(token, {
+              sql: `SELECT c.table_schema, c.table_name, c.column_name, c.data_type,
+                           c.is_nullable, c.column_default,
+                           CASE WHEN tc.constraint_type = 'PRIMARY KEY' THEN true ELSE false END AS is_primary
+                    FROM information_schema.columns c
+                    LEFT JOIN information_schema.key_column_usage kcu
+                      ON c.table_schema = kcu.table_schema
+                     AND c.table_name = kcu.table_name
+                     AND c.column_name = kcu.column_name
+                    LEFT JOIN information_schema.table_constraints tc
+                      ON kcu.constraint_schema = tc.constraint_schema
+                     AND kcu.constraint_name = tc.constraint_name
+                     AND tc.constraint_type = 'PRIMARY KEY'
+                    WHERE c.table_schema NOT IN ('pg_catalog', 'information_schema')
+                    ORDER BY c.table_schema, c.table_name, c.ordinal_position`,
+            });
+
+            const colRows = (colsResult.rows ?? []) as string[][];
+
+            // Group columns by table
+            const tableMap = new Map<string, TableSchema>();
+            for (const row of tableRows) {
+              const key = `${row[0]}.${row[1]}`;
+              tableMap.set(key, {
+                schema: row[0],
+                name: row[1],
+                type: "table",
+                columns: [],
+                indexes: [],
+                rowEstimate: 0,
+              });
+            }
+
+            for (const row of colRows) {
+              const key = `${row[0]}.${row[1]}`;
+              const table = tableMap.get(key);
+              if (table) {
+                table.columns.push({
+                  name: row[2],
+                  type: row[3],
+                  nullable: row[4] === "YES",
+                  default: row[5] ?? null,
+                  isPrimary: row[6] === "true" || row[6] === "t",
+                  isUnique: false,
+                });
+              }
+            }
+
+            tables = Array.from(tableMap.values());
+          }
+        } catch {
+          // SQL introspection also failed
+        }
+      }
+
       setSchema(tables);
       setConnected(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load schema");
+      if (initialLoad) {
+        setError(err instanceof Error ? err.message : "Failed to load schema");
+      }
       setConnected(false);
     } finally {
       setSchemaLoading(false);
+      setInitialLoad(false);
     }
-  }, [token]);
+  }, [token, initialLoad]);
 
   useEffect(() => {
     loadSchema();
@@ -91,7 +176,7 @@ function TunnelStudioInner({ token }: { token: string }) {
     </div>
   );
 
-  if (!schemaLoading && error) {
+  if (initialLoad && !schemaLoading && error) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
         <WifiOff className="h-10 w-10 text-muted-foreground/30" />
@@ -112,7 +197,7 @@ function TunnelStudioInner({ token }: { token: string }) {
     );
   }
 
-  if (schemaLoading) {
+  if (initialLoad && schemaLoading) {
     return (
       <div className="flex items-center justify-center h-full gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />

@@ -52,7 +52,7 @@ export async function getTunnelStatus(
 
 export async function getTunnelSchema(
   token: string
-): Promise<{ tables?: { schema: string; name: string; columns: { name: string; type: string; is_primary?: boolean }[] }[] }> {
+): Promise<{ tables?: { schema: string; name: string; columns: { name: string; type: string; nullable?: boolean; default_value?: string | null; is_primary?: boolean }[] }[] }> {
   const res = await fetch(`/api/proxy/tunnel/${token}/schema`, {
     credentials: "include",
   });
