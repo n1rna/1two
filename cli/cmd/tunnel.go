@@ -277,12 +277,15 @@ func handleQuery(
 
 	case "redis":
 		var payload struct {
-			Args []string `json:"args"`
+			Command []string `json:"command"`
 		}
 		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
 			return sendError(wsClient, msg.ID, "invalid query payload: "+err.Error())
 		}
-		result, err := rdExec.Execute(ctx, payload.Args)
+		if len(payload.Command) == 0 {
+			return sendError(wsClient, msg.ID, "no command provided")
+		}
+		result, err := rdExec.Execute(ctx, payload.Command)
 		if err != nil {
 			return sendError(wsClient, msg.ID, err.Error())
 		}

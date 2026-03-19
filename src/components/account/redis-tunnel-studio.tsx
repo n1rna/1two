@@ -4,15 +4,28 @@ import { useEffect } from "react";
 import { AuthGate } from "@/components/layout/auth-gate";
 import { RedisStudioInner } from "@/components/account/redis-studio";
 import { setTunnelExecutor, type RedisCommandResult } from "@/lib/redis";
-import { queryTunnel } from "@/lib/tunnel";
 
 function RedisTunnelStudioInner({ token }: { token: string }) {
   // Set the tunnel executor so all Redis commands go through the tunnel
   useEffect(() => {
     setTunnelExecutor(async (command: string[]): Promise<RedisCommandResult> => {
       try {
-        const res = await queryTunnel(token, { command });
-        return { result: res.result ?? res };
+        // queryTunnel returns the parsed JSON body. For Redis results,
+        // the backend forwards the CLI's raw payload directly — which can
+        // be a string, number, array, or object (not always { result: ... }).
+        const raw = await fetch(`/api/proxy/tunnel/${token}/query`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command }),
+        });
+        if (!raw.ok) {
+          const err = await raw.json().catch(() => ({})) as { message?: string; error?: string };
+          return { result: null, error: err.message ?? err.error ?? `HTTP ${raw.status}` };
+        }
+        const body = await raw.json();
+        // The response IS the raw Redis result (string, array, number, etc.)
+        return { result: body };
       } catch (err) {
         return { result: null, error: err instanceof Error ? err.message : "Tunnel command failed" };
       }
