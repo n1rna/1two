@@ -6,9 +6,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version is set by the build system via -ldflags.
+var Version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:     "1tt",
-	Version: "0.1.0",
+	Version: Version,
 	Short:   "1tt.dev CLI — connect your databases to the web studio",
 	Long: `1tt.dev CLI — connect your databases to the web studio.
 
