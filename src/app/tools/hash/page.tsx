@@ -38,16 +38,16 @@ export default function HashPage() {
         <ToolInfo>
           <ToolInfo.H2>What is a cryptographic hash?</ToolInfo.H2>
           <ToolInfo.P>
-            A cryptographic hash function takes an input of any size and produces a fixed-length digest. The same input always produces the same output, but even a single-character change produces a completely different hash. Hashes are one-way — you cannot reverse a hash to recover the original input.
+            A cryptographic hash function takes an input of any size and produces a fixed-length digest. The same input always produces the same output, but even a single-character change produces a completely different hash. Hashes are one-way - you cannot reverse a hash to recover the original input.
           </ToolInfo.P>
 
           <ToolInfo.H2>Supported algorithms</ToolInfo.H2>
           <ToolInfo.UL>
-            <li><ToolInfo.Code>MD5</ToolInfo.Code> — 128-bit digest, fast but considered insecure for cryptographic purposes</li>
-            <li><ToolInfo.Code>SHA-1</ToolInfo.Code> — 160-bit digest, deprecated for security but still used for checksums</li>
-            <li><ToolInfo.Code>SHA-256</ToolInfo.Code> — 256-bit digest, part of the SHA-2 family, widely used and recommended</li>
-            <li><ToolInfo.Code>SHA-384</ToolInfo.Code> — 384-bit truncated variant of SHA-512</li>
-            <li><ToolInfo.Code>SHA-512</ToolInfo.Code> — 512-bit digest, strongest option in the SHA-2 family</li>
+            <li><ToolInfo.Code>MD5</ToolInfo.Code> - 128-bit digest, fast but considered insecure for cryptographic purposes</li>
+            <li><ToolInfo.Code>SHA-1</ToolInfo.Code> - 160-bit digest, deprecated for security but still used for checksums</li>
+            <li><ToolInfo.Code>SHA-256</ToolInfo.Code> - 256-bit digest, part of the SHA-2 family, widely used and recommended</li>
+            <li><ToolInfo.Code>SHA-384</ToolInfo.Code> - 384-bit truncated variant of SHA-512</li>
+            <li><ToolInfo.Code>SHA-512</ToolInfo.Code> - 512-bit digest, strongest option in the SHA-2 family</li>
           </ToolInfo.UL>
 
           <ToolInfo.H2>How to use this tool</ToolInfo.H2>

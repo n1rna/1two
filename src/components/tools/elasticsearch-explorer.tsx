@@ -47,6 +47,12 @@ import { useSyncedState } from "@/lib/sync";
 import { Globe, GlobeLock, Wifi } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { TunnelConnectDialog } from "@/components/account/tunnel-connect-dialog";
+import { EditorView, keymap as cmKeymap, placeholder as cmPlaceholder, lineNumbers } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
+import { json as jsonLang } from "@codemirror/lang-json";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import { tags } from "@lezer/highlight";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -174,28 +180,17 @@ const DEFAULT_ES_STATE: EsPersistedState = {
 
 // ─── ES Fetch Helper ─────────────────────────────────────────────────────────
 
-// Tunnel executor override — when set, all ES requests go through the tunnel
-// instead of direct HTTP. Similar to the Redis setTunnelExecutor pattern.
-let _esTunnelExecutor: ((method: string, path: string, body: string) => Promise<unknown>) | null = null;
+export type EsFetchFn = (
+  conn: EsConnection,
+  path: string,
+  options?: RequestInit
+) => Promise<unknown>;
 
-export function setEsTunnelExecutor(
-  fn: ((method: string, path: string, body: string) => Promise<unknown>) | null
-) {
-  _esTunnelExecutor = fn;
-}
-
-async function esFetch(
+async function defaultEsFetch(
   conn: EsConnection,
   path: string,
   options?: RequestInit
 ): Promise<unknown> {
-  // If tunnel executor is set, route through the tunnel
-  if (_esTunnelExecutor) {
-    const method = (options?.method ?? "GET").toUpperCase();
-    const body = typeof options?.body === "string" ? options.body : "";
-    return _esTunnelExecutor(method, path, body);
-  }
-
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (conn.authType === "basic") {
     headers["Authorization"] = `Basic ${btoa(`${conn.username}:${conn.password}`)}`;
@@ -214,6 +209,18 @@ async function esFetch(
     throw new Error(`${res.status}: ${text}`);
   }
   return res.json();
+}
+
+// Module-level ref that gets set by the component on render.
+// This avoids prop-drilling through every sub-component.
+let _esFetch: EsFetchFn = defaultEsFetch;
+
+function esFetch(
+  conn: EsConnection,
+  path: string,
+  options?: RequestInit
+): Promise<unknown> {
+  return _esFetch(conn, path, options);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -274,31 +281,18 @@ function JsonEditor({
   placeholder?: string;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<import("@codemirror/view").EditorView | null>(null);
+  const viewRef = useRef<EditorView | null>(null);
   const onRunRef = useRef(onRun);
   onRunRef.current = onRun;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  const valueRef = useRef(value);
-  valueRef.current = value;
 
   useEffect(() => {
     if (!editorRef.current || viewRef.current) return;
-    let cancelled = false;
 
-    (async () => {
-      const { EditorView, keymap, placeholder, lineNumbers } = await import("@codemirror/view");
-      const { EditorState } = await import("@codemirror/state");
-      const { json } = await import("@codemirror/lang-json");
-      const { defaultKeymap, history, historyKeymap } = await import("@codemirror/commands");
-      const { syntaxHighlighting, HighlightStyle } = await import("@codemirror/language");
-      const { tags } = await import("@lezer/highlight");
-
-      if (cancelled || !editorRef.current) return;
-
-      const runKm = onRunRef.current
-        ? keymap.of([{ key: "Mod-Enter", run: () => { onRunRef.current?.(); return true; } }])
-        : [];
+    const runKm = onRunRef.current
+      ? cmKeymap.of([{ key: "Mod-Enter", run: () => { onRunRef.current?.(); return true; } }])
+      : [];
 
       const highlight = HighlightStyle.define([
         { tag: tags.string, color: "#c3e88d" },
@@ -344,31 +338,20 @@ function JsonEditor({
         extensions: [
           lineNumbers(),
           history(),
-          json(),
+          jsonLang(),
           syntaxHighlighting(highlight),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
+          cmKeymap.of([...defaultKeymap, ...historyKeymap]),
           runKm,
           updateListener,
-          placeholder(ph),
+          cmPlaceholder(ph),
           theme,
           EditorView.lineWrapping,
         ],
       });
 
-      const view = new EditorView({ state, parent: editorRef.current });
-      viewRef.current = view;
-
-      // Value may have changed while we were loading CodeMirror — sync it
-      const latest = valueRef.current;
-      if (latest !== value) {
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: latest },
-        });
-      }
-    })();
+    viewRef.current = new EditorView({ state, parent: editorRef.current });
 
     return () => {
-      cancelled = true;
       viewRef.current?.destroy();
       viewRef.current = null;
     };
@@ -2685,7 +2668,9 @@ function NoTabState({ onNewQuery }: { onNewQuery: () => void }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function ElasticsearchExplorer({ tunnelMode }: { tunnelMode?: boolean } = {}) {
+export function ElasticsearchExplorer({ tunnelMode, fetchFn }: { tunnelMode?: boolean; fetchFn?: EsFetchFn } = {}) {
+  // Set the module-level fetch function on every render so all sub-components use it
+  _esFetch = fetchFn ?? defaultEsFetch;
   // Synced connections
   const connSync = useSyncedState<EsConnection[]>("1tt:es-connections", []);
   const connections = tunnelMode
@@ -2778,7 +2763,7 @@ export function ElasticsearchExplorer({ tunnelMode }: { tunnelMode?: boolean } =
       setIndices([]);
       return;
     }
-    checkConnStatus(activeConn);
+    if (!tunnelMode) checkConnStatus(activeConn);
     loadIndices(activeConn);
 
     if (isInitialMount.current) {

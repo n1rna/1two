@@ -8,7 +8,7 @@ export const metadata = guideMetadata({
   slug,
   title: "Generate Config Files Instantly",
   description:
-    "Interactive config generators for TypeScript, ESLint, Prettier, Docker, nginx, and more — pick options and copy the result.",
+    "Interactive config generators for TypeScript, ESLint, Prettier, Docker, nginx, and more - pick options and copy the result.",
   keywords: [
     "config generator",
     "tsconfig generator",
@@ -46,13 +46,13 @@ export default function ConfigGeneratorsGuide() {
           The tool currently supports 13 config types across different ecosystems:
         </Guide.P>
         <Guide.UL>
-          <li><Guide.Strong>TypeScript</Guide.Strong> — <Guide.Code>tsconfig.json</Guide.Code> with target, module, strict mode, path aliases, and more</li>
-          <li><Guide.Strong>ESLint</Guide.Strong> — flat config format with parser, plugin, and rule presets</li>
-          <li><Guide.Strong>Prettier</Guide.Strong> — formatting options like print width, tabs vs spaces, trailing commas</li>
-          <li><Guide.Strong>Docker</Guide.Strong> — multi-stage Dockerfiles with base image, build steps, and runtime config</li>
-          <li><Guide.Strong>nginx</Guide.Strong> — server blocks, reverse proxy, SSL, and caching directives</li>
-          <li><Guide.Strong>.gitignore</Guide.Strong> — pre-built templates for Node, Python, Go, Rust, and more</li>
-          <li><Guide.Strong>.editorconfig</Guide.Strong> — indent style, charset, and end-of-line settings</li>
+          <li><Guide.Strong>TypeScript</Guide.Strong> - <Guide.Code>tsconfig.json</Guide.Code> with target, module, strict mode, path aliases, and more</li>
+          <li><Guide.Strong>ESLint</Guide.Strong> - flat config format with parser, plugin, and rule presets</li>
+          <li><Guide.Strong>Prettier</Guide.Strong> - formatting options like print width, tabs vs spaces, trailing commas</li>
+          <li><Guide.Strong>Docker</Guide.Strong> - multi-stage Dockerfiles with base image, build steps, and runtime config</li>
+          <li><Guide.Strong>nginx</Guide.Strong> - server blocks, reverse proxy, SSL, and caching directives</li>
+          <li><Guide.Strong>.gitignore</Guide.Strong> - pre-built templates for Node, Python, Go, Rust, and more</li>
+          <li><Guide.Strong>.editorconfig</Guide.Strong> - indent style, charset, and end-of-line settings</li>
           <li>And more: <Guide.Code>.env</Guide.Code>, <Guide.Code>docker-compose.yml</Guide.Code>, GitHub Actions, Tailwind CSS, Vite</li>
         </Guide.UL>
 

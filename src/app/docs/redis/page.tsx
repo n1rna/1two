@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 const MARKDOWN = `
 ## Overview
 
-The Redis Studio is a full-featured Redis browser and management tool that runs entirely in the browser. Create hosted databases powered by Upstash, run commands, inspect keys, monitor performance, and debug framework-specific data structures — all without installing a client or opening a terminal.
+The Redis Studio is a full-featured Redis browser and management tool that runs entirely in the browser. Create hosted databases powered by Upstash, run commands, inspect keys, monitor performance, and debug framework-specific data structures - all without installing a client or opening a terminal.
 
 The studio uses a tabbed interface with a sidebar for navigation. Open multiple tabs simultaneously: query tabs, metrics, live monitoring, key explorer, stream inspector, and framework-specific views for BullMQ, Sidekiq, and Celery.
 
@@ -28,8 +28,8 @@ The database is provisioned in seconds and appears in your database list with a 
 
 The studio has two main areas:
 
-- **Sidebar** (left) — database info, navigation items, and views
-- **Main area** (right) — tab bar and active tab content
+- **Sidebar** (left) - database info, navigation items, and views
+- **Main area** (right) - tab bar and active tab content
 
 ### Sidebar Navigation
 
@@ -81,11 +81,11 @@ When a command returns a SCAN result (\`[cursor, [keys...]]\`), the keys are dis
 
 ### Command History
 
-- **Arrow Up / Down** — cycle through previous commands in the input
-- **History panel** — collapsible panel at the bottom showing all past commands
+- **Arrow Up / Down** - cycle through previous commands in the input
+- **History panel** - collapsible panel at the bottom showing all past commands
 - Click a history row to expand and see its result
-- **Re-run button** (circular arrow icon, visible on hover) — re-executes the command immediately
-- The history panel is resizable — drag the handle to adjust its height
+- **Re-run button** (circular arrow icon, visible on hover) - re-executes the command immediately
+- The history panel is resizable - drag the handle to adjust its height
 
 ### AI Assistant
 
@@ -120,10 +120,10 @@ Polls the database at a configurable interval (5s, 10s, or 30s) and tracks trend
 
 Scans the entire keyspace (up to 10,000 keys) and groups keys into a tree by splitting on \`:\` delimiters.
 
-- **Tree view** — expand/collapse namespaces, see key counts per node
-- **Filter** — search to narrow the tree client-side
-- **Key detail** — click any leaf key to inspect its type, TTL, and value in a side panel
-- **Top namespaces** — shows the 5 largest namespaces by key count
+- **Tree view** - expand/collapse namespaces, see key counts per node
+- **Filter** - search to narrow the tree client-side
+- **Key detail** - click any leaf key to inspect its type, TTL, and value in a side panel
+- **Top namespaces** - shows the 5 largest namespaces by key count
 
 Useful for understanding how your keyspace is organized and finding keys by structure.
 
@@ -131,13 +131,13 @@ Useful for understanding how your keyspace is organized and finding keys by stru
 
 Discovers all stream-type keys and provides a detailed inspector:
 
-- **Stream selector** — switch between discovered streams
-- **Stream info** — length, first/last entry ID, group count
-- **Consumer groups table** — name, consumer count, pending count, last delivered ID
-- **Consumer details** — expand a group to see individual consumers with pending count and idle time
-- **Pending Entry List (PEL)** — shows unacknowledged messages with entry ID, consumer, idle time, and delivery count
-- **ACK button** — acknowledge pending entries directly from the UI
-- **Recent entries** — the 20 most recent stream entries with their field-value pairs
+- **Stream selector** - switch between discovered streams
+- **Stream info** - length, first/last entry ID, group count
+- **Consumer groups table** - name, consumer count, pending count, last delivered ID
+- **Consumer details** - expand a group to see individual consumers with pending count and idle time
+- **Pending Entry List (PEL)** - shows unacknowledged messages with entry ID, consumer, idle time, and delivery count
+- **ACK button** - acknowledge pending entries directly from the UI
+- **Recent entries** - the 20 most recent stream entries with their field-value pairs
 
 ## BullMQ View
 
@@ -175,26 +175,26 @@ A **Retry All** button is also available to retry all failed jobs at once.
 
 Inspects Sidekiq job queues. Discovers queues from the \`queues\` set key.
 
-- **Stats cards** — processed, failed, scheduled, retries, dead, enqueued
-- **Queue browser** — each queue with its length, expandable to see individual job payloads (class, args, jid)
-- **Scheduled / Retry / Dead tabs** — sorted set entries with timestamps, error details for retry and dead jobs
+- **Stats cards** - processed, failed, scheduled, retries, dead, enqueued
+- **Queue browser** - each queue with its length, expandable to see individual job payloads (class, args, jid)
+- **Scheduled / Retry / Dead tabs** - sorted set entries with timestamps, error details for retry and dead jobs
 
 ## Celery View
 
 Inspects Celery task queues and results. Discovers queues from \`_kombu.binding.*\` keys and results from \`celery-task-meta-*\` keys.
 
-- **Stats cards** — queues, pending tasks, task results, unacked count
-- **Queue browser** — expandable per-queue view showing task messages (task name, ID, args, kwargs)
-- **Task results** — status badges (SUCCESS, FAILURE, PENDING, STARTED, RETRY), result data, Python tracebacks for failed tasks
+- **Stats cards** - queues, pending tasks, task results, unacked count
+- **Queue browser** - expandable per-queue view showing task messages (task name, ID, args, kwargs)
+- **Task results** - status badges (SUCCESS, FAILURE, PENDING, STARTED, RETRY), result data, Python tracebacks for failed tasks
 
 ## Connection Details
 
 Click the link icon next to the database name in the sidebar to view:
 
-- **Redis URL** — \`redis://default:{password}@{host}:6379\` for direct connections (with show/hide toggle)
-- **REST Endpoint** — the HTTPS URL for the Upstash REST API
-- **REST Token** — authentication token for REST API access
-- **Host, Port, Password, Region** — individual fields with copy buttons
+- **Redis URL** - \`redis://default:{password}@{host}:6379\` for direct connections (with show/hide toggle)
+- **REST Endpoint** - the HTTPS URL for the Upstash REST API
+- **REST Token** - authentication token for REST API access
+- **Host, Port, Password, Region** - individual fields with copy buttons
 
 ## Limits
 
@@ -208,7 +208,7 @@ Redis databases are available on **Pro** and **Max** plans:
 `;
 
 export const metadata: Metadata = {
-  title: "Redis Studio Documentation — 1tt.dev",
+  title: "Redis Studio Documentation - 1tt.dev",
   description:
     "Learn how to create hosted Redis databases, browse keys, run commands, monitor performance, and inspect BullMQ, Sidekiq, and Celery queues using the Redis Studio on 1tt.dev.",
 };
@@ -217,7 +217,7 @@ export default function RedisDocsPage() {
   return (
     <DocLayout
       title="Redis Studio"
-      description="Create hosted Redis databases, browse keys, run commands, monitor performance, and inspect framework-specific data structures — all from your browser."
+      description="Create hosted Redis databases, browse keys, run commands, monitor performance, and inspect framework-specific data structures - all from your browser."
       markdown={MARKDOWN}
     />
   );

@@ -48,13 +48,13 @@ export default async function RandomPage({
 
           <ToolInfo.H2>Available generators</ToolInfo.H2>
           <ToolInfo.UL>
-            <li><ToolInfo.Strong>UUID</ToolInfo.Strong> — version 4 (random) and version 7 (time-ordered) UUIDs per <ToolInfo.Code>RFC 9562</ToolInfo.Code></li>
-            <li><ToolInfo.Strong>Password</ToolInfo.Strong> — configurable length with uppercase, lowercase, digits, and symbols</li>
-            <li><ToolInfo.Strong>Secret Key</ToolInfo.Strong> — hex-encoded cryptographic keys in common sizes (128, 256, 512 bit)</li>
-            <li><ToolInfo.Strong>Hex String</ToolInfo.Strong> — random hexadecimal strings of any length</li>
-            <li><ToolInfo.Strong>Base64</ToolInfo.Strong> — random Base64-encoded tokens</li>
-            <li><ToolInfo.Strong>Number</ToolInfo.Strong> — random integers within a custom range</li>
-            <li><ToolInfo.Strong>Lorem Ipsum</ToolInfo.Strong> — placeholder text by paragraphs, sentences, or words</li>
+            <li><ToolInfo.Strong>UUID</ToolInfo.Strong> - version 4 (random) and version 7 (time-ordered) UUIDs per <ToolInfo.Code>RFC 9562</ToolInfo.Code></li>
+            <li><ToolInfo.Strong>Password</ToolInfo.Strong> - configurable length with uppercase, lowercase, digits, and symbols</li>
+            <li><ToolInfo.Strong>Secret Key</ToolInfo.Strong> - hex-encoded cryptographic keys in common sizes (128, 256, 512 bit)</li>
+            <li><ToolInfo.Strong>Hex String</ToolInfo.Strong> - random hexadecimal strings of any length</li>
+            <li><ToolInfo.Strong>Base64</ToolInfo.Strong> - random Base64-encoded tokens</li>
+            <li><ToolInfo.Strong>Number</ToolInfo.Strong> - random integers within a custom range</li>
+            <li><ToolInfo.Strong>Lorem Ipsum</ToolInfo.Strong> - placeholder text by paragraphs, sentences, or words</li>
           </ToolInfo.UL>
 
           <ToolInfo.H2>Common use cases</ToolInfo.H2>

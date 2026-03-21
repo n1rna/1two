@@ -43,7 +43,7 @@ export default function JwtParserPage() {
 
         <ToolInfo.H2>How it works</ToolInfo.H2>
         <ToolInfo.P>
-          The <ToolInfo.Strong>header</ToolInfo.Strong> specifies the signing algorithm (e.g., <ToolInfo.Code>HS256</ToolInfo.Code>, <ToolInfo.Code>RS256</ToolInfo.Code>, <ToolInfo.Code>ES256</ToolInfo.Code>) and token type. The <ToolInfo.Strong>payload</ToolInfo.Strong> contains claims — key-value pairs like <ToolInfo.Code>sub</ToolInfo.Code>, <ToolInfo.Code>iat</ToolInfo.Code>, <ToolInfo.Code>exp</ToolInfo.Code>, and custom data. The <ToolInfo.Strong>signature</ToolInfo.Strong> is computed over the header and payload using a secret or private key, ensuring the token hasn&apos;t been tampered with.
+          The <ToolInfo.Strong>header</ToolInfo.Strong> specifies the signing algorithm (e.g., <ToolInfo.Code>HS256</ToolInfo.Code>, <ToolInfo.Code>RS256</ToolInfo.Code>, <ToolInfo.Code>ES256</ToolInfo.Code>) and token type. The <ToolInfo.Strong>payload</ToolInfo.Strong> contains claims - key-value pairs like <ToolInfo.Code>sub</ToolInfo.Code>, <ToolInfo.Code>iat</ToolInfo.Code>, <ToolInfo.Code>exp</ToolInfo.Code>, and custom data. The <ToolInfo.Strong>signature</ToolInfo.Strong> is computed over the header and payload using a secret or private key, ensuring the token hasn&apos;t been tampered with.
         </ToolInfo.P>
 
         <ToolInfo.H2>How to use this tool</ToolInfo.H2>

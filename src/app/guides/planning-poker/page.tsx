@@ -40,7 +40,7 @@ export default function PlanningPokerGuide() {
           Planning poker is an estimation technique used by agile teams to
           size user stories. Each team member independently picks a card
           representing their estimate, and all votes are revealed
-          simultaneously. This prevents anchoring bias — no one is
+          simultaneously. This prevents anchoring bias - no one is
           influenced by someone else&apos;s estimate before committing to
           their own.
         </Guide.P>
@@ -59,24 +59,24 @@ export default function PlanningPokerGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Fibonacci</Guide.Strong> — 0, 1, 2, 3, 5, 8,
-            13, 21, 34, 55, 89, ? — the most common scale for story points
+            <Guide.Strong>Fibonacci</Guide.Strong> - 0, 1, 2, 3, 5, 8,
+            13, 21, 34, 55, 89, ? - the most common scale for story points
           </li>
           <li>
-            <Guide.Strong>Modified Fibonacci</Guide.Strong> — 0, 1, 2, 3,
-            5, 8, 13, 20, 40, 100 — popular for larger ranges
+            <Guide.Strong>Modified Fibonacci</Guide.Strong> - 0, 1, 2, 3,
+            5, 8, 13, 20, 40, 100 - popular for larger ranges
           </li>
           <li>
-            <Guide.Strong>T-shirt sizes</Guide.Strong> — XS, S, M, L, XL,
-            XXL — good for early-stage estimation or non-technical
+            <Guide.Strong>T-shirt sizes</Guide.Strong> - XS, S, M, L, XL,
+            XXL - good for early-stage estimation or non-technical
             stakeholders
           </li>
           <li>
-            <Guide.Strong>Powers of 2</Guide.Strong> — 1, 2, 4, 8, 16,
-            32, 64 — useful when doubling effort is a natural progression
+            <Guide.Strong>Powers of 2</Guide.Strong> - 1, 2, 4, 8, 16,
+            32, 64 - useful when doubling effort is a natural progression
           </li>
           <li>
-            <Guide.Strong>Simple</Guide.Strong> — 1, 2, 3, 4, 5 — for
+            <Guide.Strong>Simple</Guide.Strong> - 1, 2, 3, 4, 5 - for
             quick relative sizing
           </li>
         </Guide.UL>
@@ -92,7 +92,7 @@ export default function PlanningPokerGuide() {
           users can join with one click using their account name.
         </Guide.P>
         <Guide.P>
-          The session validates the code before showing the join form — if
+          The session validates the code before showing the join form - if
           the code is invalid or the session has been disabled, voters see
           a clear error message instead of a broken connection.
         </Guide.P>
@@ -103,27 +103,27 @@ export default function PlanningPokerGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>1. Owner adds a story</Guide.Strong> — title and
+            <Guide.Strong>1. Owner adds a story</Guide.Strong> - title and
             optional description (acceptance criteria, technical notes,
             links)
           </li>
           <li>
-            <Guide.Strong>2. Owner starts voting</Guide.Strong> — the
+            <Guide.Strong>2. Owner starts voting</Guide.Strong> - the
             voting cards appear for everyone
           </li>
           <li>
-            <Guide.Strong>3. Everyone votes</Guide.Strong> — each person
+            <Guide.Strong>3. Everyone votes</Guide.Strong> - each person
             selects a card independently; a checkmark shows who has voted
             without revealing values
           </li>
           <li>
-            <Guide.Strong>4. Owner reveals</Guide.Strong> — all votes are
+            <Guide.Strong>4. Owner reveals</Guide.Strong> - all votes are
             shown simultaneously with statistics (average, median, mode,
             distribution)
           </li>
           <li>
             <Guide.Strong>5. Discuss and re-vote if needed</Guide.Strong>{" "}
-            — the owner can reset votes and run another round, or accept
+            - the owner can reset votes and run another round, or accept
             the result and move to the next story
           </li>
         </Guide.UL>
@@ -134,43 +134,43 @@ export default function PlanningPokerGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Add stories</Guide.Strong> — create stories with
+            <Guide.Strong>Add stories</Guide.Strong> - create stories with
             a title and description dialog; stories are listed in the left
             panel
           </li>
           <li>
-            <Guide.Strong>Start / stop voting</Guide.Strong> — voting only
+            <Guide.Strong>Start / stop voting</Guide.Strong> - voting only
             opens when the owner explicitly starts it
           </li>
           <li>
-            <Guide.Strong>Reveal votes</Guide.Strong> — show all votes at
+            <Guide.Strong>Reveal votes</Guide.Strong> - show all votes at
             once with statistics
           </li>
           <li>
-            <Guide.Strong>Reset votes</Guide.Strong> — clear votes and
+            <Guide.Strong>Reset votes</Guide.Strong> - clear votes and
             re-open voting for another round
           </li>
           <li>
-            <Guide.Strong>Next story</Guide.Strong> — advance to the next
+            <Guide.Strong>Next story</Guide.Strong> - advance to the next
             story in the queue
           </li>
           <li>
-            <Guide.Strong>Timer</Guide.Strong> — set a countdown (1, 2, 3,
+            <Guide.Strong>Timer</Guide.Strong> - set a countdown (1, 2, 3,
             or 5 minutes) to keep discussions focused
           </li>
           <li>
-            <Guide.Strong>Remove participants</Guide.Strong> — kick a
+            <Guide.Strong>Remove participants</Guide.Strong> - kick a
             voter from the session (they see a &quot;Removed&quot; screen
             and cannot rejoin)
           </li>
           <li>
-            <Guide.Strong>Browse stories</Guide.Strong> — click any
+            <Guide.Strong>Browse stories</Guide.Strong> - click any
             previous story to review its description and results without
             affecting the active voting round
           </li>
         </Guide.UL>
         <Guide.Callout>
-          The owner can also vote on stories — they see the same card
+          The owner can also vote on stories - they see the same card
           grid as everyone else, plus the owner controls below.
         </Guide.Callout>
 
@@ -180,26 +180,26 @@ export default function PlanningPokerGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Distribution bars</Guide.Strong> — a horizontal
+            <Guide.Strong>Distribution bars</Guide.Strong> - a horizontal
             bar chart showing how many people picked each value
           </li>
           <li>
-            <Guide.Strong>Average</Guide.Strong> — for numeric scales
+            <Guide.Strong>Average</Guide.Strong> - for numeric scales
             (Fibonacci, Powers of 2)
           </li>
           <li>
-            <Guide.Strong>Median and mode</Guide.Strong> — the middle
+            <Guide.Strong>Median and mode</Guide.Strong> - the middle
             value and most common value
           </li>
           <li>
-            <Guide.Strong>Per-voter breakdown</Guide.Strong> — each
+            <Guide.Strong>Per-voter breakdown</Guide.Strong> - each
             participant&apos;s vote with their name
           </li>
         </Guide.UL>
 
         <Guide.H2>Session management</Guide.H2>
         <Guide.P>
-          Sessions are persisted in the database — they survive page
+          Sessions are persisted in the database - they survive page
           refreshes and server restarts. The landing page shows all your
           previously created sessions with:
         </Guide.P>
@@ -208,11 +208,11 @@ export default function PlanningPokerGuide() {
           <li>Number of online participants</li>
           <li>Number of stories</li>
           <li>
-            <Guide.Strong>Disable</Guide.Strong> — temporarily block new
+            <Guide.Strong>Disable</Guide.Strong> - temporarily block new
             participants from joining
           </li>
           <li>
-            <Guide.Strong>Delete</Guide.Strong> — archive the session
+            <Guide.Strong>Delete</Guide.Strong> - archive the session
             (soft delete)
           </li>
         </Guide.UL>
@@ -229,19 +229,19 @@ export default function PlanningPokerGuide() {
         <Guide.H2>When to use planning poker</Guide.H2>
         <Guide.UL>
           <li>
-            <Guide.Strong>Sprint planning</Guide.Strong> — estimate the
+            <Guide.Strong>Sprint planning</Guide.Strong> - estimate the
             stories pulled into the upcoming sprint
           </li>
           <li>
-            <Guide.Strong>Backlog refinement</Guide.Strong> — size stories
+            <Guide.Strong>Backlog refinement</Guide.Strong> - size stories
             ahead of time so sprint planning goes faster
           </li>
           <li>
-            <Guide.Strong>Remote teams</Guide.Strong> — everyone
+            <Guide.Strong>Remote teams</Guide.Strong> - everyone
             participates from their browser, no shared screen needed
           </li>
           <li>
-            <Guide.Strong>New teams</Guide.Strong> — planning poker helps
+            <Guide.Strong>New teams</Guide.Strong> - planning poker helps
             build a shared understanding of effort across team members
           </li>
         </Guide.UL>

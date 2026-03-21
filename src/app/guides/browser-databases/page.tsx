@@ -8,7 +8,7 @@ export const metadata = guideMetadata({
   slug,
   title: "Explore Databases in the Browser",
   description:
-    "Open SQLite files, connect to Postgres databases, and browse Elasticsearch clusters — all from a single browser tab.",
+    "Open SQLite files, connect to Postgres databases, and browse Elasticsearch clusters - all from a single browser tab.",
   keywords: [
     "sqlite browser",
     "database explorer",
@@ -34,7 +34,7 @@ export default function BrowserDatabasesGuide() {
         <Guide.H2>No install required</Guide.H2>
         <Guide.P>
           Most database GUIs require downloading an app, managing connections, and keeping
-          software up to date. 1tt.dev runs entirely in the browser — open a tab and
+          software up to date. 1tt.dev runs entirely in the browser - open a tab and
           start exploring.
         </Guide.P>
 
@@ -42,7 +42,7 @@ export default function BrowserDatabasesGuide() {
         <Guide.P>
           Drag and drop any <Guide.Code>.sqlite</Guide.Code> or{" "}
           <Guide.Code>.db</Guide.Code> file onto the page. The file is read locally using
-          WebAssembly — nothing is uploaded to a server.
+          WebAssembly - nothing is uploaded to a server.
         </Guide.P>
         <Guide.UL>
           <li>Browse tables and view schemas with column types, primary keys, and indexes</li>

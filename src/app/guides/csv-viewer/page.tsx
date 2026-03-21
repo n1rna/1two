@@ -8,7 +8,7 @@ export const metadata = guideMetadata({
   slug,
   title: "CSV Viewer with Dataset Splitting for ML",
   description:
-    "Open, filter, sort, and edit CSV files in the browser. Split datasets into train/test sets with preset ratios — perfect for machine learning data preparation.",
+    "Open, filter, sort, and edit CSV files in the browser. Split datasets into train/test sets with preset ratios - perfect for machine learning data preparation.",
   keywords: [
     "csv viewer",
     "csv editor",
@@ -42,7 +42,7 @@ export default function CsvViewerGuide() {
           The 1tt.dev CSV Viewer is more than a spreadsheet preview. It&apos;s a
           lightweight data tool that lets you open CSV files of any size, filter
           and sort rows, toggle column visibility, edit cells inline, and export
-          subsets of your data — all without leaving the browser. Nothing is
+          subsets of your data - all without leaving the browser. Nothing is
           uploaded to a server; everything runs client-side.
         </Guide.P>
         <Guide.P>
@@ -56,7 +56,7 @@ export default function CsvViewerGuide() {
         <Guide.H2>Opening and exploring CSV files</Guide.H2>
         <Guide.P>
           Drag and drop a <Guide.Code>.csv</Guide.Code> file onto the viewer, or
-          click to browse. The parser auto-detects the delimiter — commas, tabs,
+          click to browse. The parser auto-detects the delimiter - commas, tabs,
           semicolons, and pipes are all supported.
         </Guide.P>
         <Guide.P>
@@ -64,20 +64,20 @@ export default function CsvViewerGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Column sorting</Guide.Strong> — click any header to
+            <Guide.Strong>Column sorting</Guide.Strong> - click any header to
             sort ascending or descending.
           </li>
           <li>
-            <Guide.Strong>Search / filter</Guide.Strong> — type in the search
+            <Guide.Strong>Search / filter</Guide.Strong> - type in the search
             bar to filter rows across all columns in real time.
           </li>
           <li>
-            <Guide.Strong>Column visibility</Guide.Strong> — toggle individual
+            <Guide.Strong>Column visibility</Guide.Strong> - toggle individual
             columns on/off to focus on the fields that matter. Hidden columns are
             excluded from exports.
           </li>
           <li>
-            <Guide.Strong>Row count and stats</Guide.Strong> — the toolbar shows
+            <Guide.Strong>Row count and stats</Guide.Strong> - the toolbar shows
             total rows, filtered rows, and column count at a glance.
           </li>
         </Guide.UL>
@@ -86,7 +86,7 @@ export default function CsvViewerGuide() {
         <Guide.P>
           Click the pencil icon on any row to open the row editor. You can modify
           cell values directly and save changes back to the in-memory dataset.
-          You can also add new rows — useful for appending labels, annotations,
+          You can also add new rows - useful for appending labels, annotations,
           or test cases before exporting.
         </Guide.P>
         <Guide.P>
@@ -100,23 +100,23 @@ export default function CsvViewerGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>All rows</Guide.Strong> — export the full dataset
+            <Guide.Strong>All rows</Guide.Strong> - export the full dataset
             (respecting column visibility).
           </li>
           <li>
-            <Guide.Strong>Current view</Guide.Strong> — export only the rows
+            <Guide.Strong>Current view</Guide.Strong> - export only the rows
             matching your current filter/search.
           </li>
           <li>
-            <Guide.Strong>First N / Last N rows</Guide.Strong> — grab the top or
+            <Guide.Strong>First N / Last N rows</Guide.Strong> - grab the top or
             bottom slice of your data.
           </li>
           <li>
-            <Guide.Strong>Random sample</Guide.Strong> — export a random
+            <Guide.Strong>Random sample</Guide.Strong> - export a random
             percentage of rows (e.g., 10% sample for quick analysis).
           </li>
           <li>
-            <Guide.Strong>Row range</Guide.Strong> — export rows between specific
+            <Guide.Strong>Row range</Guide.Strong> - export rows between specific
             indices (e.g., rows 500–1000).
           </li>
         </Guide.UL>
@@ -130,19 +130,19 @@ export default function CsvViewerGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>80 / 20 split</Guide.Strong> — the most common ratio.
+            <Guide.Strong>80 / 20 split</Guide.Strong> - the most common ratio.
             80% for training, 20% for testing.
           </li>
           <li>
-            <Guide.Strong>70 / 30 split</Guide.Strong> — a more conservative
+            <Guide.Strong>70 / 30 split</Guide.Strong> - a more conservative
             split with a larger test set.
           </li>
           <li>
-            <Guide.Strong>90 / 10 split</Guide.Strong> — for large datasets
+            <Guide.Strong>90 / 10 split</Guide.Strong> - for large datasets
             where you want maximum training data.
           </li>
           <li>
-            <Guide.Strong>60 / 40 split</Guide.Strong> — when you need a
+            <Guide.Strong>60 / 40 split</Guide.Strong> - when you need a
             substantial validation set.
           </li>
         </Guide.UL>
@@ -150,7 +150,7 @@ export default function CsvViewerGuide() {
           When you select a split preset, the viewer{" "}
           <Guide.Strong>shuffles the data randomly</Guide.Strong> before
           splitting to avoid any ordering bias. It then downloads two separate
-          CSV files — for example, <Guide.Code>mydata_train80.csv</Guide.Code>{" "}
+          CSV files - for example, <Guide.Code>mydata_train80.csv</Guide.Code>{" "}
           and <Guide.Code>mydata_test20.csv</Guide.Code>.
         </Guide.P>
         <Guide.Callout>
@@ -159,7 +159,7 @@ export default function CsvViewerGuide() {
           either subset, regardless of the original row order.
         </Guide.Callout>
         <Guide.P>
-          Column visibility is respected during splits — if you&apos;ve hidden
+          Column visibility is respected during splits - if you&apos;ve hidden
           columns (like an ID column or irrelevant metadata), they won&apos;t
           appear in the exported train/test files. This lets you do feature
           selection visually before splitting.
@@ -172,29 +172,29 @@ export default function CsvViewerGuide() {
         </Guide.P>
         <Guide.OL>
           <li>
-            <Guide.Strong>Load the dataset</Guide.Strong> — drag and drop your
+            <Guide.Strong>Load the dataset</Guide.Strong> - drag and drop your
             CSV file.
           </li>
           <li>
-            <Guide.Strong>Inspect the data</Guide.Strong> — sort columns, search
+            <Guide.Strong>Inspect the data</Guide.Strong> - sort columns, search
             for anomalies, check row counts.
           </li>
           <li>
-            <Guide.Strong>Clean up</Guide.Strong> — hide irrelevant columns
+            <Guide.Strong>Clean up</Guide.Strong> - hide irrelevant columns
             (IDs, timestamps, debug fields), edit incorrect values.
           </li>
           <li>
-            <Guide.Strong>Filter if needed</Guide.Strong> — use search to focus
+            <Guide.Strong>Filter if needed</Guide.Strong> - use search to focus
             on a subset (e.g., only rows where{" "}
             <Guide.Code>status=active</Guide.Code>), then export the filtered
             view.
           </li>
           <li>
-            <Guide.Strong>Split for ML</Guide.Strong> — pick an 80/20 or 70/30
+            <Guide.Strong>Split for ML</Guide.Strong> - pick an 80/20 or 70/30
             preset, download the train and test files.
           </li>
           <li>
-            <Guide.Strong>Feed into your pipeline</Guide.Strong> — use the
+            <Guide.Strong>Feed into your pipeline</Guide.Strong> - use the
             exported CSVs directly in pandas, scikit-learn, PyTorch, or any ML
             framework.
           </li>
@@ -203,7 +203,7 @@ export default function CsvViewerGuide() {
         <Guide.H2>No upload, no limits</Guide.H2>
         <Guide.P>
           Everything happens in the browser using client-side JavaScript. Your
-          data never leaves your machine — there&apos;s no upload, no server
+          data never leaves your machine - there&apos;s no upload, no server
           processing, no file size limits beyond your browser&apos;s memory. This
           makes it safe for sensitive or proprietary datasets.
         </Guide.P>

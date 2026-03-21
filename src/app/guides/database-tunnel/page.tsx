@@ -8,7 +8,7 @@ export const metadata = guideMetadata({
   slug,
   title: "Connect Any Database via Tunnel",
   description:
-    "Use the 1tt CLI to create a secure tunnel from your local PostgreSQL or Redis to the web-based studio — no port forwarding or VPN needed.",
+    "Use the 1tt CLI to create a secure tunnel from your local PostgreSQL or Redis to the web-based studio - no port forwarding or VPN needed.",
   keywords: [
     "database tunnel",
     "1tt cli",
@@ -41,7 +41,7 @@ export default function DatabaseTunnelGuide() {
           Sometimes your database isn&apos;t publicly accessible. It might be
           running in Docker on <Guide.Code>localhost</Guide.Code>, on a private
           VPN, behind a firewall, or in a staging environment with no inbound
-          ports. Traditional database GUIs require a direct TCP connection —
+          ports. Traditional database GUIs require a direct TCP connection -
           which means you&apos;re stuck with a desktop app or complex SSH tunnel
           configuration.
         </Guide.P>
@@ -74,7 +74,7 @@ export default function DatabaseTunnelGuide() {
         </Guide.OL>
         <Guide.Callout>
           Your data never passes through the 1tt.dev server. The backend only
-          forwards opaque WebSocket frames — it cannot read query results or
+          forwards opaque WebSocket frames - it cannot read query results or
           database contents. All traffic between your machine and the browser is
           encrypted via TLS.
         </Guide.Callout>
@@ -91,7 +91,7 @@ export default function DatabaseTunnelGuide() {
           </li>
           <li>
             Click <Guide.Strong>Generate token</Guide.Strong>. Copy the tunnel
-            token shown — it is valid for 24 hours and can only be used once.
+            token shown - it is valid for 24 hours and can only be used once.
           </li>
           <li>
             Install the CLI on your machine:
@@ -127,12 +127,12 @@ export default function DatabaseTunnelGuide() {
         <Guide.H2>Supported databases</Guide.H2>
         <Guide.UL>
           <li>
-            <Guide.Strong>PostgreSQL</Guide.Strong> — any version, including
+            <Guide.Strong>PostgreSQL</Guide.Strong> - any version, including
             local <Guide.Code>pg</Guide.Code>, Docker containers, Supabase,
             Neon, RDS, Aurora, and self-hosted instances
           </li>
           <li>
-            <Guide.Strong>Redis</Guide.Strong> — any version, including local
+            <Guide.Strong>Redis</Guide.Strong> - any version, including local
             <Guide.Code>redis-server</Guide.Code>, Docker,{" "}
             <Guide.Code>redis-stack</Guide.Code>, Upstash, ElastiCache,
             Memorystore, and Dragonfly
@@ -142,21 +142,21 @@ export default function DatabaseTunnelGuide() {
         <Guide.H2>Security</Guide.H2>
         <Guide.UL>
           <li>
-            <Guide.Strong>One-time tokens</Guide.Strong> — each token is
+            <Guide.Strong>One-time tokens</Guide.Strong> - each token is
             generated for a single tunnel session and expires after 24 hours.
           </li>
           <li>
-            <Guide.Strong>TLS encryption</Guide.Strong> — the WebSocket
+            <Guide.Strong>TLS encryption</Guide.Strong> - the WebSocket
             connection between your machine and{" "}
             <Guide.Code>1tt.dev</Guide.Code> is encrypted end-to-end via TLS.
           </li>
           <li>
-            <Guide.Strong>Local execution</Guide.Strong> — all queries run on
+            <Guide.Strong>Local execution</Guide.Strong> - all queries run on
             your machine against your local database process. The 1tt.dev
             server never receives or stores query results.
           </li>
           <li>
-            <Guide.Strong>No persistent storage</Guide.Strong> — no credentials,
+            <Guide.Strong>No persistent storage</Guide.Strong> - no credentials,
             schemas, or query results are persisted on the server.
           </li>
         </Guide.UL>
@@ -174,17 +174,17 @@ export default function DatabaseTunnelGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Code>--token &lt;TOKEN&gt;</Guide.Code> — the tunnel token
+            <Guide.Code>--token &lt;TOKEN&gt;</Guide.Code> - the tunnel token
             generated from your account dashboard (required)
           </li>
           <li>
-            <Guide.Code>--db &lt;URL&gt;</Guide.Code> — the database connection
+            <Guide.Code>--db &lt;URL&gt;</Guide.Code> - the database connection
             URL, e.g.{" "}
             <Guide.Code>postgres://user:pass@localhost:5432/dbname</Guide.Code>{" "}
             or <Guide.Code>redis://localhost:6379</Guide.Code> (required)
           </li>
           <li>
-            <Guide.Code>--server &lt;URL&gt;</Guide.Code> — override the relay
+            <Guide.Code>--server &lt;URL&gt;</Guide.Code> - override the relay
             server URL (defaults to <Guide.Code>wss://1tt.dev</Guide.Code>,
             useful for self-hosted deployments)
           </li>

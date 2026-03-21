@@ -39,12 +39,12 @@ export default function SqlitePage() {
           <ToolInfo>
             <ToolInfo.H2>What is SQLite?</ToolInfo.H2>
             <ToolInfo.P>
-              SQLite is a self-contained, serverless SQL database engine stored in a single file. It&apos;s the most widely deployed database in the world — embedded in browsers, mobile apps, IoT devices, and desktop software. Files typically use <ToolInfo.Code>.sqlite</ToolInfo.Code>, <ToolInfo.Code>.db</ToolInfo.Code>, or <ToolInfo.Code>.sqlite3</ToolInfo.Code> extensions.
+              SQLite is a self-contained, serverless SQL database engine stored in a single file. It&apos;s the most widely deployed database in the world - embedded in browsers, mobile apps, IoT devices, and desktop software. Files typically use <ToolInfo.Code>.sqlite</ToolInfo.Code>, <ToolInfo.Code>.db</ToolInfo.Code>, or <ToolInfo.Code>.sqlite3</ToolInfo.Code> extensions.
             </ToolInfo.P>
 
             <ToolInfo.H2>How it works</ToolInfo.H2>
             <ToolInfo.P>
-              This browser opens SQLite databases entirely client-side using <ToolInfo.Code>sql.js</ToolInfo.Code>, a WebAssembly port of SQLite. Your database file never leaves your machine — it&apos;s loaded into memory and queried directly in the browser tab.
+              This browser opens SQLite databases entirely client-side using <ToolInfo.Code>sql.js</ToolInfo.Code>, a WebAssembly port of SQLite. Your database file never leaves your machine - it&apos;s loaded into memory and queried directly in the browser tab.
             </ToolInfo.P>
 
             <ToolInfo.H2>How to use this tool</ToolInfo.H2>

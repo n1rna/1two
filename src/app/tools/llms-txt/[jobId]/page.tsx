@@ -4,7 +4,7 @@ import { LlmsToolbar } from "@/components/tools/llms-history-popover";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "llms.txt Result — 1tt.dev",
+  title: "llms.txt Result - 1tt.dev",
   description: "View your generated llms.txt file.",
 };
 

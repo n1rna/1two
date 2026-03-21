@@ -45,7 +45,7 @@ export default function MarkdownTablePage() {
 
         <ToolInfo.H2>How to use this tool</ToolInfo.H2>
         <ToolInfo.UL>
-          <li>Edit <ToolInfo.Strong>headers</ToolInfo.Strong> and <ToolInfo.Strong>cells</ToolInfo.Strong> inline — the markdown output updates in real time</li>
+          <li>Edit <ToolInfo.Strong>headers</ToolInfo.Strong> and <ToolInfo.Strong>cells</ToolInfo.Strong> inline - the markdown output updates in real time</li>
           <li>Add or remove <ToolInfo.Strong>rows</ToolInfo.Strong> and <ToolInfo.Strong>columns</ToolInfo.Strong> with the toolbar buttons or the side controls</li>
           <li>Click the <ToolInfo.Strong>alignment icon</ToolInfo.Strong> on each column header to cycle between left, center, and right alignment</li>
           <li>Paste <ToolInfo.Strong>CSV or tab-separated data</ToolInfo.Strong> into any cell to auto-expand the table</li>

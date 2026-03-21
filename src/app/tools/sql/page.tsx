@@ -3,7 +3,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "sql",
-  title: "SQL Formatter — Format, Beautify & Minify SQL Online",
+  title: "SQL Formatter - Format, Beautify & Minify SQL Online",
   description:
     "Format and beautify SQL queries with dialect support for PostgreSQL, MySQL, SQLite, BigQuery, MSSQL, and more. Adjust indentation, keyword case, and line spacing. Includes AI-powered natural language to SQL generation.",
   keywords: [

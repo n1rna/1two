@@ -8,7 +8,7 @@ export const metadata = guideMetadata({
   slug,
   title: "Serve OG Images from 1tt.dev",
   description:
-    "Design Open Graph images in the browser and serve them directly from a permanent URL — no hosting or build step required.",
+    "Design Open Graph images in the browser and serve them directly from a permanent URL - no hosting or build step required.",
   keywords: [
     "og image",
     "open graph",
@@ -47,8 +47,8 @@ export default function ServeOgImagesGuide() {
         <Guide.H2>How 1tt.dev solves this</Guide.H2>
         <Guide.P>
           The <Guide.Strong>OG Image Builder</Guide.Strong> lets you design your image
-          visually in the browser — pick a layout, set your title and subtitle, choose
-          colors and fonts — and then gives you a <Guide.Strong>permanent URL</Guide.Strong>{" "}
+          visually in the browser - pick a layout, set your title and subtitle, choose
+          colors and fonts - and then gives you a <Guide.Strong>permanent URL</Guide.Strong>{" "}
           that serves the image directly. No build step, no deploy, no hosting to manage.
         </Guide.P>
 
@@ -64,7 +64,7 @@ export default function ServeOgImagesGuide() {
         </Guide.Callout>
         <Guide.P>
           The <Guide.Code>subtitle</Guide.Code> query parameter lets you reuse the same
-          design across multiple pages — your blog posts, docs pages, or landing pages can
+          design across multiple pages - your blog posts, docs pages, or landing pages can
           all share one base design with a different title per page.
         </Guide.P>
 
@@ -78,7 +78,7 @@ export default function ServeOgImagesGuide() {
         </Guide.Step>
         <Guide.Step n={2}>
           <Guide.P>
-            Customize the design — set your brand name, background color or gradient,
+            Customize the design - set your brand name, background color or gradient,
             font, and logo. The preview updates in real time.
           </Guide.P>
         </Guide.Step>
@@ -123,8 +123,8 @@ export function generateMetadata({ params }) {
           cloud) so they&apos;re available whenever you come back.
         </Guide.P>
         <Guide.P>
-          If you need more control — like pulling in dynamic data or rendering complex
-          HTML — the image URLs also support additional query parameters for overriding
+          If you need more control - like pulling in dynamic data or rendering complex
+          HTML - the image URLs also support additional query parameters for overriding
           colors, fonts, and layout options at request time.
         </Guide.P>
       </GuideLayout>

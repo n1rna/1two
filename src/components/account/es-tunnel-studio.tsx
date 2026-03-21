@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { AuthGate } from "@/components/layout/auth-gate";
-import { ElasticsearchExplorer, setEsTunnelExecutor } from "@/components/tools/elasticsearch-explorer";
+import { ElasticsearchExplorer, type EsFetchFn } from "@/components/tools/elasticsearch-explorer";
 
 function EsTunnelStudioInner({ token }: { token: string }) {
-  useEffect(() => {
-    setEsTunnelExecutor(async (method: string, path: string, body: string) => {
+  const tunnelFetch: EsFetchFn = useCallback(
+    async (_conn, path, options) => {
+      const method = (options?.method ?? "GET").toUpperCase();
+      const body = typeof options?.body === "string" ? options.body : "";
       const res = await fetch(`/api/proxy/tunnel/${token}/query`, {
         method: "POST",
         credentials: "include",
@@ -14,18 +16,18 @@ function EsTunnelStudioInner({ token }: { token: string }) {
         body: JSON.stringify({ method, path, body: body || undefined }),
       });
       if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+        const err = (await res.json().catch(() => ({}))) as {
+          message?: string;
+          error?: string;
+        };
         throw new Error(err.message ?? err.error ?? `HTTP ${res.status}`);
       }
       return res.json();
-    });
+    },
+    [token]
+  );
 
-    return () => {
-      setEsTunnelExecutor(null);
-    };
-  }, [token]);
-
-  return <ElasticsearchExplorer tunnelMode />;
+  return <ElasticsearchExplorer tunnelMode fetchFn={tunnelFetch} />;
 }
 
 export function EsTunnelStudio({ token }: { token: string }) {

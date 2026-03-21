@@ -8,7 +8,7 @@ export const metadata = guideMetadata({
   slug,
   title: "Hosted Redis with Upstash",
   description:
-    "Create hosted Redis databases in seconds — run commands, browse keys, monitor performance, and inspect BullMQ, Sidekiq, and Celery queues from the browser.",
+    "Create hosted Redis databases in seconds - run commands, browse keys, monitor performance, and inspect BullMQ, Sidekiq, and Celery queues from the browser.",
   keywords: [
     "redis",
     "upstash",
@@ -45,7 +45,7 @@ export default function RedisStudioGuide() {
           limiting, and real-time features. But managing it usually means SSH
           into a server, installing <Guide.Code>redis-cli</Guide.Code>, or
           running a desktop client. The 1tt.dev Redis Studio gives you a
-          full-featured Redis browser that runs entirely in the browser — no
+          full-featured Redis browser that runs entirely in the browser - no
           install, no CLI, no SSH.
         </Guide.P>
         <Guide.P>
@@ -62,7 +62,7 @@ export default function RedisStudioGuide() {
         <Guide.P>
           Go to <Guide.Strong>Databases</Guide.Strong> in your account
           dashboard and click <Guide.Strong>Create Redis</Guide.Strong>. Pick a
-          name and choose from 7 AWS regions — the database is provisioned in
+          name and choose from 7 AWS regions - the database is provisioned in
           seconds, powered by Upstash.
         </Guide.P>
         <Guide.P>
@@ -79,21 +79,21 @@ export default function RedisStudioGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>SCAN detection</Guide.Strong> — when a command
+            <Guide.Strong>SCAN detection</Guide.Strong> - when a command
             returns a SCAN result, keys are shown as a clickable list that
             expands inline to show type, TTL, and value
           </li>
           <li>
-            <Guide.Strong>Command history</Guide.Strong> — collapsible,
+            <Guide.Strong>Command history</Guide.Strong> - collapsible,
             resizable panel at the bottom with all past commands and their
             results; re-run any command with one click
           </li>
           <li>
-            <Guide.Strong>Arrow Up/Down</Guide.Strong> — cycle through
+            <Guide.Strong>Arrow Up/Down</Guide.Strong> - cycle through
             history directly from the input
           </li>
           <li>
-            <Guide.Strong>AI assistant</Guide.Strong> — describe what you
+            <Guide.Strong>AI assistant</Guide.Strong> - describe what you
             want in plain English and the AI generates the Redis command
           </li>
         </Guide.UL>
@@ -109,19 +109,19 @@ export default function RedisStudioGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Tree view</Guide.Strong> — expand and collapse
+            <Guide.Strong>Tree view</Guide.Strong> - expand and collapse
             namespaces, see key counts at each level
           </li>
           <li>
-            <Guide.Strong>Search filter</Guide.Strong> — narrow the tree
+            <Guide.Strong>Search filter</Guide.Strong> - narrow the tree
             to matching key patterns
           </li>
           <li>
-            <Guide.Strong>Key inspection</Guide.Strong> — click any leaf
+            <Guide.Strong>Key inspection</Guide.Strong> - click any leaf
             key to see its type, TTL, and value in a detail panel
           </li>
           <li>
-            <Guide.Strong>Top namespaces</Guide.Strong> — shows the 5
+            <Guide.Strong>Top namespaces</Guide.Strong> - shows the 5
             largest groups by key count
           </li>
         </Guide.UL>
@@ -133,24 +133,24 @@ export default function RedisStudioGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Group overview</Guide.Strong> — consumer count,
+            <Guide.Strong>Group overview</Guide.Strong> - consumer count,
             pending count, last delivered ID for each group
           </li>
           <li>
-            <Guide.Strong>Consumer details</Guide.Strong> — per-consumer
+            <Guide.Strong>Consumer details</Guide.Strong> - per-consumer
             pending count and idle time
           </li>
           <li>
-            <Guide.Strong>Pending entries</Guide.Strong> — the PEL
+            <Guide.Strong>Pending entries</Guide.Strong> - the PEL
             (Pending Entry List) with entry ID, consumer, idle time, and
             delivery count
           </li>
           <li>
-            <Guide.Strong>ACK button</Guide.Strong> — acknowledge pending
+            <Guide.Strong>ACK button</Guide.Strong> - acknowledge pending
             messages directly from the UI
           </li>
           <li>
-            <Guide.Strong>Recent entries</Guide.Strong> — the 20 most
+            <Guide.Strong>Recent entries</Guide.Strong> - the 20 most
             recent stream entries with their fields
           </li>
         </Guide.UL>
@@ -164,11 +164,11 @@ export default function RedisStudioGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Job inspection</Guide.Strong> — see job data,
+            <Guide.Strong>Job inspection</Guide.Strong> - see job data,
             options, timestamps, progress, return values, and stack traces
           </li>
           <li>
-            <Guide.Strong>Retry</Guide.Strong> — retry individual failed
+            <Guide.Strong>Retry</Guide.Strong> - retry individual failed
             jobs or all failed jobs at once, moving them back to the
             waiting queue
           </li>
@@ -240,7 +240,7 @@ const val = await redis.get("key")`}
         </Guide.Callout>
         <Guide.P>
           This works in serverless functions, edge runtimes, and any
-          environment that supports HTTP — no Redis driver or TCP connection
+          environment that supports HTTP - no Redis driver or TCP connection
           needed.
         </Guide.P>
       </GuideLayout>

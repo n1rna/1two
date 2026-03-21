@@ -26,15 +26,15 @@ export default function VideoConverterPage() {
         <ToolInfo>
           <ToolInfo.H2>What is this video converter?</ToolInfo.H2>
           <ToolInfo.P>
-            A client-side video converter powered by <ToolInfo.Code>FFmpeg WebAssembly</ToolInfo.Code>. It transcodes, compresses, and extracts metadata from video files entirely in your browser — no files are uploaded to any server.
+            A client-side video converter powered by <ToolInfo.Code>FFmpeg WebAssembly</ToolInfo.Code>. It transcodes, compresses, and extracts metadata from video files entirely in your browser - no files are uploaded to any server.
           </ToolInfo.P>
 
           <ToolInfo.H2>Supported formats</ToolInfo.H2>
           <ToolInfo.UL>
-            <li><ToolInfo.Code>MP4</ToolInfo.Code> — H.264/H.265 container, widely compatible</li>
-            <li><ToolInfo.Code>WebM</ToolInfo.Code> — VP8/VP9 with Opus audio, optimized for web</li>
-            <li><ToolInfo.Code>MKV</ToolInfo.Code> — Matroska container supporting virtually any codec</li>
-            <li><ToolInfo.Code>MOV</ToolInfo.Code> — Apple QuickTime format</li>
+            <li><ToolInfo.Code>MP4</ToolInfo.Code> - H.264/H.265 container, widely compatible</li>
+            <li><ToolInfo.Code>WebM</ToolInfo.Code> - VP8/VP9 with Opus audio, optimized for web</li>
+            <li><ToolInfo.Code>MKV</ToolInfo.Code> - Matroska container supporting virtually any codec</li>
+            <li><ToolInfo.Code>MOV</ToolInfo.Code> - Apple QuickTime format</li>
           </ToolInfo.UL>
 
           <ToolInfo.H2>How to use this tool</ToolInfo.H2>

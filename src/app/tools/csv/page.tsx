@@ -35,7 +35,7 @@ export default function CsvPage() {
         <ToolInfo>
           <ToolInfo.H2>What is CSV?</ToolInfo.H2>
           <ToolInfo.P>
-            CSV (Comma-Separated Values) is a plain-text format for tabular data where each line represents a row and values are separated by a delimiter — typically a comma (<ToolInfo.Code>,</ToolInfo.Code>) or tab (<ToolInfo.Code>\t</ToolInfo.Code> for TSV). It&apos;s the most common interchange format for spreadsheets, databases, and data pipelines.
+            CSV (Comma-Separated Values) is a plain-text format for tabular data where each line represents a row and values are separated by a delimiter - typically a comma (<ToolInfo.Code>,</ToolInfo.Code>) or tab (<ToolInfo.Code>\t</ToolInfo.Code> for TSV). It&apos;s the most common interchange format for spreadsheets, databases, and data pipelines.
           </ToolInfo.P>
 
           <ToolInfo.H2>How it works</ToolInfo.H2>

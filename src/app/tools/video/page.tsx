@@ -26,15 +26,15 @@ export default function VideoPlayerPage() {
         <ToolInfo>
           <ToolInfo.H2>What is this video player?</ToolInfo.H2>
           <ToolInfo.P>
-            A browser-based video player that opens local files or remote URLs without uploading anything to a server. It inspects media metadata, displays codec info, resolution, duration, and bitrate — all processed client-side using the browser&apos;s native <ToolInfo.Code>HTMLVideoElement</ToolInfo.Code> API.
+            A browser-based video player that opens local files or remote URLs without uploading anything to a server. It inspects media metadata, displays codec info, resolution, duration, and bitrate - all processed client-side using the browser&apos;s native <ToolInfo.Code>HTMLVideoElement</ToolInfo.Code> API.
           </ToolInfo.P>
 
           <ToolInfo.H2>Supported formats</ToolInfo.H2>
           <ToolInfo.UL>
-            <li><ToolInfo.Code>MP4</ToolInfo.Code> — H.264/H.265 video with AAC audio, universally supported</li>
-            <li><ToolInfo.Code>WebM</ToolInfo.Code> — VP8/VP9/AV1 video with Opus audio</li>
-            <li><ToolInfo.Code>HLS</ToolInfo.Code> — HTTP Live Streaming via <ToolInfo.Code>.m3u8</ToolInfo.Code> playlist URLs</li>
-            <li><ToolInfo.Code>OGG</ToolInfo.Code> — Theora video with Vorbis audio</li>
+            <li><ToolInfo.Code>MP4</ToolInfo.Code> - H.264/H.265 video with AAC audio, universally supported</li>
+            <li><ToolInfo.Code>WebM</ToolInfo.Code> - VP8/VP9/AV1 video with Opus audio</li>
+            <li><ToolInfo.Code>HLS</ToolInfo.Code> - HTTP Live Streaming via <ToolInfo.Code>.m3u8</ToolInfo.Code> playlist URLs</li>
+            <li><ToolInfo.Code>OGG</ToolInfo.Code> - Theora video with Vorbis audio</li>
           </ToolInfo.UL>
 
           <ToolInfo.H2>How to use this tool</ToolInfo.H2>

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 const MARKDOWN = `
 ## Overview
 
-The OG Image Builder lets you design Open Graph images directly in the browser — no Figma, no build step, no external service. Create images for social previews, save them as collections, and serve them from permanent URLs with optional dynamic text.
+The OG Image Builder lets you design Open Graph images directly in the browser - no Figma, no build step, no external service. Create images for social previews, save them as collections, and serve them from permanent URLs with optional dynamic text.
 
 Logged-in users can publish collections and serve images at \`/og/s/{slug}/{variant}.png\`, with support for dynamic \`?title=\` and \`?subtitle=\` query parameters.
 
@@ -14,13 +14,13 @@ Logged-in users can publish collections and serve images at \`/og/s/{slug}/{vari
 
 Choose from 7 built-in layout templates:
 
-- **Centered** — title and subtitle stacked in the center
-- **Editorial** — left-aligned with a vertical accent line
-- **Headline** — large bold title, compact subtitle
-- **Cards** — content placed inside a card with rounded corners
-- **Corners** — decorative corner elements with centered text
-- **Minimal** — clean, whitespace-heavy layout
-- **Custom** — position text elements freely on the canvas
+- **Centered** - title and subtitle stacked in the center
+- **Editorial** - left-aligned with a vertical accent line
+- **Headline** - large bold title, compact subtitle
+- **Cards** - content placed inside a card with rounded corners
+- **Corners** - decorative corner elements with centered text
+- **Minimal** - clean, whitespace-heavy layout
+- **Custom** - position text elements freely on the canvas
 
 ### Sizes
 
@@ -41,9 +41,9 @@ You can also add custom sizes with any width and height.
 
 Customize the look of your images:
 
-- **Background** — solid color or gradient (5 directions: right, bottom, bottom-right, bottom-left, radial)
+- **Background** - solid color or gradient (5 directions: right, bottom, bottom-right, bottom-left, radial)
 - **Text color** and **accent color**
-- **Font family** — Inter, System UI, Georgia, Times New Roman, Courier New, Arial, Verdana, Trebuchet, Impact
+- **Font family** - Inter, System UI, Georgia, Times New Roman, Courier New, Arial, Verdana, Trebuchet, Impact
 - **Title / subtitle sizing** and font weight
 - **Padding** and **border radius**
 
@@ -51,10 +51,10 @@ Customize the look of your images:
 
 In the **Custom** layout, you can place text elements anywhere on the canvas. Each element supports:
 
-- **Position** — X and Y as a 0–1 range (percentage of canvas)
+- **Position** - X and Y as a 0–1 range (percentage of canvas)
 - **Font size**, **weight**, **color**, **opacity**
-- **Text alignment** — left, center, or right
-- **Max width** — constrain text wrapping
+- **Text alignment** - left, center, or right
+- **Max width** - constrain text wrapping
 
 ## Exporting
 
@@ -76,9 +76,9 @@ The collection stores the full builder state: theme, all image variants, titles,
 
 Open a saved collection from the collection picker in the toolbar. You can:
 
-- **Edit** — modify designs and save changes
-- **Rename** — change the collection name or slug
-- **Delete** — permanently remove the collection and its published URLs
+- **Edit** - modify designs and save changes
+- **Rename** - change the collection name or slug
+- **Delete** - permanently remove the collection and its published URLs
 
 ## Publishing and Serving Images
 
@@ -149,7 +149,7 @@ Use the **OG Checker** tool to verify how your published images appear when shar
 `;
 
 export const metadata: Metadata = {
-  title: "OG Image Builder Documentation — 1tt.dev",
+  title: "OG Image Builder Documentation - 1tt.dev",
   description:
     "Learn how to design, publish, and serve Open Graph images from permanent URLs with dynamic text support using the OG Image Builder on 1tt.dev.",
 };

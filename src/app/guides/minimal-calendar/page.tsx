@@ -57,7 +57,7 @@ export default function MinimalCalendarGuide() {
 
         <Guide.H3>Marking milestones</Guide.H3>
         <Guide.P>
-          Select a date range and create a <Guide.Strong>marker</Guide.Strong> — give it
+          Select a date range and create a <Guide.Strong>marker</Guide.Strong> - give it
           a label and a color. Markers span across the calendar cells so you can
           visualize how long something takes and how different things overlap.
         </Guide.P>
@@ -72,11 +72,11 @@ export default function MinimalCalendarGuide() {
           Five views let you look at time at different scales:
         </Guide.P>
         <Guide.UL>
-          <li><Guide.Strong>Day</Guide.Strong> — 24-hour timeline with a live &quot;now&quot; indicator</li>
-          <li><Guide.Strong>Week</Guide.Strong> — 7-day grid with hourly rows</li>
-          <li><Guide.Strong>Month</Guide.Strong> — the classic month grid, showing markers that span across days</li>
-          <li><Guide.Strong>Quarter</Guide.Strong> — 3 months side by side for mid-range planning</li>
-          <li><Guide.Strong>Year</Guide.Strong> — all 12 months at once for the big picture</li>
+          <li><Guide.Strong>Day</Guide.Strong> - 24-hour timeline with a live &quot;now&quot; indicator</li>
+          <li><Guide.Strong>Week</Guide.Strong> - 7-day grid with hourly rows</li>
+          <li><Guide.Strong>Month</Guide.Strong> - the classic month grid, showing markers that span across days</li>
+          <li><Guide.Strong>Quarter</Guide.Strong> - 3 months side by side for mid-range planning</li>
+          <li><Guide.Strong>Year</Guide.Strong> - all 12 months at once for the big picture</li>
         </Guide.UL>
         <Guide.P>
           Switch between them to plan at whatever granularity makes sense. Quarter view
@@ -90,21 +90,21 @@ export default function MinimalCalendarGuide() {
         <Guide.P>
           &quot;How many working days until the deadline?&quot; &quot;What day of the week is March
           15th?&quot; &quot;If I start on Monday and need 10 business days, when does it
-          end?&quot; — select, read the sidebar, done.
+          end?&quot; - select, read the sidebar, done.
         </Guide.P>
 
         <Guide.H3>Sketching a project timeline</Guide.H3>
         <Guide.P>
           You&apos;re in a meeting or planning session and need to map out rough phases.
           Open the calendar, mark the key dates with colored markers, and you have a
-          visual timeline in seconds. Share your screen — everyone can see it.
+          visual timeline in seconds. Share your screen - everyone can see it.
         </Guide.P>
 
         <Guide.H3>Avoiding your real calendar</Guide.H3>
         <Guide.P>
           Sometimes you need a calendar view that&apos;s not tied to your email or work
           account. Planning a personal trip, checking holiday dates, or figuring out a
-          side project schedule — things that don&apos;t belong in your work calendar and
+          side project schedule - things that don&apos;t belong in your work calendar and
           don&apos;t need the overhead of a calendar app.
         </Guide.P>
 
@@ -125,7 +125,7 @@ export default function MinimalCalendarGuide() {
         </Guide.P>
         <Guide.P>
           There&apos;s no import/export, no iCal integration, no event invites. That&apos;s
-          the point — it&apos;s a calendar you can use without any setup, for the kind
+          the point - it&apos;s a calendar you can use without any setup, for the kind
           of planning that doesn&apos;t need a full productivity suite.
         </Guide.P>
       </GuideLayout>

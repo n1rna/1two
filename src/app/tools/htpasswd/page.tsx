@@ -43,16 +43,16 @@ export default function HtpasswdPage() {
 
           <ToolInfo.H2>Supported algorithms</ToolInfo.H2>
           <ToolInfo.UL>
-            <li><ToolInfo.Code>bcrypt</ToolInfo.Code> — the recommended algorithm, uses adaptive cost factor for brute-force resistance</li>
-            <li><ToolInfo.Code>SHA-256</ToolInfo.Code> / <ToolInfo.Code>SHA-512</ToolInfo.Code> — Linux crypt-style hashes with random salts</li>
-            <li><ToolInfo.Code>MD5 (apr1)</ToolInfo.Code> — Apache-specific MD5 variant, widely compatible but less secure</li>
-            <li><ToolInfo.Code>SSHA</ToolInfo.Code> — salted SHA-1, used in LDAP-style configurations</li>
+            <li><ToolInfo.Code>bcrypt</ToolInfo.Code> - the recommended algorithm, uses adaptive cost factor for brute-force resistance</li>
+            <li><ToolInfo.Code>SHA-256</ToolInfo.Code> / <ToolInfo.Code>SHA-512</ToolInfo.Code> - Linux crypt-style hashes with random salts</li>
+            <li><ToolInfo.Code>MD5 (apr1)</ToolInfo.Code> - Apache-specific MD5 variant, widely compatible but less secure</li>
+            <li><ToolInfo.Code>SSHA</ToolInfo.Code> - salted SHA-1, used in LDAP-style configurations</li>
           </ToolInfo.UL>
 
           <ToolInfo.H2>How to use this tool</ToolInfo.H2>
           <ToolInfo.UL>
             <li>Enter a <ToolInfo.Strong>username</ToolInfo.Strong> and <ToolInfo.Strong>password</ToolInfo.Strong> (or generate a random one)</li>
-            <li>Select a <ToolInfo.Strong>hashing algorithm</ToolInfo.Strong> — <ToolInfo.Code>bcrypt</ToolInfo.Code> is recommended for new setups</li>
+            <li>Select a <ToolInfo.Strong>hashing algorithm</ToolInfo.Strong> - <ToolInfo.Code>bcrypt</ToolInfo.Code> is recommended for new setups</li>
             <li>Copy the generated <ToolInfo.Code>.htpasswd</ToolInfo.Code> line or download the file</li>
           </ToolInfo.UL>
 

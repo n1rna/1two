@@ -3,9 +3,9 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "elasticsearch",
-  title: "Elasticsearch Explorer — 1tt.dev",
+  title: "Elasticsearch Explorer - 1tt.dev",
   description:
-    "Connect to Elasticsearch clusters, browse indices, run queries, manage documents, and monitor cluster health — all from the browser.",
+    "Connect to Elasticsearch clusters, browse indices, run queries, manage documents, and monitor cluster health - all from the browser.",
   keywords: [
     "elasticsearch",
     "es",

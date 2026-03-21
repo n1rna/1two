@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CheckoutView } from "@/components/shop/checkout-view";
 
 export const metadata: Metadata = {
-  title: "Checkout — 1tt.dev Shop",
+  title: "Checkout - 1tt.dev Shop",
   description: "Complete your purchase.",
 };
 

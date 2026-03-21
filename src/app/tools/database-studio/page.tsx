@@ -7,7 +7,7 @@ export const metadata = toolMetadata({
   slug: "database-studio",
   title: "Database Studio - PostgreSQL Browser & SQL Client",
   description:
-    "Connect to any PostgreSQL database from the browser — run queries, browse schemas, inspect tables, and manage data. Works with managed databases or your own via a secure tunnel.",
+    "Connect to any PostgreSQL database from the browser - run queries, browse schemas, inspect tables, and manage data. Works with managed databases or your own via a secure tunnel.",
   keywords: [
     "database studio",
     "postgresql client",
@@ -118,7 +118,7 @@ export default function DatabaseStudioPage() {
               Hosted PostgreSQL on Neon
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              Create a hosted PostgreSQL database on Neon — ready in seconds.
+              Create a hosted PostgreSQL database on Neon - ready in seconds.
               Includes the full studio, AI assistant, and cloud sync.
             </p>
             <Link
@@ -156,7 +156,7 @@ export default function DatabaseStudioPage() {
             <ToolInfo.P>
               The Database Studio is a browser-based SQL client for PostgreSQL.
               It lets you connect to any Postgres database, explore schemas,
-              run queries, and inspect data — without installing a desktop
+              run queries, and inspect data - without installing a desktop
               application like pgAdmin, TablePlus, or DBeaver.
             </ToolInfo.P>
             <ToolInfo.P>
@@ -170,38 +170,38 @@ export default function DatabaseStudioPage() {
             <ToolInfo.P>
               There are two connection modes. With a{" "}
               <ToolInfo.Strong>managed database</ToolInfo.Strong>, you create a
-              Neon PostgreSQL instance directly from your account — credentials
+              Neon PostgreSQL instance directly from your account - credentials
               are configured automatically and the studio connects immediately.
               With a <ToolInfo.Strong>tunnel connection</ToolInfo.Strong>, you
               run the <ToolInfo.Code>1tt</ToolInfo.Code> CLI on your machine,
               which opens a WebSocket proxy to the studio. Queries are relayed
-              through the tunnel and executed locally — no data leaves your
+              through the tunnel and executed locally - no data leaves your
               environment.
             </ToolInfo.P>
 
             <ToolInfo.H2>How to use this tool</ToolInfo.H2>
             <ToolInfo.UL>
               <li>
-                <ToolInfo.Strong>Create a managed database</ToolInfo.Strong> —
+                <ToolInfo.Strong>Create a managed database</ToolInfo.Strong> -
                 go to your account, create a Neon database, and open the studio
                 in one click
               </li>
               <li>
-                <ToolInfo.Strong>Connect via tunnel</ToolInfo.Strong> — generate
+                <ToolInfo.Strong>Connect via tunnel</ToolInfo.Strong> - generate
                 a tunnel token, install the{" "}
                 <ToolInfo.Code>1tt</ToolInfo.Code> CLI, and run{" "}
                 <ToolInfo.Code>1tt tunnel --token ... --db postgres://...</ToolInfo.Code>
               </li>
               <li>
-                <ToolInfo.Strong>Browse the schema</ToolInfo.Strong> — explore
+                <ToolInfo.Strong>Browse the schema</ToolInfo.Strong> - explore
                 tables, columns, indexes, and foreign keys in the sidebar
               </li>
               <li>
-                <ToolInfo.Strong>Run SQL queries</ToolInfo.Strong> — write and
+                <ToolInfo.Strong>Run SQL queries</ToolInfo.Strong> - write and
                 execute queries with syntax highlighting and result pagination
               </li>
               <li>
-                <ToolInfo.Strong>Inspect and edit rows</ToolInfo.Strong> — view,
+                <ToolInfo.Strong>Inspect and edit rows</ToolInfo.Strong> - view,
                 insert, update, and delete records directly from the table view
               </li>
             </ToolInfo.UL>
@@ -225,7 +225,7 @@ export default function DatabaseStudioPage() {
                 extra tooling
               </li>
               <li>
-                Teaching SQL interactively — spin up a fresh database and
+                Teaching SQL interactively - spin up a fresh database and
                 explore it in real time
               </li>
             </ToolInfo.UL>

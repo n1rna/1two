@@ -34,7 +34,7 @@ export default function CloudSyncGuide() {
         <Guide.H2>How it works</Guide.H2>
         <Guide.P>
           Every tool on 1tt.dev stores its state in{" "}
-          <Guide.Code>localStorage</Guide.Code> by default — connections, saved templates,
+          <Guide.Code>localStorage</Guide.Code> by default - connections, saved templates,
           color palettes, bookmarks, and more. This works great on a single device but
           doesn&apos;t follow you to a different browser or machine.
         </Guide.P>
@@ -54,7 +54,7 @@ export default function CloudSyncGuide() {
         <Guide.Step n={2}>
           <Guide.P>
             In any tool that supports sync, find the <Guide.Strong>sync toggle</Guide.Strong>{" "}
-            — usually in the toolbar or sidebar. Switch it from{" "}
+            - usually in the toolbar or sidebar. Switch it from{" "}
             <Guide.Code>Local</Guide.Code> to <Guide.Code>Cloud</Guide.Code>.
           </Guide.P>
         </Guide.Step>
@@ -70,12 +70,12 @@ export default function CloudSyncGuide() {
           Each tool has specific state keys that are syncable. Here are some examples:
         </Guide.P>
         <Guide.UL>
-          <li><Guide.Strong>Elasticsearch Explorer</Guide.Strong> — saved connections and explorer state (open tabs, active connection, queries)</li>
-          <li><Guide.Strong>OG Image Builder</Guide.Strong> — custom layouts and saved designs</li>
-          <li><Guide.Strong>Color Tools</Guide.Strong> — saved colors and themes</li>
-          <li><Guide.Strong>Invoice Creator</Guide.Strong> — saved invoice templates</li>
-          <li><Guide.Strong>Calendar</Guide.Strong> — calendar markers</li>
-          <li><Guide.Strong>Bookmarks</Guide.Strong> — your bookmarked tools and tool order</li>
+          <li><Guide.Strong>Elasticsearch Explorer</Guide.Strong> - saved connections and explorer state (open tabs, active connection, queries)</li>
+          <li><Guide.Strong>OG Image Builder</Guide.Strong> - custom layouts and saved designs</li>
+          <li><Guide.Strong>Color Tools</Guide.Strong> - saved colors and themes</li>
+          <li><Guide.Strong>Invoice Creator</Guide.Strong> - saved invoice templates</li>
+          <li><Guide.Strong>Calendar</Guide.Strong> - calendar markers</li>
+          <li><Guide.Strong>Bookmarks</Guide.Strong> - your bookmarked tools and tool order</li>
         </Guide.UL>
 
         <Guide.H2>Privacy and storage</Guide.H2>
@@ -86,7 +86,7 @@ export default function CloudSyncGuide() {
         </Guide.P>
         <Guide.P>
           You can switch back to <Guide.Code>Local</Guide.Code> mode at any time. Your
-          cloud data is preserved but no longer updated — the tool reverts to using
+          cloud data is preserved but no longer updated - the tool reverts to using
           <Guide.Code>localStorage</Guide.Code> only.
         </Guide.P>
 

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 const MARKDOWN = `
 ## Overview
 
-The Elasticsearch Explorer lets you connect to any Elasticsearch cluster, browse indices, run queries, manage documents, and monitor cluster health — all from the browser without installing a desktop client.
+The Elasticsearch Explorer lets you connect to any Elasticsearch cluster, browse indices, run queries, manage documents, and monitor cluster health - all from the browser without installing a desktop client.
 
 It supports Elasticsearch 7.x and 8.x, as well as OpenSearch-compatible clusters.
 
@@ -12,9 +12,9 @@ It supports Elasticsearch 7.x and 8.x, as well as OpenSearch-compatible clusters
 
 Click **Connections** in the top bar and fill in your cluster details:
 
-- **URL** — Your Elasticsearch endpoint, e.g. \`https://my-cluster.es.amazonaws.com\` or \`http://localhost:9200\`
-- **Authentication** — Choose from Basic auth (username + password), API key, or Bearer token
-- **Name** — A friendly label shown in the connection switcher
+- **URL** - Your Elasticsearch endpoint, e.g. \`https://my-cluster.es.amazonaws.com\` or \`http://localhost:9200\`
+- **Authentication** - Choose from Basic auth (username + password), API key, or Bearer token
+- **Name** - A friendly label shown in the connection switcher
 
 Connections are stored locally in your browser and optionally synced to the cloud if you enable Cloud Sync.
 
@@ -38,10 +38,10 @@ Once connected, the sidebar lists all indices with their health status (green / 
 
 The index view shows:
 
-- **Mappings** — field names, types, and analyzer settings
-- **Settings** — shard count, replica count, refresh interval
-- **Aliases** — any aliases pointing to this index
-- **Documents** — a paginated table of documents with inline editing
+- **Mappings** - field names, types, and analyzer settings
+- **Settings** - shard count, replica count, refresh interval
+- **Aliases** - any aliases pointing to this index
+- **Documents** - a paginated table of documents with inline editing
 
 ## Running Queries
 
@@ -49,7 +49,7 @@ The **Search** tab provides a JSON query editor with:
 
 - **Syntax highlighting** powered by CodeMirror
 - **Auto-completion** for Elasticsearch Query DSL keywords and your index's field names
-- **AI-powered query generation** — describe what you need in plain English and the AI generates the DSL for you
+- **AI-powered query generation** - describe what you need in plain English and the AI generates the DSL for you
 
 ### Query Editor
 
@@ -126,7 +126,7 @@ The node list shows per-node CPU, heap, and disk stats, refreshed every 30 secon
 `;
 
 export const metadata: Metadata = {
-  title: "Elasticsearch Explorer Documentation — 1tt.dev",
+  title: "Elasticsearch Explorer Documentation - 1tt.dev",
   description:
     "Learn how to connect to Elasticsearch clusters, browse indices, run queries, and monitor cluster health using the Elasticsearch Explorer on 1tt.dev.",
 };
@@ -135,7 +135,7 @@ export default function ElasticsearchDocsPage() {
   return (
     <DocLayout
       title="Elasticsearch Explorer"
-      description="Connect to any Elasticsearch cluster, browse indices, run queries, and monitor cluster health — all from your browser."
+      description="Connect to any Elasticsearch cluster, browse indices, run queries, and monitor cluster health - all from your browser."
       toolSlug="elasticsearch"
       markdown={MARKDOWN}
     />

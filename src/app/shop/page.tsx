@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ShopGrid } from "@/components/shop/shop-grid";
 
 export const metadata: Metadata = {
-  title: "Shop — 1tt.dev Merch",
+  title: "Shop - 1tt.dev Merch",
   description:
     "Official 1tt.dev merchandise. T-shirts, hoodies, stickers, mugs, and more. High-quality developer merch.",
 };

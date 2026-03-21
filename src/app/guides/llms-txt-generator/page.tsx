@@ -8,7 +8,7 @@ export const metadata = guideMetadata({
   slug,
   title: "Generate llms.txt for Any Website",
   description:
-    "Crawl any site and generate an llms.txt file that gives LLMs the context they need — ideal for RAG pipelines, AI assistants, and documentation.",
+    "Crawl any site and generate an llms.txt file that gives LLMs the context they need - ideal for RAG pipelines, AI assistants, and documentation.",
   keywords: [
     "llms.txt",
     "llms",
@@ -36,8 +36,8 @@ export default function LlmsTxtGuide() {
       <GuideLayout slug={slug}>
         <Guide.H2>What is llms.txt?</Guide.H2>
         <Guide.P>
-          <Guide.Code>llms.txt</Guide.Code> is a proposed standard — similar to{" "}
-          <Guide.Code>robots.txt</Guide.Code> — that provides a structured,
+          <Guide.Code>llms.txt</Guide.Code> is a proposed standard - similar to{" "}
+          <Guide.Code>robots.txt</Guide.Code> - that provides a structured,
           high-signal summary of a website&apos;s content specifically for large language
           models. Instead of forcing an LLM to parse raw HTML or crawl hundreds of pages,{" "}
           <Guide.Code>llms.txt</Guide.Code> gives it a single document with the
@@ -58,19 +58,19 @@ export default function LlmsTxtGuide() {
         </Guide.P>
         <Guide.UL>
           <li>
-            <Guide.Strong>Reduced noise</Guide.Strong> — no navigation, footers, ads, or
+            <Guide.Strong>Reduced noise</Guide.Strong> - no navigation, footers, ads, or
             boilerplate. Just the substance.
           </li>
           <li>
-            <Guide.Strong>Better answers</Guide.Strong> — LLMs get clear context about
+            <Guide.Strong>Better answers</Guide.Strong> - LLMs get clear context about
             what the site does, how its APIs work, and where to find specific information.
           </li>
           <li>
-            <Guide.Strong>Token efficiency</Guide.Strong> — a single file replaces
+            <Guide.Strong>Token efficiency</Guide.Strong> - a single file replaces
             hundreds of pages worth of crawled content.
           </li>
           <li>
-            <Guide.Strong>Consistency</Guide.Strong> — every query against the site gets
+            <Guide.Strong>Consistency</Guide.Strong> - every query against the site gets
             the same high-quality context, regardless of which pages the LLM might have
             otherwise discovered.
           </li>
@@ -84,21 +84,21 @@ export default function LlmsTxtGuide() {
         </Guide.P>
         <Guide.Step n={1}>
           <Guide.P>
-            <Guide.Strong>Paste a URL</Guide.Strong> — the tool checks if the site has
+            <Guide.Strong>Paste a URL</Guide.Strong> - the tool checks if the site has
             been crawled recently. If a cached version exists, you can use it or start
             fresh.
           </Guide.P>
         </Guide.Step>
         <Guide.Step n={2}>
           <Guide.P>
-            <Guide.Strong>Choose scan depth</Guide.Strong> — select how deep the crawler
+            <Guide.Strong>Choose scan depth</Guide.Strong> - select how deep the crawler
             should go. <Guide.Code>Auto</Guide.Code> lets the tool decide based on the
             site structure. You can also set 1, 3, or 5 levels for more control.
           </Guide.P>
         </Guide.Step>
         <Guide.Step n={3}>
           <Guide.P>
-            <Guide.Strong>Pick a detail level</Guide.Strong> —{" "}
+            <Guide.Strong>Pick a detail level</Guide.Strong> -{" "}
             <Guide.Code>overview</Guide.Code> produces a compact summary,{" "}
             <Guide.Code>standard</Guide.Code> covers the main content, and{" "}
             <Guide.Code>detailed</Guide.Code> includes deeper technical information.
@@ -106,7 +106,7 @@ export default function LlmsTxtGuide() {
         </Guide.Step>
         <Guide.Step n={4}>
           <Guide.P>
-            <Guide.Strong>Download or publish</Guide.Strong> — once generated, you can
+            <Guide.Strong>Download or publish</Guide.Strong> - once generated, you can
             download the file, copy the content, or publish it to a permanent URL that
             you can reference from your site.
           </Guide.P>

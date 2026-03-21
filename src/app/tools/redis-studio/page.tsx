@@ -7,7 +7,7 @@ export const metadata = toolMetadata({
   slug: "redis-studio",
   title: "Redis Studio - Browser-Based Redis Client & Key Browser",
   description:
-    "Browse Redis keys, run commands, monitor performance, and manage streams and consumer groups — all from the browser. Works with managed Upstash databases or your own Redis instance via tunnel.",
+    "Browse Redis keys, run commands, monitor performance, and manage streams and consumer groups - all from the browser. Works with managed Upstash databases or your own Redis instance via tunnel.",
   keywords: [
     "redis studio",
     "redis client",
@@ -152,7 +152,7 @@ export default function RedisStudioPage() {
               Hosted Redis on Upstash
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              Create a hosted Redis database on Upstash — serverless,
+              Create a hosted Redis database on Upstash - serverless,
               pay-per-request. Includes key browser, query editor, live
               monitor, and stream groups.
             </p>
@@ -205,27 +205,27 @@ export default function RedisStudioPage() {
             <ToolInfo.H2>Redis data types supported</ToolInfo.H2>
             <ToolInfo.UL>
               <li>
-                <ToolInfo.Code>string</ToolInfo.Code> — scalar values, counters,
+                <ToolInfo.Code>string</ToolInfo.Code> - scalar values, counters,
                 cached HTML, JSON blobs
               </li>
               <li>
-                <ToolInfo.Code>hash</ToolInfo.Code> — field/value maps for
+                <ToolInfo.Code>hash</ToolInfo.Code> - field/value maps for
                 sessions, user objects, settings
               </li>
               <li>
-                <ToolInfo.Code>list</ToolInfo.Code> — ordered sequences for
+                <ToolInfo.Code>list</ToolInfo.Code> - ordered sequences for
                 queues, logs, timelines
               </li>
               <li>
-                <ToolInfo.Code>set</ToolInfo.Code> — unordered unique values for
+                <ToolInfo.Code>set</ToolInfo.Code> - unordered unique values for
                 tags, online users, membership
               </li>
               <li>
-                <ToolInfo.Code>zset</ToolInfo.Code> (sorted set) — scored
+                <ToolInfo.Code>zset</ToolInfo.Code> (sorted set) - scored
                 members for leaderboards, rate windows, priority queues
               </li>
               <li>
-                <ToolInfo.Code>stream</ToolInfo.Code> — append-only log with
+                <ToolInfo.Code>stream</ToolInfo.Code> - append-only log with
                 consumer groups for event sourcing and message queues
               </li>
             </ToolInfo.UL>
@@ -233,25 +233,25 @@ export default function RedisStudioPage() {
             <ToolInfo.H2>How to use this tool</ToolInfo.H2>
             <ToolInfo.UL>
               <li>
-                <ToolInfo.Strong>Create a managed database</ToolInfo.Strong> —
+                <ToolInfo.Strong>Create a managed database</ToolInfo.Strong> -
                 provision an Upstash Redis instance from your account and open
                 the studio immediately
               </li>
               <li>
-                <ToolInfo.Strong>Connect via tunnel</ToolInfo.Strong> — run the{" "}
+                <ToolInfo.Strong>Connect via tunnel</ToolInfo.Strong> - run the{" "}
                 <ToolInfo.Code>1tt</ToolInfo.Code> CLI with a tunnel token to
                 connect any Redis instance to the browser studio
               </li>
               <li>
-                <ToolInfo.Strong>Browse keys</ToolInfo.Strong> — filter by
+                <ToolInfo.Strong>Browse keys</ToolInfo.Strong> - filter by
                 pattern, type, or prefix; inspect TTL and memory usage
               </li>
               <li>
-                <ToolInfo.Strong>Run commands</ToolInfo.Strong> — execute raw
+                <ToolInfo.Strong>Run commands</ToolInfo.Strong> - execute raw
                 Redis commands and see results inline
               </li>
               <li>
-                <ToolInfo.Strong>Monitor streams</ToolInfo.Strong> — browse
+                <ToolInfo.Strong>Monitor streams</ToolInfo.Strong> - browse
                 stream entries and manage consumer group offsets
               </li>
             </ToolInfo.UL>
