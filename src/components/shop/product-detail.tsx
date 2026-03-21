@@ -1,14 +1,263 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { medusa, getLowestPrice, formatPrice, type Product, type ProductVariant } from "@/lib/shop/client";
 import { getCartId, setCartId } from "@/lib/shop/cart";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, Minus, Plus, ArrowLeft, Loader2, ShoppingBag, Check } from "lucide-react";
+import { ShoppingCart, Minus, Plus, ArrowLeft, Loader2, ShoppingBag, Check, ZoomIn, ZoomOut, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+// ── Image Viewer with Zoom + Lightbox ─────────────────────────────────────
+
+function ProductImageViewer({
+  images,
+  selectedIndex,
+  onSelect,
+  productTitle,
+}: {
+  images: { id: string; url: string; rank: number }[];
+  selectedIndex: number;
+  onSelect: (i: number) => void;
+  productTitle: string;
+}) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const imgContainerRef = useRef<HTMLDivElement>(null);
+
+  const currentImage = images[selectedIndex];
+
+  // Reset zoom when image changes
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [selectedIndex]);
+
+  // Inline zoom on main image (hover to zoom)
+  const [hoverZoom, setHoverZoom] = useState(false);
+  const [hoverPos, setHoverPos] = useState({ x: 50, y: 50 });
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imgContainerRef.current) return;
+    const rect = imgContainerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setHoverPos({ x, y });
+  }, []);
+
+  // Lightbox keyboard navigation
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (e.key === "ArrowLeft") onSelect(Math.max(0, selectedIndex - 1));
+      if (e.key === "ArrowRight") onSelect(Math.min(images.length - 1, selectedIndex + 1));
+      if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(z + 0.5, 4));
+      if (e.key === "-") setZoom((z) => Math.max(z - 0.5, 1));
+      if (e.key === "0") { setZoom(1); setPan({ x: 0, y: 0 }); }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [lightboxOpen, selectedIndex, images.length, onSelect]);
+
+  // Lightbox drag to pan
+  const handleLightboxMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+  const handleLightboxMouseMove = (e: React.MouseEvent) => {
+    if (!dragging) return;
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+  const handleLightboxMouseUp = () => setDragging(false);
+
+  // Lightbox scroll to zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((z) => {
+      const next = z + (e.deltaY > 0 ? -0.25 : 0.25);
+      const clamped = Math.max(1, Math.min(4, next));
+      if (clamped === 1) setPan({ x: 0, y: 0 });
+      return clamped;
+    });
+  }, []);
+
+  return (
+    <>
+      {/* Main image with hover zoom */}
+      <div
+        ref={imgContainerRef}
+        className="aspect-square bg-muted rounded-xl overflow-hidden border relative group cursor-zoom-in"
+        onMouseEnter={() => setHoverZoom(true)}
+        onMouseLeave={() => setHoverZoom(false)}
+        onMouseMove={handleMouseMove}
+        onClick={() => setLightboxOpen(true)}
+      >
+        {currentImage ? (
+          <img
+            src={currentImage.url}
+            alt={productTitle}
+            className="w-full h-full object-cover transition-transform duration-200"
+            style={hoverZoom ? {
+              transformOrigin: `${hoverPos.x}% ${hoverPos.y}%`,
+              transform: "scale(2)",
+            } : undefined}
+            draggable={false}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <ShoppingBag className="h-16 w-16 text-muted-foreground/15" />
+          </div>
+        )}
+        {/* Fullscreen hint */}
+        {currentImage && (
+          <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-1 rounded-md">
+              <Maximize2 className="h-3 w-3" />
+              Click to expand
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Thumbnails */}
+      {images.length > 1 && (
+        <div className="flex gap-2 mt-3 overflow-x-auto">
+          {images.map((img, i) => (
+            <button
+              key={img.id}
+              onClick={() => onSelect(i)}
+              className={cn(
+                "w-16 h-16 rounded-lg overflow-hidden border-2 shrink-0 transition-colors",
+                i === selectedIndex ? "border-primary" : "border-transparent hover:border-border"
+              )}
+            >
+              <img src={img.url} alt="" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxOpen && currentImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}
+        >
+          {/* Controls */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+            <button
+              onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors text-xs font-mono"
+              title="Reset zoom"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              onClick={() => setZoom((z) => Math.min(z + 0.5, 4))}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title="Zoom in"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => { const z = Math.max(zoom - 0.5, 1); setZoom(z); if (z === 1) setPan({ x: 0, y: 0 }); }}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title="Zoom out"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Image counter */}
+          {images.length > 1 && (
+            <div className="absolute top-4 left-4 text-white/60 text-xs font-mono z-10">
+              {selectedIndex + 1} / {images.length}
+            </div>
+          )}
+
+          {/* Prev/Next arrows */}
+          {images.length > 1 && selectedIndex > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSelect(selectedIndex - 1); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          )}
+          {images.length > 1 && selectedIndex < images.length - 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSelect(selectedIndex + 1); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          )}
+
+          {/* Zoomable image */}
+          <div
+            className={cn(
+              "max-w-[90vw] max-h-[85vh] overflow-hidden",
+              zoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+            )}
+            onMouseDown={handleLightboxMouseDown}
+            onMouseMove={handleLightboxMouseMove}
+            onMouseUp={handleLightboxMouseUp}
+            onMouseLeave={handleLightboxMouseUp}
+            onWheel={handleWheel}
+            onClick={(e) => {
+              if (zoom <= 1) { setZoom(2); } else { e.stopPropagation(); }
+            }}
+          >
+            <img
+              src={currentImage.url}
+              alt={productTitle}
+              className="max-w-[90vw] max-h-[85vh] object-contain select-none"
+              style={{
+                transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                transition: dragging ? "none" : "transform 0.2s ease",
+              }}
+              draggable={false}
+            />
+          </div>
+
+          {/* Thumbnail strip */}
+          {images.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+              {images.map((img, i) => (
+                <button
+                  key={img.id}
+                  onClick={(e) => { e.stopPropagation(); onSelect(i); }}
+                  className={cn(
+                    "w-12 h-12 rounded-md overflow-hidden border-2 shrink-0 transition-all",
+                    i === selectedIndex
+                      ? "border-white opacity-100"
+                      : "border-transparent opacity-50 hover:opacity-80"
+                  )}
+                >
+                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
 
 export function ProductDetail({ handle }: { handle: string }) {
   const router = useRouter();
@@ -131,36 +380,12 @@ export function ProductDetail({ handle }: { handle: string }) {
       <div className="flex flex-col md:flex-row gap-8 lg:gap-12">
         {/* Images */}
         <div className="w-full md:w-1/2">
-          <div className="aspect-square bg-muted rounded-xl overflow-hidden border">
-            {images[selectedImage] ? (
-              <img
-                src={images[selectedImage].url}
-                alt={product.title}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <ShoppingBag className="h-16 w-16 text-muted-foreground/15" />
-              </div>
-            )}
-          </div>
-          {/* Thumbnails */}
-          {images.length > 1 && (
-            <div className="flex gap-2 mt-3 overflow-x-auto">
-              {images.map((img, i) => (
-                <button
-                  key={img.id}
-                  onClick={() => setSelectedImage(i)}
-                  className={cn(
-                    "w-16 h-16 rounded-lg overflow-hidden border-2 shrink-0 transition-colors",
-                    i === selectedImage ? "border-primary" : "border-transparent hover:border-border"
-                  )}
-                >
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
+          <ProductImageViewer
+            images={images}
+            selectedIndex={selectedImage}
+            onSelect={setSelectedImage}
+            productTitle={product.title}
+          />
         </div>
 
         {/* Details */}
