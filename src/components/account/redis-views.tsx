@@ -692,7 +692,7 @@ export function BullMQView({ dbId }: { dbId: string }) {
     setError(null);
     try {
       // Full SCAN iteration to find all bull:*:meta keys
-      const allKeys: string[] = [];
+      const keySet = new Set<string>();
       let cursor = "0";
       do {
         const res = await executeCommand(dbId, [
@@ -704,14 +704,12 @@ export function BullMQView({ dbId }: { dbId: string }) {
           "500",
         ]);
         if (!Array.isArray(res.result)) break;
-        cursor = String(res.result[0]);
+        cursor = String(res.result[0] ?? "0");
         const keys = parseScanKeys(res.result);
-        for (const k of keys) {
-          if (!allKeys.includes(k)) allKeys.push(k);
-        }
-      } while (cursor !== "0");
+        for (const k of keys) keySet.add(k);
+      } while (cursor !== "0" && keySet.size < 10000);
 
-      const names = allKeys
+      const names = Array.from(keySet)
         .map((k) => {
           const m = k.match(/^bull:(.+):meta$/);
           return m ? m[1] : null;
@@ -1526,38 +1524,35 @@ export function CeleryView({ dbId }: { dbId: string }) {
     setError(null);
     try {
       // Discover queues via _kombu.binding.* keys (full SCAN loop)
-      const bindingKeys: string[] = [];
+      const bindingKeySet = new Set<string>();
       let bindCursor = "0";
       do {
         const bindingRes = await executeCommand(dbId, [
           "SCAN", bindCursor, "MATCH", "_kombu.binding.*", "COUNT", "500",
         ]);
         if (!Array.isArray(bindingRes.result)) break;
-        bindCursor = String(bindingRes.result[0]);
-        for (const k of parseScanKeys(bindingRes.result)) {
-          if (!bindingKeys.includes(k)) bindingKeys.push(k);
-        }
-      } while (bindCursor !== "0");
+        bindCursor = String(bindingRes.result[0] ?? "0");
+        for (const k of parseScanKeys(bindingRes.result)) bindingKeySet.add(k);
+      } while (bindCursor !== "0" && bindingKeySet.size < 10000);
 
       const queueNames = [
         ...new Set(
-          bindingKeys.map((k) => k.replace("_kombu.binding.", ""))
+          Array.from(bindingKeySet).map((k) => k.replace("_kombu.binding.", ""))
         ),
       ].sort();
 
       // Discover task result keys (full SCAN loop)
-      const rKeys: string[] = [];
+      const rKeySet = new Set<string>();
       let resultCursor = "0";
       do {
         const resultRes = await executeCommand(dbId, [
           "SCAN", resultCursor, "MATCH", "celery-task-meta-*", "COUNT", "500",
         ]);
         if (!Array.isArray(resultRes.result)) break;
-        resultCursor = String(resultRes.result[0]);
-        for (const k of parseScanKeys(resultRes.result)) {
-          if (!rKeys.includes(k) && rKeys.length < 500) rKeys.push(k);
-        }
-      } while (resultCursor !== "0" && rKeys.length < 500);
+        resultCursor = String(resultRes.result[0] ?? "0");
+        for (const k of parseScanKeys(resultRes.result)) rKeySet.add(k);
+      } while (resultCursor !== "0" && rKeySet.size < 500);
+      const rKeys = Array.from(rKeySet);
 
       // Pipeline: LLEN for each queue + HLEN unacked
       const pipeline: string[][] = [

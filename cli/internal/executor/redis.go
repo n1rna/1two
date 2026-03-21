@@ -46,7 +46,43 @@ func (e *RedisExecutor) Execute(ctx context.Context, args []string) (any, error)
 	if err != nil && err != redis.Nil {
 		return nil, err
 	}
-	return result, nil
+	// go-redis returns map[interface{}]interface{} for hash commands (HGETALL etc.)
+	// and []interface{} for lists. json.Marshal can't handle map[interface{}]interface{}.
+	//
+	// The Upstash REST API and the hosted Redis proxy return HGETALL results as
+	// flat arrays ["field1","value1","field2","value2",...] (standard RESP format).
+	// The frontend expects this format. So we flatten maps to alternating arrays
+	// and recursively convert all values to JSON-safe types.
+	return flattenResult(result), nil
+}
+
+// flattenResult recursively converts go-redis result types to JSON-serializable
+// forms that match the Upstash REST API / standard RESP output format.
+// Maps (from HGETALL etc.) are flattened to alternating ["field","value",...] arrays.
+func flattenResult(v any) any {
+	switch val := v.(type) {
+	case map[any]any:
+		// Flatten to alternating array: ["k1","v1","k2","v2",...]
+		flat := make([]any, 0, len(val)*2)
+		for k, v2 := range val {
+			flat = append(flat, fmt.Sprintf("%v", k), flattenResult(v2))
+		}
+		return flat
+	case map[string]any:
+		flat := make([]any, 0, len(val)*2)
+		for k, v2 := range val {
+			flat = append(flat, k, flattenResult(v2))
+		}
+		return flat
+	case []any:
+		out := make([]any, len(val))
+		for i, v2 := range val {
+			out[i] = flattenResult(v2)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 // GetVersion returns the redis_version from INFO server.
