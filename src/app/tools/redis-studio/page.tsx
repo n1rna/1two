@@ -54,7 +54,7 @@ export default function RedisStudioPage() {
       ))}
 
       {/* Full-screen layout — no ToolLayout wrapper */}
-      <div className="flex flex-col h-screen overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden">
         {/* Top bar */}
         <div className="border-b shrink-0">
           <div className="flex items-center gap-2 px-4 py-2">
