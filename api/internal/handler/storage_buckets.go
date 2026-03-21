@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"mime"
 	"net/http"
@@ -24,14 +26,15 @@ var bucketNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$`)
 
 // StorageBucketRecord is the JSON representation of a user_storage_buckets row.
 type StorageBucketRecord struct {
-	ID          string `json:"id"`
-	UserID      string `json:"userId"`
-	Name        string `json:"name"`
-	Status      string `json:"status"`
-	TotalSize   int64  `json:"totalSize"`
-	ObjectCount int    `json:"objectCount"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	ID           string `json:"id"`
+	UserID       string `json:"userId"`
+	Name         string `json:"name"`
+	Status       string `json:"status"`
+	TotalSize    int64  `json:"totalSize"`
+	ObjectCount  int    `json:"objectCount"`
+	R2BucketName string `json:"r2BucketName"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
 }
 
 // StorageObjectRecord is the JSON representation of a storage_objects row.
@@ -47,18 +50,15 @@ type StorageObjectRecord struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
-// r2KeyForObject builds the canonical R2 key for an object.
-func r2KeyForObject(userID, bucketName, key string) string {
-	return fmt.Sprintf("storage/%s/%s/%s", userID, bucketName, key)
-}
-
 // scanBucket scans a single user_storage_buckets row into StorageBucketRecord.
+// The query must SELECT: id, user_id, name, status, total_size, object_count,
+// r2_bucket_name, created_at, updated_at (in that order).
 func scanBucket(row interface {
 	Scan(dest ...any) error
 }) (StorageBucketRecord, error) {
 	var b StorageBucketRecord
 	var createdAt, updatedAt time.Time
-	if err := row.Scan(&b.ID, &b.UserID, &b.Name, &b.Status, &b.TotalSize, &b.ObjectCount, &createdAt, &updatedAt); err != nil {
+	if err := row.Scan(&b.ID, &b.UserID, &b.Name, &b.Status, &b.TotalSize, &b.ObjectCount, &b.R2BucketName, &createdAt, &updatedAt); err != nil {
 		return b, err
 	}
 	b.CreatedAt = createdAt.UTC().Format(time.RFC3339)
@@ -66,9 +66,41 @@ func scanBucket(row interface {
 	return b, nil
 }
 
+// bucketAuth holds the info needed to build a per-bucket R2 client.
+type bucketAuth struct {
+	R2BucketName   string
+	S3AccessKeyID  string
+	S3SecretKey    string
+}
+
+// lookupBucketAuth fetches bucket ownership and credentials, returning
+// an error HTTP response if the bucket is not found or not owned by userID.
+func lookupBucketAuth(ctx context.Context, db *sql.DB, bucketID, userID string, w http.ResponseWriter) (*bucketAuth, bool) {
+	var ownerID string
+	var ba bucketAuth
+	err := db.QueryRowContext(ctx,
+		`SELECT user_id, r2_bucket_name, s3_access_key_id, s3_secret_access_key
+		 FROM user_storage_buckets WHERE id = $1 AND status = 'active'`,
+		bucketID,
+	).Scan(&ownerID, &ba.R2BucketName, &ba.S3AccessKeyID, &ba.S3SecretKey)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, `{"error":"bucket not found"}`, http.StatusNotFound)
+		} else {
+			http.Error(w, `{"error":"failed to look up bucket"}`, http.StatusInternalServerError)
+		}
+		return nil, false
+	}
+	if ownerID != userID {
+		http.Error(w, `{"error":"bucket not found"}`, http.StatusNotFound)
+		return nil, false
+	}
+	return &ba, true
+}
+
 // CreateStorageBucket handles POST /storage/buckets.
-// Creates a logical storage bucket (namespace) for the authenticated user.
-func CreateStorageBucket(db *sql.DB, r2Client *storage.R2Client, billingClient *billing.Client) http.HandlerFunc {
+// Creates a real R2 bucket and a scoped API token, then stores the bucket record.
+func CreateStorageBucket(db *sql.DB, r2Client *storage.R2Client, cfClient *storage.CloudflareClient, billingClient *billing.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -117,12 +149,40 @@ func CreateStorageBucket(db *sql.DB, r2Client *storage.R2Client, billingClient *
 		}
 
 		id := uuid.NewString()
-		const q = `
-			INSERT INTO user_storage_buckets (id, user_id, name, status)
-			VALUES ($1, $2, $3, 'active')
-			RETURNING id, user_id, name, status, total_size, object_count, created_at, updated_at`
 
-		row := db.QueryRowContext(r.Context(), q, id, userID, req.Name)
+		// Derive a globally-unique R2 bucket name from the first 8 chars of the UUID.
+		r2BucketName := "1tt-" + strings.ReplaceAll(id, "-", "")[:8]
+
+		// Create the real R2 bucket via the Cloudflare API.
+		if err := cfClient.CreateR2Bucket(r.Context(), r2BucketName); err != nil {
+			log.Printf("storage: create R2 bucket %q: %v", r2BucketName, err)
+			http.Error(w, `{"error":"failed to provision storage bucket"}`, http.StatusInternalServerError)
+			return
+		}
+
+		// Create a per-bucket API token with S3-compatible credentials.
+		tokenName := "1tt-storage-" + r2BucketName
+		creds, err := cfClient.CreateBucketToken(r.Context(), tokenName)
+		if err != nil {
+			log.Printf("storage: create bucket token for %q: %v", r2BucketName, err)
+			// Roll back: delete the R2 bucket we just created.
+			if delErr := cfClient.DeleteR2Bucket(r.Context(), r2BucketName); delErr != nil {
+				log.Printf("storage: cleanup R2 bucket %q after token failure: %v", r2BucketName, delErr)
+			}
+			http.Error(w, `{"error":"failed to provision storage credentials"}`, http.StatusInternalServerError)
+			return
+		}
+
+		const q = `
+			INSERT INTO user_storage_buckets
+			    (id, user_id, name, status, r2_bucket_name, cf_token_id, s3_access_key_id, s3_secret_access_key)
+			VALUES ($1, $2, $3, 'active', $4, $5, $6, $7)
+			RETURNING id, user_id, name, status, total_size, object_count, r2_bucket_name, created_at, updated_at`
+
+		row := db.QueryRowContext(r.Context(), q,
+			id, userID, req.Name, r2BucketName,
+			creds.CfTokenID, creds.S3AccessKeyID, creds.S3SecretKey,
+		)
 		bucket, err := scanBucket(row)
 		if err != nil {
 			if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
@@ -152,7 +212,7 @@ func ListStorageBuckets(db *sql.DB) http.HandlerFunc {
 		}
 
 		const q = `
-			SELECT id, user_id, name, status, total_size, object_count, created_at, updated_at
+			SELECT id, user_id, name, status, total_size, object_count, r2_bucket_name, created_at, updated_at
 			FROM user_storage_buckets
 			WHERE user_id = $1 AND status = 'active'
 			ORDER BY created_at DESC`
@@ -183,8 +243,8 @@ func ListStorageBuckets(db *sql.DB) http.HandlerFunc {
 }
 
 // DeleteStorageBucket handles DELETE /storage/buckets/{id}.
-// Deletes all objects from R2, removes DB rows, and deletes the bucket record.
-func DeleteStorageBucket(db *sql.DB, r2Client *storage.R2Client) http.HandlerFunc {
+// Deletes all objects from R2, removes DB rows, cleans up the CF token, and deletes the bucket.
+func DeleteStorageBucket(db *sql.DB, r2AccountID string, cfClient *storage.CloudflareClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -196,11 +256,12 @@ func DeleteStorageBucket(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 
 		bucketID := chi.URLParam(r, "id")
 
-		// Verify ownership.
-		var bucketOwner string
+		// Verify ownership and fetch R2 metadata + credentials.
+		var bucketOwner, r2BucketName, cfTokenID, s3AccessKey, s3SecretKey string
 		if err := db.QueryRowContext(r.Context(),
-			`SELECT user_id FROM user_storage_buckets WHERE id = $1 AND status = 'active'`,
-			bucketID).Scan(&bucketOwner); err != nil {
+			`SELECT user_id, r2_bucket_name, cf_token_id, s3_access_key_id, s3_secret_access_key
+			 FROM user_storage_buckets WHERE id = $1 AND status = 'active'`,
+			bucketID).Scan(&bucketOwner, &r2BucketName, &cfTokenID, &s3AccessKey, &s3SecretKey); err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, `{"error":"bucket not found"}`, http.StatusNotFound)
 				return
@@ -236,11 +297,25 @@ func DeleteStorageBucket(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 			return
 		}
 
-		// Delete each object from R2. Log individual failures but continue so we
-		// always clean up the database rows.
+		// Delete each object from the per-user R2 bucket using its own credentials.
+		bucketR2 := storage.NewR2ClientForBucket(r2AccountID, s3AccessKey, s3SecretKey, r2BucketName)
 		for _, key := range r2Keys {
-			if err := r2Client.Delete(r.Context(), key); err != nil {
-				log.Printf("storage: delete bucket %s R2 key %q: %v", bucketID, key, err)
+			if err := bucketR2.Delete(r.Context(), key); err != nil {
+				log.Printf("storage: delete bucket %s R2 key %q from %q: %v", bucketID, key, r2BucketName, err)
+			}
+		}
+
+		// Delete the per-bucket API token.
+		if cfTokenID != "" {
+			if err := cfClient.DeleteBucketToken(r.Context(), cfTokenID); err != nil {
+				log.Printf("storage: delete bucket token %q: %v", cfTokenID, err)
+			}
+		}
+
+		// Delete the R2 bucket itself (must be empty).
+		if r2BucketName != "" {
+			if err := cfClient.DeleteR2Bucket(r.Context(), r2BucketName); err != nil {
+				log.Printf("storage: delete R2 bucket %q: %v", r2BucketName, err)
 			}
 		}
 
@@ -351,7 +426,7 @@ func ListStorageObjects(db *sql.DB) http.HandlerFunc {
 		}
 
 		json.NewEncoder(w).Encode(map[string]any{
-			"objects":       objects,
+			"objects":        objects,
 			"commonPrefixes": cpSlice,
 		})
 	}
@@ -359,7 +434,7 @@ func ListStorageObjects(db *sql.DB) http.HandlerFunc {
 
 // UploadStorageObject handles POST /storage/buckets/{id}/objects.
 // Accepts a multipart/form-data body with a "file" field and an optional "key" field.
-func UploadStorageObject(db *sql.DB, r2Client *storage.R2Client, billingClient *billing.Client) http.HandlerFunc {
+func UploadStorageObject(db *sql.DB, r2AccountID string, billingClient *billing.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -386,20 +461,8 @@ func UploadStorageObject(db *sql.DB, r2Client *storage.R2Client, billingClient *
 
 		bucketID := chi.URLParam(r, "id")
 
-		// Verify ownership and get bucket name (needed for R2 key construction).
-		var bucketOwner, bucketName string
-		if err := db.QueryRowContext(r.Context(),
-			`SELECT user_id, name FROM user_storage_buckets WHERE id = $1 AND status = 'active'`,
-			bucketID).Scan(&bucketOwner, &bucketName); err != nil {
-			if err == sql.ErrNoRows {
-				http.Error(w, `{"error":"bucket not found"}`, http.StatusNotFound)
-				return
-			}
-			http.Error(w, `{"error":"failed to look up bucket"}`, http.StatusInternalServerError)
-			return
-		}
-		if bucketOwner != userID {
-			http.Error(w, `{"error":"bucket not found"}`, http.StatusNotFound)
+		ba, ok := lookupBucketAuth(r.Context(), db, bucketID, userID, w)
+		if !ok {
 			return
 		}
 
@@ -409,24 +472,50 @@ func UploadStorageObject(db *sql.DB, r2Client *storage.R2Client, billingClient *
 			return
 		}
 
-		file, header, err := r.FormFile("file")
-		if err != nil {
+		// Determine the object key first — folder creation sends only "key" with no file.
+		objectKey := strings.TrimSpace(r.FormValue("key"))
+
+		file, header, fileErr := r.FormFile("file")
+		isFolder := fileErr != nil && strings.HasSuffix(objectKey, "/")
+
+		var fileSize int64
+		var contentType string
+
+		if isFolder {
+			// Folder placeholder — zero-byte object with trailing slash.
+			fileSize = 0
+			contentType = "application/x-directory"
+		} else if fileErr != nil {
 			http.Error(w, `{"error":"file field is required"}`, http.StatusBadRequest)
 			return
-		}
-		defer file.Close()
+		} else {
+			defer file.Close()
 
-		// Enforce per-file size limit.
-		if header.Size > maxFileBytes {
-			http.Error(w, fmt.Sprintf(`{"error":"file exceeds maximum allowed size of %d MB"}`, limits.StorageMaxFileSizeMB), http.StatusRequestEntityTooLarge)
-			return
+			// Enforce per-file size limit.
+			if header.Size > maxFileBytes {
+				http.Error(w, fmt.Sprintf(`{"error":"file exceeds maximum allowed size of %d MB"}`, limits.StorageMaxFileSizeMB), http.StatusRequestEntityTooLarge)
+				return
+			}
+			fileSize = header.Size
+
+			if objectKey == "" {
+				objectKey = header.Filename
+			}
+
+			// Determine content type.
+			contentType = header.Header.Get("Content-Type")
+			if contentType == "" || contentType == "application/octet-stream" {
+				if ext := filepath.Ext(header.Filename); ext != "" {
+					if ct := mime.TypeByExtension(ext); ct != "" {
+						contentType = ct
+					}
+				}
+			}
+			if contentType == "" {
+				contentType = "application/octet-stream"
+			}
 		}
 
-		// Determine the object key.
-		objectKey := strings.TrimSpace(r.FormValue("key"))
-		if objectKey == "" {
-			objectKey = header.Filename
-		}
 		// Normalise path separators and strip leading slashes.
 		objectKey = strings.TrimLeft(filepath.ToSlash(objectKey), "/")
 		if objectKey == "" {
@@ -443,28 +532,21 @@ func UploadStorageObject(db *sql.DB, r2Client *storage.R2Client, billingClient *
 			http.Error(w, `{"error":"failed to check storage usage"}`, http.StatusInternalServerError)
 			return
 		}
-		if usedBytes+header.Size > maxStorageBytes {
+		if usedBytes+fileSize > maxStorageBytes {
 			http.Error(w, fmt.Sprintf(`{"error":"upload would exceed your storage quota of %d GB"}`, limits.StorageMaxGB), http.StatusForbidden)
 			return
 		}
 
-		// Determine content type: use what the browser sent, fall back to extension sniffing.
-		contentType := header.Header.Get("Content-Type")
-		if contentType == "" || contentType == "application/octet-stream" {
-			if ext := filepath.Ext(header.Filename); ext != "" {
-				if ct := mime.TypeByExtension(ext); ct != "" {
-					contentType = ct
-				}
-			}
-		}
-		if contentType == "" {
-			contentType = "application/octet-stream"
-		}
+		// Build a per-bucket S3 client using the bucket's own credentials.
+		bucketR2 := storage.NewR2ClientForBucket(r2AccountID, ba.S3AccessKeyID, ba.S3SecretKey, ba.R2BucketName)
 
-		r2Key := r2KeyForObject(userID, bucketName, objectKey)
-
-		// Upload to R2.
-		if err := r2Client.Upload(r.Context(), r2Key, file, contentType, header.Size); err != nil {
+		var uploadBody io.Reader
+		if isFolder {
+			uploadBody = strings.NewReader("")
+		} else {
+			uploadBody = file
+		}
+		if err := bucketR2.Upload(r.Context(), objectKey, uploadBody, contentType, fileSize); err != nil {
 			log.Printf("storage: R2 upload error: %v", err)
 			http.Error(w, `{"error":"failed to upload file"}`, http.StatusInternalServerError)
 			return
@@ -474,6 +556,7 @@ func UploadStorageObject(db *sql.DB, r2Client *storage.R2Client, billingClient *
 		objectID := uuid.NewString()
 		now := time.Now().UTC()
 
+		// r2_key is just the objectKey — no prefix needed since each bucket is isolated.
 		const upsertQ = `
 			INSERT INTO storage_objects (id, bucket_id, user_id, key, r2_key, size, content_type, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8)
@@ -487,7 +570,7 @@ func UploadStorageObject(db *sql.DB, r2Client *storage.R2Client, billingClient *
 		var obj StorageObjectRecord
 		var createdAt, updatedAt time.Time
 		if err := db.QueryRowContext(r.Context(), upsertQ,
-			objectID, bucketID, userID, objectKey, r2Key, header.Size, contentType, now,
+			objectID, bucketID, userID, objectKey, objectKey, fileSize, contentType, now,
 		).Scan(&obj.ID, &obj.BucketID, &obj.UserID, &obj.Key, &obj.R2Key,
 			&obj.Size, &obj.ContentType, &createdAt, &updatedAt); err != nil {
 			log.Printf("storage: upsert object error: %v", err)
@@ -514,7 +597,7 @@ func UploadStorageObject(db *sql.DB, r2Client *storage.R2Client, billingClient *
 }
 
 // DeleteStorageObject handles DELETE /storage/buckets/{id}/objects/{objectId}.
-func DeleteStorageObject(db *sql.DB, r2Client *storage.R2Client) http.HandlerFunc {
+func DeleteStorageObject(db *sql.DB, r2AccountID string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -527,16 +610,16 @@ func DeleteStorageObject(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 		bucketID := chi.URLParam(r, "id")
 		objectID := chi.URLParam(r, "objectId")
 
-		// Verify ownership of the bucket and fetch the R2 key in one query.
-		var r2Key string
-		var ownerID string
+		// Fetch bucket credentials + object key.
+		var r2Key, ownerID string
+		var ba bucketAuth
 		if err := db.QueryRowContext(r.Context(), `
-			SELECT o.r2_key, b.user_id
+			SELECT o.r2_key, b.user_id, b.r2_bucket_name, b.s3_access_key_id, b.s3_secret_access_key
 			FROM storage_objects o
 			JOIN user_storage_buckets b ON b.id = o.bucket_id
 			WHERE o.id = $1 AND o.bucket_id = $2`,
 			objectID, bucketID,
-		).Scan(&r2Key, &ownerID); err != nil {
+		).Scan(&r2Key, &ownerID, &ba.R2BucketName, &ba.S3AccessKeyID, &ba.S3SecretKey); err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, `{"error":"object not found"}`, http.StatusNotFound)
 				return
@@ -549,9 +632,10 @@ func DeleteStorageObject(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 			return
 		}
 
-		// Delete from R2.
-		if err := r2Client.Delete(r.Context(), r2Key); err != nil {
-			log.Printf("storage: delete object R2 key %q: %v", r2Key, err)
+		// Delete from R2 using per-bucket credentials.
+		bucketR2 := storage.NewR2ClientForBucket(r2AccountID, ba.S3AccessKeyID, ba.S3SecretKey, ba.R2BucketName)
+		if err := bucketR2.Delete(r.Context(), r2Key); err != nil {
+			log.Printf("storage: delete object R2 key %q from bucket %q: %v", r2Key, ba.R2BucketName, err)
 			// Continue — we still want to remove the DB record.
 		}
 
@@ -578,7 +662,7 @@ func DeleteStorageObject(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 
 // GetStorageObjectUrl handles GET /storage/buckets/{id}/objects/{objectId}/url.
 // Returns a presigned download URL valid for 15 minutes.
-func GetStorageObjectUrl(db *sql.DB, r2Client *storage.R2Client) http.HandlerFunc {
+func GetStorageObjectUrl(db *sql.DB, r2AccountID string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -592,13 +676,14 @@ func GetStorageObjectUrl(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 		objectID := chi.URLParam(r, "objectId")
 
 		var r2Key, objectKey, ownerID string
+		var ba bucketAuth
 		if err := db.QueryRowContext(r.Context(), `
-			SELECT o.r2_key, o.key, b.user_id
+			SELECT o.r2_key, o.key, b.user_id, b.r2_bucket_name, b.s3_access_key_id, b.s3_secret_access_key
 			FROM storage_objects o
 			JOIN user_storage_buckets b ON b.id = o.bucket_id
 			WHERE o.id = $1 AND o.bucket_id = $2`,
 			objectID, bucketID,
-		).Scan(&r2Key, &objectKey, &ownerID); err != nil {
+		).Scan(&r2Key, &objectKey, &ownerID, &ba.R2BucketName, &ba.S3AccessKeyID, &ba.S3SecretKey); err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, `{"error":"object not found"}`, http.StatusNotFound)
 				return
@@ -612,11 +697,11 @@ func GetStorageObjectUrl(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 		}
 
 		const ttl = 15 * time.Minute
-		// Use the last path component as the download filename.
 		filename := filepath.Base(objectKey)
-		presignedURL, err := r2Client.PresignedURL(r.Context(), r2Key, filename, ttl)
+		bucketR2 := storage.NewR2ClientForBucket(r2AccountID, ba.S3AccessKeyID, ba.S3SecretKey, ba.R2BucketName)
+		presignedURL, err := bucketR2.PresignedURL(r.Context(), r2Key, filename, ttl)
 		if err != nil {
-			log.Printf("storage: presign error for key %q: %v", r2Key, err)
+			log.Printf("storage: presign error for key %q in bucket %q: %v", r2Key, ba.R2BucketName, err)
 			http.Error(w, `{"error":"failed to generate download URL"}`, http.StatusInternalServerError)
 			return
 		}
@@ -624,6 +709,51 @@ func GetStorageObjectUrl(db *sql.DB, r2Client *storage.R2Client) http.HandlerFun
 		json.NewEncoder(w).Encode(map[string]any{
 			"url":       presignedURL,
 			"expiresIn": int(ttl.Seconds()),
+		})
+	}
+}
+
+// GetStorageBucketCredentials handles GET /storage/buckets/{id}/credentials.
+// Returns the S3-compatible credentials for the bucket so the user can access it directly.
+// GetStorageBucketCredentials handles GET /storage/buckets/{id}/credentials.
+// Returns the permanent S3-compatible credentials for this bucket.
+func GetStorageBucketCredentials(db *sql.DB, cfClient *storage.CloudflareClient) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		bucketID := chi.URLParam(r, "id")
+
+		var ownerID, r2BucketName, accessKeyID, secretAccessKey string
+		if err := db.QueryRowContext(r.Context(),
+			`SELECT user_id, r2_bucket_name, s3_access_key_id, s3_secret_access_key
+			 FROM user_storage_buckets
+			 WHERE id = $1 AND status = 'active'`,
+			bucketID,
+		).Scan(&ownerID, &r2BucketName, &accessKeyID, &secretAccessKey); err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, `{"error":"bucket not found"}`, http.StatusNotFound)
+				return
+			}
+			http.Error(w, `{"error":"failed to look up bucket"}`, http.StatusInternalServerError)
+			return
+		}
+		if ownerID != userID {
+			http.Error(w, `{"error":"bucket not found"}`, http.StatusNotFound)
+			return
+		}
+
+		json.NewEncoder(w).Encode(map[string]any{
+			"endpoint":        cfClient.S3Endpoint(),
+			"bucketName":      r2BucketName,
+			"accessKeyId":     accessKeyID,
+			"secretAccessKey": secretAccessKey,
+			"region":          "auto",
 		})
 	}
 }

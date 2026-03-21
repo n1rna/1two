@@ -170,3 +170,22 @@ export async function getStorageUsage(): Promise<StorageUsage> {
   }
   return (await res.json()) as StorageUsage;
 }
+
+export interface BucketCredentials {
+  endpoint: string;
+  bucketName: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+}
+
+export async function getBucketCredentials(bucketId: string): Promise<BucketCredentials> {
+  const res = await fetch(`/api/proxy/storage/buckets/${bucketId}/credentials`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `HTTP ${res.status}`);
+  }
+  return res.json();
+}

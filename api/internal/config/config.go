@@ -11,7 +11,7 @@ type Config struct {
 	UploadDir          string
 	TurnstileSecretKey string
 
-	// R2 storage
+	// R2 storage (scoped to the internal 1two-files bucket)
 	R2AccountID       string
 	R2AccessKeyID     string
 	R2SecretAccessKey string
@@ -20,9 +20,10 @@ type Config struct {
 	// Internal auth for cron jobs
 	InternalSecret string
 
-	// Cloudflare Browser Rendering
-	CfAccountID string
-	CfAPIToken  string
+	// Cloudflare Browser Rendering and R2 management
+	CfAccountID          string
+	CfAPIToken           string
+	CfR2TokenPermGroupID string // CF_R2_PERM_GROUP_ID — optional override for R2 token permission group UUID
 
 	// LLM provider for llms.txt generation
 	LLMProvider string // "openai" (default, OpenAI-compatible) or "anthropic"
@@ -83,8 +84,9 @@ func Load() *Config {
 
 		InternalSecret: os.Getenv("INTERNAL_SECRET"),
 
-		CfAccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
-		CfAPIToken:  os.Getenv("CLOUDFLARE_API_TOKEN"),
+		CfAccountID:          os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
+		CfAPIToken:           os.Getenv("CLOUDFLARE_API_TOKEN"),
+		CfR2TokenPermGroupID: os.Getenv("CF_R2_PERM_GROUP_ID"),
 
 		LLMProvider: getEnvOrDefault("LLM_PROVIDER", "openai"),
 		LLMAPIKey:   os.Getenv("LLM_API_KEY"),

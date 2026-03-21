@@ -30,6 +30,7 @@ import {
   type StorageBucket,
 } from "@/lib/storage";
 import { ConnectionDialog } from "@/components/account/connection-dialog";
+import { StorageCredentialsDialog } from "@/components/account/storage-credentials-dialog";
 import { ApiInfoDialog } from "@/components/account/hosted-sqlite-api-dialog";
 import { TunnelConnectDialog } from "@/components/account/tunnel-connect-dialog";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ import {
   FileUp,
   Globe,
   HardDrive,
+  KeyRound,
   Link2,
   Loader2,
   Plus,
@@ -213,6 +215,7 @@ function StorageBucketCard({
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [credsOpen, setCredsOpen] = useState(false);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -260,6 +263,15 @@ function StorageBucketCard({
           <Button
             variant="ghost"
             size="icon"
+            className="h-7 w-7"
+            onClick={() => setCredsOpen(true)}
+            title="View credentials"
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             className="h-7 w-7 text-destructive hover:text-destructive"
             onClick={() => setDeleteOpen(true)}
             disabled={deleting}
@@ -279,6 +291,12 @@ function StorageBucketCard({
         onOpenChange={setDeleteOpen}
         onConfirm={() => void handleDelete()}
         deleting={deleting}
+      />
+      <StorageCredentialsDialog
+        bucketId={bucket.id}
+        bucketName={bucket.name}
+        open={credsOpen}
+        onOpenChange={setCredsOpen}
       />
     </div>
   );

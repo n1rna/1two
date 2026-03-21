@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -39,6 +40,25 @@ func NewR2Client(accountID, accessKeyID, secretKey, bucket string) (*R2Client, e
 		presigner: s3.NewPresignClient(client),
 		bucket:    bucket,
 	}, nil
+}
+
+// NewR2ClientForBucket creates an R2 client authenticated with per-bucket
+// credentials. Used for managed storage buckets where each bucket has its own
+// API token derived S3 credentials.
+func NewR2ClientForBucket(accountID, accessKeyID, secretKey, bucketName string) *R2Client {
+	endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
+
+	client := s3.New(s3.Options{
+		Region:       "auto",
+		BaseEndpoint: &endpoint,
+		Credentials:  credentials.NewStaticCredentialsProvider(accessKeyID, secretKey, ""),
+	})
+
+	return &R2Client{
+		client:    client,
+		presigner: s3.NewPresignClient(client),
+		bucket:    bucketName,
+	}
 }
 
 // Upload stores a file in R2.
@@ -116,6 +136,72 @@ func (r *R2Client) PresignedURL(ctx context.Context, key, originalName string, t
 	}, s3.WithPresignExpires(ttl))
 	if err != nil {
 		return "", fmt.Errorf("storage: presign %q: %w", key, err)
+	}
+	return req.URL, nil
+}
+
+// CreateBucket creates a new R2 bucket using the S3 CreateBucket API.
+func (r *R2Client) CreateBucket(ctx context.Context, bucketName string) error {
+	_, err := r.client.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(bucketName),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: create bucket %q: %w", bucketName, err)
+	}
+	return nil
+}
+
+// DeleteBucket deletes an R2 bucket using the S3 DeleteBucket API.
+// The bucket must be empty before calling this method.
+func (r *R2Client) DeleteBucket(ctx context.Context, bucketName string) error {
+	_, err := r.client.DeleteBucket(ctx, &s3.DeleteBucketInput{
+		Bucket: aws.String(bucketName),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: delete bucket %q: %w", bucketName, err)
+	}
+	return nil
+}
+
+// UploadToBucket uploads an object to a specific R2 bucket (not the default one).
+func (r *R2Client) UploadToBucket(ctx context.Context, bucketName, key string, body io.Reader, contentType string, size int64) error {
+	_, err := r.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(bucketName),
+		Key:           aws.String(key),
+		Body:          body,
+		ContentType:   aws.String(contentType),
+		ContentLength: aws.Int64(size),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: upload %q to bucket %q: %w", key, bucketName, err)
+	}
+	return nil
+}
+
+// DeleteFromBucket deletes an object from a specific R2 bucket.
+func (r *R2Client) DeleteFromBucket(ctx context.Context, bucketName, key string) error {
+	_, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: delete %q from bucket %q: %w", key, bucketName, err)
+	}
+	return nil
+}
+
+// PresignedURLForBucket generates a presigned GET URL for an object in a specific bucket.
+// The URL is valid for the given TTL.
+func (r *R2Client) PresignedURLForBucket(ctx context.Context, bucketName, key, originalName string, ttl time.Duration) (string, error) {
+	disposition := fmt.Sprintf(`inline; filename="%s"`, url.PathEscape(originalName))
+
+	req, err := r.presigner.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket:                     aws.String(bucketName),
+		Key:                        aws.String(key),
+		ResponseContentDisposition: aws.String(disposition),
+	}, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", fmt.Errorf("storage: presign %q in bucket %q: %w", key, bucketName, err)
 	}
 	return req.URL, nil
 }
