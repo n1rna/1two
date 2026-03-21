@@ -336,9 +336,10 @@ func (s *Service) runJob(ctx context.Context, jobID string) error {
 		log.Printf("llms: job %s using cached crawl for %s (%d pages)", jobID, normalizedURL, pagesCount)
 	}
 
-	// Update pages_crawled count
+	// Update pages_crawled count — use the actual page count but never decrease
+	// (during polling it may have been set to Total from Cloudflare which includes errored pages)
 	s.db.ExecContext(ctx,
-		`UPDATE llms_jobs SET pages_crawled = $1, updated_at = NOW() WHERE id = $2`,
+		`UPDATE llms_jobs SET pages_crawled = GREATEST(pages_crawled, $1), updated_at = NOW() WHERE id = $2`,
 		len(pages), jobID)
 
 	// --- Generation phase ---
