@@ -55,7 +55,7 @@ export default function DatabaseStudioPage() {
             <span className="text-sm font-semibold">Database Studio</span>
             <div className="flex items-center gap-1 ml-auto">
               <Link
-                href="/docs/database-studio"
+                href="/guides/postgresql-studio"
                 className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted/50"
               >
                 <BookOpen className="h-3.5 w-3.5" />
