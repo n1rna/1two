@@ -144,6 +144,10 @@ func InitChannelLink(db *sql.DB, resendClient *life.ResendClient) http.HandlerFu
 		displayName := "Telegram"
 		if req.Channel == "email" {
 			displayName = req.ChannelUID
+			// Clean up any existing unverified email links for this user/email.
+			db.ExecContext(r.Context(),
+				`DELETE FROM life_channel_links WHERE user_id = $1 AND channel = 'email' AND channel_uid = $2 AND verified = FALSE`,
+				userID, req.ChannelUID)
 		}
 
 		id := uuid.NewString()
