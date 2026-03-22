@@ -29,6 +29,16 @@ interface Env {
   TURSO_ORG_SLUG: string;
   TURSO_GROUP: string;
   TUNNEL_PUBLIC_URL: string;
+  UPSTASH_EMAIL: string;
+  UPSTASH_API_KEY: string;
+  TELEGRAM_BOT_TOKEN: string;
+  TELEGRAM_WEBHOOK_SECRET: string;
+  EMAIL_WEBHOOK_SECRET: string;
+  RESEND_API_KEY: string;
+  RESEND_FROM_EMAIL: string;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  GOOGLE_REDIRECT_URI: string;
 }
 
 export class ApiContainer extends Container<Env> {
@@ -65,6 +75,16 @@ export class ApiContainer extends Container<Env> {
       TURSO_ORG_SLUG: env.TURSO_ORG_SLUG ?? "",
       TURSO_GROUP: env.TURSO_GROUP ?? "",
       TUNNEL_PUBLIC_URL: env.TUNNEL_PUBLIC_URL ?? "",
+      UPSTASH_EMAIL: env.UPSTASH_EMAIL ?? "",
+      UPSTASH_API_KEY: env.UPSTASH_API_KEY ?? "",
+      TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN ?? "",
+      TELEGRAM_WEBHOOK_SECRET: env.TELEGRAM_WEBHOOK_SECRET ?? "",
+      EMAIL_WEBHOOK_SECRET: env.EMAIL_WEBHOOK_SECRET ?? "",
+      RESEND_API_KEY: env.RESEND_API_KEY ?? "",
+      RESEND_FROM_EMAIL: env.RESEND_FROM_EMAIL ?? "",
+      GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID ?? "",
+      GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET ?? "",
+      GOOGLE_REDIRECT_URI: env.GOOGLE_REDIRECT_URI ?? "",
       PORT: "8080",
     };
   }
