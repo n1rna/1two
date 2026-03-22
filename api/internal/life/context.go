@@ -7,7 +7,7 @@ import (
 )
 
 // buildSystemPrompt assembles the full system prompt for the life planning agent.
-func buildSystemPrompt(profile *Profile, memories []Memory, routines []Routine, pendingActionablesCount int, calendarEvents []GCalEvent, now time.Time) string {
+func buildSystemPrompt(profile *Profile, memories []Memory, routines []Routine, pendingActionablesCount int, calendarEvents []GCalEvent, autoApprove bool, now time.Time) string {
 	var sb strings.Builder
 
 	// ── Role & personality ───────────────────────────────────────────────
@@ -19,6 +19,12 @@ func buildSystemPrompt(profile *Profile, memories []Memory, routines []Routine, 
 - Respectful of the user's autonomy — suggest, don't dictate
 - Direct: no filler or unnecessary pleasantries
 - Conversational but focused
+
+## Formatting
+- Use markdown formatting in your responses: **bold**, *italic*, lists, and headers when helpful
+- Use markdown tables when comparing options, showing schedules, or presenting structured data — they render nicely in the chat UI
+- Keep tables compact — short column headers, concise cell values
+- Use bullet lists for simple enumerations, tables for structured comparisons
 
 `)
 
@@ -157,7 +163,32 @@ Fetch the user's upcoming Google Calendar events. Use this when the user asks ab
 Create a new event on the user's Google Calendar. Use this when the user explicitly asks to schedule something.
 - params: summary (required), start (RFC3339, required), end (RFC3339, required), description (optional), location (optional)
 - Always confirm the time back to the user after creating.
-- Only use these tools when the user has a Google Calendar connected. If not connected, inform them they can connect via the Calendar tab.
+
+### update_calendar_event
+Update an existing calendar event. Call get_calendar_events first to find the event_id.
+- params: event_id (required), summary, start (RFC3339), end (RFC3339), description, location — all optional except event_id.
+
+### delete_calendar_event
+Delete a calendar event. Call get_calendar_events first to find the event_id.
+- params: event_id (required)
+- Always confirm with the user before deleting unless they explicitly asked to remove it.
+
+Only use calendar tools when the user has Google Calendar connected. If not connected, inform them they can connect via Settings.
+
+### Google Tasks tools (list_tasks, create_task, complete_task, update_task, delete_task)
+Manage the user's Google Tasks. Tasks are simple to-do items with an optional due date — different from routines (which are recurring) and actionables (which are agent-created decision items).
+- **list_tasks**: Fetch tasks. Omit list_id to use the default list. Use show_completed=true to include done tasks.
+- **create_task**: Create a task with title (required), optional notes and due date (YYYY-MM-DD). Use this when the user mentions a one-off thing they need to do (not recurring — use routines for that).
+- **complete_task**: Mark a task as done. Call list_tasks first to get the task_id.
+- **update_task**: Change title, notes, due date, or status.
+- **delete_task**: Permanently remove a task.
+
+#### Tasks vs Routines vs Actionables — when to use which:
+- **Task** (Google Tasks): One-off to-do items. "Buy groceries", "Send report to boss", "Book dentist appointment". These sync with the user's Google Tasks app.
+- **Routine**: Recurring habits. "Gym 3x/week", "Morning meditation", "Weekly review". Tracked internally.
+- **Actionable**: Agent-initiated items needing user decision. "Should I create a routine for X?", "Which schedule do you prefer?". Used for agent-to-user communication.
+
+When the user says "remind me to X" or "I need to X" (one-off), prefer create_task. When they describe something recurring, prefer create_routine.
 
 ## Decision framework
 
@@ -172,6 +203,29 @@ Always prefer taking action (using tools) over just acknowledging. If the user s
 
 Keep responses concise. When you use a tool, briefly tell the user what you did (e.g., "Got it, I'll remember that." or "I've set up your gym routine for Mon/Wed/Fri.").
 `)
+
+	// ── Auto-approve mode ────────────────────────────────────────────────
+	if autoApprove {
+		sb.WriteString(`
+## Action approval mode: AUTO-APPROVE (enabled)
+The user has enabled auto-approve. You can execute actions directly without asking for confirmation:
+- Create routines, calendar events, tasks, and memories directly when the user's intent is clear.
+- You do NOT need to create confirm-type actionables for these — just do it.
+- Still use actionables for genuine choices (choose type) or when you need information (input type).
+- For destructive actions (deleting events, routines), still confirm via chat before executing.
+`)
+	} else {
+		sb.WriteString(`
+## Action approval mode: REQUIRE APPROVAL
+
+The user wants to review actions before they happen. You can still call create_routine, create_task, create_calendar_event, etc. directly — the system will automatically convert them into approval requests for the user.
+
+Just use the tools normally. When the user says they want a routine, call create_routine. When they want a task, call create_task. The system handles the approval flow — you don't need to worry about it.
+
+After calling a write tool, tell the user you've created a suggestion for their approval.
+`)
+	}
+
 
 	return sb.String()
 }

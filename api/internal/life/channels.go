@@ -168,6 +168,13 @@ func IngestChannelEvent(ctx context.Context, db *sql.DB, agent *Agent, event Cha
 		if subject, ok := event.Metadata["subject"]; ok && subject != "" {
 			systemCtx += fmt.Sprintf(" Email subject: %q.", subject)
 		}
+		systemCtx += `
+When the user forwards an email, analyze it for actionable content:
+- If it contains an event, webinar, meeting, or appointment: create a calendar event for it.
+- If it contains a task or to-do: create a task for it.
+- If it contains useful information to remember: save it to memory.
+- Extract dates, times, locations, and details from the email content.
+Always create actionables for detected items so the user can approve them.`
 	}
 
 	// ── 9. Save the user message ──────────────────────────────────────────

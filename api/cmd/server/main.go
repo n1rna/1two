@@ -328,6 +328,14 @@ func main() {
 				r.Post("/life/gcal/callback", handler.GCalCallback(db, gcalClient))
 				r.Delete("/life/gcal", handler.DisconnectGCal(db))
 				r.Get("/life/gcal/events", handler.ListGCalEvents(db, gcalClient))
+				r.Post("/life/gcal/sync", handler.SyncGCalEvents(db, gcalClient))
+				// Google Tasks integration (reuses the same Google OAuth connection).
+				r.Get("/life/gtasks/lists", handler.ListGTaskLists(db, gcalClient))
+				r.Get("/life/gtasks/tasks", handler.ListGTasks(db, gcalClient))
+				r.Post("/life/gtasks/tasks", handler.CreateGTask(db, gcalClient))
+				r.Put("/life/gtasks/tasks", handler.UpdateGTask(db, gcalClient))
+				r.Delete("/life/gtasks/tasks", handler.DeleteGTask(db, gcalClient))
+				r.Post("/life/gtasks/complete", handler.CompleteGTask(db, gcalClient))
 			}
 			if llmsSvc != nil && db != nil && r2 != nil {
 				r.Post("/llms/generate", handler.GenerateLlms(llmsSvc))

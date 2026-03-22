@@ -666,6 +666,7 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 	ConversationID string `json:"conversationId"`
 	SystemContext  string `json:"systemContext"`
 	RoutineID      string `json:"routineId"`
+	AutoApprove    bool   `json:"autoApprove"`
 }) {
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -678,6 +679,7 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 		ConversationID string `json:"conversationId"`
 		SystemContext  string `json:"systemContext"`
 		RoutineID      string `json:"routineId"`
+		AutoApprove    bool   `json:"autoApprove"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
@@ -739,9 +741,10 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 		}
 	}
 
-	// Load last 50 messages as history.
+	// Load last 50 messages as history. Include tool_calls summary for assistant
+	// messages so the LLM knows what tools were previously used (prevents hallucination).
 	const histQ = `
-		SELECT role, content FROM life_messages
+		SELECT role, content, tool_calls FROM life_messages
 		WHERE conversation_id = $1
 		ORDER BY created_at ASC
 		LIMIT 50`
@@ -753,10 +756,31 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 	var history []life.Message
 	for histRows.Next() {
 		var m life.Message
-		if err := histRows.Scan(&m.Role, &m.Content); err != nil {
+		var toolCallsRaw sql.NullString
+		if err := histRows.Scan(&m.Role, &m.Content, &toolCallsRaw); err != nil {
 			histRows.Close()
 			http.Error(w, `{"error":"failed to read history"}`, http.StatusInternalServerError)
 			return nil, nil
+		}
+		// For assistant messages with tool calls, append a summary so the LLM
+		// knows what actions were taken (and doesn't hallucinate repeating them).
+		if m.Role == "assistant" && toolCallsRaw.Valid && toolCallsRaw.String != "" {
+			var effects []struct {
+				Tool string         `json:"tool"`
+				Data map[string]any `json:"data,omitempty"`
+			}
+			if json.Unmarshal([]byte(toolCallsRaw.String), &effects) == nil && len(effects) > 0 {
+				var summary strings.Builder
+				summary.WriteString("\n[Tools used in this response: ")
+				for i, eff := range effects {
+					if i > 0 {
+						summary.WriteString(", ")
+					}
+					summary.WriteString(eff.Tool)
+				}
+				summary.WriteString("]")
+				m.Content += summary.String()
+			}
 		}
 		history = append(history, m)
 	}
@@ -873,6 +897,7 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 			Profile:                 &profile,
 			Routines:                routines,
 			PendingActionablesCount: pendingActionablesCount,
+			AutoApprove:            req.AutoApprove,
 			SystemContext:           req.SystemContext,
 		},
 	}, &req
@@ -889,7 +914,11 @@ func buildEffects(ctx context.Context, db *sql.DB, chatResult *life.ChatResult) 
 		}
 		var parsed map[string]any
 		if json.Unmarshal([]byte(eff.Result), &parsed) == nil {
-			if eff.Tool == "create_actionable" && eff.ID != "" {
+			// Check if this effect produced an actionable (either directly via
+			// create_actionable, or intercepted from a write tool when auto-approve is off).
+			isActionable := parsed["actionable_id"] != nil && eff.ID != ""
+			if isActionable {
+				item["tool"] = "create_actionable" // normalize tool name for frontend
 				var a struct {
 					ID, Type, Status, Title, Description, ActionType string
 					Options                                         sql.NullString
@@ -913,9 +942,7 @@ func buildEffects(ctx context.Context, db *sql.DB, chatResult *life.ChatResult) 
 					item["actionable"] = actionableItem
 				}
 			}
-			if eff.Tool == "remember" || eff.Tool == "create_routine" {
-				item["data"] = parsed
-			}
+			item["data"] = parsed
 		}
 		effects = append(effects, item)
 	}
@@ -1269,7 +1296,7 @@ func RespondToActionable(db *sql.DB, agent *life.Agent) http.HandlerFunc {
 				`SELECT action_type, action_payload FROM life_actionables WHERE id = $1`,
 				actionableID,
 			).Scan(&actionType, &actionPayload); err == nil && actionType.Valid && actionType.String != "" {
-				executeActionableAction(r.Context(), db, userID, actionType.String, actionPayload.String)
+				executeActionableAction(r.Context(), db, agent.GCalClient(), userID, actionType.String, actionPayload.String)
 			}
 		}
 
@@ -1282,7 +1309,7 @@ func RespondToActionable(db *sql.DB, agent *life.Agent) http.HandlerFunc {
 
 // executeActionableAction handles deferred actions stored in actionables.
 // Called when a user confirms or selects an option on an actionable that has a pending action.
-func executeActionableAction(ctx context.Context, db *sql.DB, userID, actionType, payloadJSON string) {
+func executeActionableAction(ctx context.Context, db *sql.DB, gcalClient *life.GCalClient, userID, actionType, payloadJSON string) {
 	switch actionType {
 	case "create_routine":
 		var payload struct {
@@ -1293,7 +1320,7 @@ func executeActionableAction(ctx context.Context, db *sql.DB, userID, actionType
 			Config      json.RawMessage `json:"config"`
 		}
 		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
-			log.Printf("life: execute action create_routine: unmarshal payload: %v", err)
+			log.Printf("life: execute action create_routine: unmarshal: %v", err)
 			return
 		}
 		if payload.Name == "" || payload.Type == "" {
@@ -1317,7 +1344,7 @@ func executeActionableAction(ctx context.Context, db *sql.DB, userID, actionType
 			log.Printf("life: execute action create_routine: insert: %v", err)
 			return
 		}
-		log.Printf("life: executed action create_routine: created routine %s for user %s", id, userID)
+		log.Printf("life: executed action create_routine: routine %s for user %s", id, userID)
 
 	case "create_memory":
 		var payload struct {
@@ -1325,7 +1352,7 @@ func executeActionableAction(ctx context.Context, db *sql.DB, userID, actionType
 			Category string `json:"category"`
 		}
 		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
-			log.Printf("life: execute action create_memory: unmarshal payload: %v", err)
+			log.Printf("life: execute action create_memory: unmarshal: %v", err)
 			return
 		}
 		if payload.Content == "" {
@@ -1341,6 +1368,259 @@ func executeActionableAction(ctx context.Context, db *sql.DB, userID, actionType
 			id, userID, payload.Content, payload.Category,
 		); err != nil {
 			log.Printf("life: execute action create_memory: insert: %v", err)
+		}
+
+	case "create_calendar_event":
+		if gcalClient == nil {
+			log.Printf("life: execute action create_calendar_event: gcal not configured")
+			return
+		}
+		var payload struct {
+			Summary     string `json:"summary"`
+			Description string `json:"description"`
+			Location    string `json:"location"`
+			Start       string `json:"start"`
+			End         string `json:"end"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
+			log.Printf("life: execute action create_calendar_event: unmarshal: %v", err)
+			return
+		}
+		startTime, err := time.Parse(time.RFC3339, payload.Start)
+		if err != nil {
+			log.Printf("life: execute action create_calendar_event: parse start: %v", err)
+			return
+		}
+		endTime, err := time.Parse(time.RFC3339, payload.End)
+		if err != nil {
+			log.Printf("life: execute action create_calendar_event: parse end: %v", err)
+			return
+		}
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			log.Printf("life: execute action create_calendar_event: token: %v", err)
+			return
+		}
+		ev, err := gcalClient.CreateEvent(ctx, accessToken, life.CreateEventRequest{
+			Summary: payload.Summary, Description: payload.Description,
+			Location: payload.Location, StartTime: startTime, EndTime: endTime,
+		})
+		if err != nil {
+			log.Printf("life: execute action create_calendar_event: create: %v", err)
+			return
+		}
+		log.Printf("life: executed action create_calendar_event: event %s for user %s", ev.ID, userID)
+
+	case "delete_calendar_event":
+		if gcalClient == nil {
+			return
+		}
+		var payload struct {
+			EventID string `json:"event_id"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.EventID == "" {
+			log.Printf("life: execute action delete_calendar_event: bad payload")
+			return
+		}
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			log.Printf("life: execute action delete_calendar_event: token: %v", err)
+			return
+		}
+		if err := gcalClient.DeleteEvent(ctx, accessToken, payload.EventID); err != nil {
+			log.Printf("life: execute action delete_calendar_event: %v", err)
+			return
+		}
+		_, _ = db.ExecContext(ctx, `DELETE FROM life_gcal_events WHERE user_id = $1 AND id = $2`, userID, payload.EventID)
+		log.Printf("life: executed action delete_calendar_event: %s for user %s", payload.EventID, userID)
+
+	case "create_task":
+		var payload struct {
+			Title  string `json:"title"`
+			Notes  string `json:"notes"`
+			Due    string `json:"due"`
+			ListID string `json:"list_id"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.Title == "" {
+			log.Printf("life: execute action create_task: bad payload")
+			return
+		}
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			log.Printf("life: execute action create_task: token: %v", err)
+			return
+		}
+		listID := payload.ListID
+		if listID == "" {
+			lists, err := life.ListTaskLists(ctx, accessToken)
+			if err != nil || len(lists) == 0 {
+				log.Printf("life: execute action create_task: no task lists")
+				return
+			}
+			listID = lists[0].ID
+		}
+		due := payload.Due
+		if due != "" && len(due) == 10 {
+			due = due + "T00:00:00.000Z"
+		}
+		if _, err := life.CreateTask(ctx, accessToken, listID, life.GTask{Title: payload.Title, Notes: payload.Notes, Due: due}); err != nil {
+			log.Printf("life: execute action create_task: %v", err)
+			return
+		}
+		log.Printf("life: executed action create_task: %q for user %s", payload.Title, userID)
+
+	case "update_routine":
+		var payload struct {
+			RoutineID   string          `json:"routine_id"`
+			Name        string          `json:"name"`
+			Description string          `json:"description"`
+			Schedule    json.RawMessage `json:"schedule"`
+			Config      json.RawMessage `json:"config"`
+			Active      *bool           `json:"active"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.RoutineID == "" {
+			log.Printf("life: execute action update_routine: bad payload")
+			return
+		}
+		sets := []string{}
+		params := []any{}
+		idx := 1
+		if payload.Name != "" {
+			sets = append(sets, fmt.Sprintf("name = $%d", idx)); params = append(params, payload.Name); idx++
+		}
+		if payload.Description != "" {
+			sets = append(sets, fmt.Sprintf("description = $%d", idx)); params = append(params, payload.Description); idx++
+		}
+		if len(payload.Schedule) > 0 {
+			sets = append(sets, fmt.Sprintf("schedule = $%d", idx)); params = append(params, string(payload.Schedule)); idx++
+		}
+		if len(payload.Config) > 0 {
+			sets = append(sets, fmt.Sprintf("config = $%d", idx)); params = append(params, string(payload.Config)); idx++
+		}
+		if payload.Active != nil {
+			sets = append(sets, fmt.Sprintf("active = $%d", idx)); params = append(params, *payload.Active); idx++
+		}
+		if len(sets) == 0 {
+			return
+		}
+		sets = append(sets, "updated_at = NOW()")
+		params = append(params, payload.RoutineID, userID)
+		q := fmt.Sprintf("UPDATE life_routines SET %s WHERE id = $%d AND user_id = $%d", strings.Join(sets, ", "), idx, idx+1)
+		if _, err := db.ExecContext(ctx, q, params...); err != nil {
+			log.Printf("life: execute action update_routine: %v", err)
+		}
+
+	case "delete_routine":
+		var payload struct {
+			RoutineID string `json:"routine_id"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.RoutineID == "" {
+			return
+		}
+		db.ExecContext(ctx, `UPDATE life_routines SET active = FALSE, updated_at = NOW() WHERE id = $1 AND user_id = $2`, payload.RoutineID, userID)
+
+	case "update_calendar_event":
+		if gcalClient == nil {
+			return
+		}
+		var payload struct {
+			EventID     string `json:"event_id"`
+			Summary     string `json:"summary"`
+			Description string `json:"description"`
+			Location    string `json:"location"`
+			Start       string `json:"start"`
+			End         string `json:"end"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.EventID == "" {
+			return
+		}
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			return
+		}
+		req := life.CreateEventRequest{Summary: payload.Summary, Description: payload.Description, Location: payload.Location}
+		if payload.Start != "" {
+			if t, e := time.Parse(time.RFC3339, payload.Start); e == nil { req.StartTime = t }
+		}
+		if payload.End != "" {
+			if t, e := time.Parse(time.RFC3339, payload.End); e == nil { req.EndTime = t }
+		}
+		gcalClient.UpdateEvent(ctx, accessToken, payload.EventID, req)
+
+	case "update_task":
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			return
+		}
+		var payload struct {
+			TaskID string `json:"task_id"`
+			Title  string `json:"title"`
+			Notes  string `json:"notes"`
+			Due    string `json:"due"`
+			Status string `json:"status"`
+			ListID string `json:"list_id"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.TaskID == "" {
+			return
+		}
+		listID := payload.ListID
+		if listID == "" {
+			if lists, err := life.ListTaskLists(ctx, accessToken); err == nil && len(lists) > 0 {
+				listID = lists[0].ID
+			}
+		}
+		if listID == "" {
+			return
+		}
+		update := life.GTask{Title: payload.Title, Notes: payload.Notes, Status: payload.Status}
+		if payload.Due != "" {
+			if len(payload.Due) == 10 { payload.Due += "T00:00:00.000Z" }
+			update.Due = payload.Due
+		}
+		life.UpdateTask(ctx, accessToken, listID, payload.TaskID, update)
+
+	case "delete_task":
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			return
+		}
+		var payload struct {
+			TaskID string `json:"task_id"`
+			ListID string `json:"list_id"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.TaskID == "" {
+			return
+		}
+		listID := payload.ListID
+		if listID == "" {
+			if lists, err := life.ListTaskLists(ctx, accessToken); err == nil && len(lists) > 0 {
+				listID = lists[0].ID
+			}
+		}
+		if listID != "" {
+			life.DeleteTask(ctx, accessToken, listID, payload.TaskID)
+		}
+
+	case "complete_task":
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			return
+		}
+		var payload struct {
+			TaskID string `json:"task_id"`
+			ListID string `json:"list_id"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.TaskID == "" {
+			return
+		}
+		listID := payload.ListID
+		if listID == "" {
+			if lists, err := life.ListTaskLists(ctx, accessToken); err == nil && len(lists) > 0 {
+				listID = lists[0].ID
+			}
+		}
+		if listID != "" {
+			life.CompleteTask(ctx, accessToken, listID, payload.TaskID)
 		}
 
 	default:

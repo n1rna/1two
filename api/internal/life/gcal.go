@@ -16,7 +16,7 @@ import (
 const (
 	gcalAuthURL  = "https://accounts.google.com/o/oauth2/v2/auth"
 	gcalTokenURL = "https://oauth2.googleapis.com/token"
-	gcalScopes   = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email"
+	gcalScopes   = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/tasks"
 )
 
 // GCalClient makes HTTP calls to Google's OAuth2 and Calendar v3 APIs.
@@ -195,106 +195,47 @@ type GCalEvent struct {
 	Start       time.Time `json:"start"`
 	End         time.Time `json:"end"`
 	AllDay      bool      `json:"allDay"`
-	Status      string    `json:"status"` // confirmed, tentative, cancelled
+	Status      string    `json:"status"`  // confirmed, tentative, cancelled
+	ColorID     string    `json:"colorId"` // Google Calendar color ID (1-11)
 	HtmlLink    string    `json:"htmlLink"`
 }
 
 // ListEvents fetches upcoming events from the user's primary calendar.
 // daysAhead controls how far ahead to look (e.g. 7 = next 7 days).
+// It delegates to fetchEvents (defined in gcal_sync.go) for the actual HTTP call.
 func (c *GCalClient) ListEvents(ctx context.Context, accessToken string, daysAhead int) ([]GCalEvent, error) {
 	now := time.Now().UTC()
-	timeMin := now.Format(time.RFC3339)
-	timeMax := now.AddDate(0, 0, daysAhead).Format(time.RFC3339)
 
 	params := url.Values{}
-	params.Set("timeMin", timeMin)
-	params.Set("timeMax", timeMax)
+	params.Set("timeMin", now.Format(time.RFC3339))
+	params.Set("timeMax", now.AddDate(0, 0, daysAhead).Format(time.RFC3339))
 	params.Set("singleEvents", "true")
 	params.Set("orderBy", "startTime")
 	params.Set("maxResults", "50")
 
-	apiURL := "https://www.googleapis.com/calendar/v3/calendars/primary/events?" + params.Encode()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	apiResp, err := c.fetchEvents(ctx, accessToken, params)
 	if err != nil {
-		return nil, fmt.Errorf("gcal: build list-events request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("gcal: list-events request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("gcal: list-events failed (%d): %s", resp.StatusCode, raw)
-	}
-
-	// Google Calendar API response shape (partial).
-	var apiResp struct {
-		Items []struct {
-			ID          string `json:"id"`
-			Summary     string `json:"summary"`
-			Description string `json:"description"`
-			Location    string `json:"location"`
-			Status      string `json:"status"`
-			HtmlLink    string `json:"htmlLink"`
-			Start       struct {
-				DateTime string `json:"dateTime"` // timed events
-				Date     string `json:"date"`      // all-day events
-				TimeZone string `json:"timeZone"`
-			} `json:"start"`
-			End struct {
-				DateTime string `json:"dateTime"`
-				Date     string `json:"date"`
-				TimeZone string `json:"timeZone"`
-			} `json:"end"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal(raw, &apiResp); err != nil {
-		return nil, fmt.Errorf("gcal: parse list-events response: %w", err)
+		return nil, fmt.Errorf("gcal: list-events: %w", err)
 	}
 
 	events := make([]GCalEvent, 0, len(apiResp.Items))
 	for _, item := range apiResp.Items {
-		ev := GCalEvent{
+		start, end, allDay, err := parseItemTimes(item)
+		if err != nil {
+			continue
+		}
+		events = append(events, GCalEvent{
 			ID:          item.ID,
 			Summary:     item.Summary,
 			Description: item.Description,
 			Location:    item.Location,
 			Status:      item.Status,
+			ColorID:     item.ColorID,
 			HtmlLink:    item.HtmlLink,
-		}
-
-		if item.Start.DateTime != "" {
-			// Timed event.
-			t, err := time.Parse(time.RFC3339, item.Start.DateTime)
-			if err != nil {
-				continue
-			}
-			ev.Start = t
-			if item.End.DateTime != "" {
-				if t2, err := time.Parse(time.RFC3339, item.End.DateTime); err == nil {
-					ev.End = t2
-				}
-			}
-		} else if item.Start.Date != "" {
-			// All-day event.
-			t, err := time.Parse("2006-01-02", item.Start.Date)
-			if err != nil {
-				continue
-			}
-			ev.Start = t
-			ev.AllDay = true
-			if item.End.Date != "" {
-				if t2, err := time.Parse("2006-01-02", item.End.Date); err == nil {
-					ev.End = t2
-				}
-			}
-		}
-
-		events = append(events, ev)
+			Start:       start,
+			End:         end,
+			AllDay:      allDay,
+		})
 	}
 	return events, nil
 }
@@ -411,6 +352,106 @@ func (c *GCalClient) CreateEvent(ctx context.Context, accessToken string, req Cr
 		}
 	}
 
+	return ev, nil
+}
+
+// DeleteEvent removes an event from the user's primary Google Calendar.
+func (c *GCalClient) DeleteEvent(ctx context.Context, accessToken, eventID string) error {
+	apiURL := fmt.Sprintf("https://www.googleapis.com/calendar/v3/calendars/primary/events/%s", url.PathEscape(eventID))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("gcal: build delete-event request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("gcal: delete-event request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("gcal: delete-event failed (%d): %s", resp.StatusCode, raw)
+	}
+	return nil
+}
+
+// UpdateEvent modifies an existing event on the user's primary Google Calendar.
+// Only non-empty fields in the request are updated (PATCH semantics).
+func (c *GCalClient) UpdateEvent(ctx context.Context, accessToken, eventID string, req CreateEventRequest) (*GCalEvent, error) {
+	type dateTimeObj struct {
+		DateTime string `json:"dateTime,omitempty"`
+		Date     string `json:"date,omitempty"`
+		TimeZone string `json:"timeZone,omitempty"`
+	}
+
+	payload := map[string]any{}
+	if req.Summary != "" {
+		payload["summary"] = req.Summary
+	}
+	if req.Description != "" {
+		payload["description"] = req.Description
+	}
+	if req.Location != "" {
+		payload["location"] = req.Location
+	}
+	if !req.StartTime.IsZero() && !req.EndTime.IsZero() {
+		if req.AllDay {
+			payload["start"] = dateTimeObj{Date: req.StartTime.Format("2006-01-02")}
+			payload["end"] = dateTimeObj{Date: req.EndTime.Format("2006-01-02")}
+		} else {
+			payload["start"] = dateTimeObj{DateTime: req.StartTime.UTC().Format(time.RFC3339), TimeZone: "UTC"}
+			payload["end"] = dateTimeObj{DateTime: req.EndTime.UTC().Format(time.RFC3339), TimeZone: "UTC"}
+		}
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("gcal: marshal update-event request: %w", err)
+	}
+
+	apiURL := fmt.Sprintf("https://www.googleapis.com/calendar/v3/calendars/primary/events/%s", url.PathEscape(eventID))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, apiURL, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return nil, fmt.Errorf("gcal: build update-event request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+accessToken)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("gcal: update-event request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("gcal: update-event failed (%d): %s", resp.StatusCode, raw)
+	}
+
+	var updated struct {
+		ID       string `json:"id"`
+		Summary  string `json:"summary"`
+		HtmlLink string `json:"htmlLink"`
+		Start    struct {
+			DateTime string `json:"dateTime"`
+		} `json:"start"`
+		End struct {
+			DateTime string `json:"dateTime"`
+		} `json:"end"`
+	}
+	if err := json.Unmarshal(raw, &updated); err != nil {
+		return nil, fmt.Errorf("gcal: parse update-event response: %w", err)
+	}
+
+	ev := &GCalEvent{ID: updated.ID, Summary: updated.Summary, HtmlLink: updated.HtmlLink}
+	if t, err := time.Parse(time.RFC3339, updated.Start.DateTime); err == nil {
+		ev.Start = t
+	}
+	if t, err := time.Parse(time.RFC3339, updated.End.DateTime); err == nil {
+		ev.End = t
+	}
 	return ev, nil
 }
 

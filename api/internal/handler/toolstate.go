@@ -27,6 +27,7 @@ var allowedToolStateKeys = map[string]int64{
 	"1tt:es-state":         65536,
 	"1tt:bookmarks":        8192,
 	"1tt:tool-order":       8192,
+	"1tt:life-state":       65536,
 }
 
 // validator checks that a JSON payload conforms to the expected schema.

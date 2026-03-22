@@ -37,6 +37,7 @@ type ChatRequest struct {
 	Routines                []Routine
 	PendingActionablesCount int
 	CalendarEvents          []GCalEvent // upcoming calendar events (may be nil)
+	AutoApprove             bool        // if true, agent executes actions directly; if false, creates actionables for confirmation
 	SystemContext            string      // optional extra context appended to system prompt
 }
 
@@ -107,6 +108,7 @@ func (a *Agent) Chat(ctx context.Context, req ChatRequest) (*ChatResult, error) 
 		req.Routines,
 		req.PendingActionablesCount,
 		req.CalendarEvents,
+		req.AutoApprove,
 		time.Now().UTC(),
 	)
 	if req.SystemContext != "" {
@@ -184,7 +186,7 @@ func (a *Agent) Chat(ctx context.Context, req ChatRequest) (*ChatResult, error) 
 		// Execute each tool and collect results.
 		for _, tc := range choice.ToolCalls {
 			log.Printf("life agent: executing tool %q (id=%s)", tc.FunctionCall.Name, tc.ID)
-			result := executeTool(ctx, a.db, a.gcalClient, req.UserID, tc)
+			result := executeTool(ctx, a.db, a.gcalClient, req.UserID, req.AutoApprove, tc)
 			log.Printf("life agent: tool %q result: %s", tc.FunctionCall.Name, result)
 
 			// Track all tool effects for the chat response.
@@ -254,6 +256,7 @@ func (a *Agent) ChatStream(ctx context.Context, req ChatRequest, onEvent func(St
 		req.Routines,
 		req.PendingActionablesCount,
 		req.CalendarEvents,
+		req.AutoApprove,
 		time.Now().UTC(),
 	)
 	if req.SystemContext != "" {
@@ -353,7 +356,7 @@ func (a *Agent) ChatStream(ctx context.Context, req ChatRequest, onEvent func(St
 			log.Printf("life agent: executing tool %q (id=%s)", tc.FunctionCall.Name, tc.ID)
 			onEvent(StreamEvent{Type: "tool_call", Data: tc.FunctionCall.Name})
 
-			result := executeTool(ctx, a.db, a.gcalClient, req.UserID, tc)
+			result := executeTool(ctx, a.db, a.gcalClient, req.UserID, req.AutoApprove, tc)
 			log.Printf("life agent: tool %q result: %s", tc.FunctionCall.Name, result)
 			onEvent(StreamEvent{Type: "tool_result", Data: result})
 

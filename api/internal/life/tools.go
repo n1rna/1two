@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -55,12 +56,12 @@ func toolDefs() []llms.Tool {
 						},
 						"action_type": map[string]any{
 							"type":        "string",
-							"enum":        []string{"create_routine", "create_memory", "none"},
-							"description": "What action to execute when the user confirms. Use 'create_routine' to defer routine creation to user approval.",
+							"enum":        []string{"create_routine", "create_memory", "create_calendar_event", "delete_calendar_event", "create_task", "none"},
+							"description": "Deferred action to execute when the user confirms. The action_payload must match the action_type.",
 						},
 						"action_payload": map[string]any{
 							"type":        "object",
-							"description": "Data for the deferred action. For create_routine: the full routine object {name, type, description, schedule, config}.",
+							"description": "Data for the deferred action. create_routine: {name, type, description, schedule, config}. create_calendar_event: {summary, start, end, description, location}. create_task: {title, notes, due}. create_memory: {content, category}.",
 						},
 					},
 					"required": []string{"type", "title"},
@@ -277,15 +278,206 @@ func toolDefs() []llms.Tool {
 			},
 		},
 	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "update_calendar_event",
+			Description: "Update an existing event on the user's Google Calendar. Call get_calendar_events first to get event IDs.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"event_id":    map[string]any{"type": "string", "description": "The event ID to update"},
+					"summary":     map[string]any{"type": "string", "description": "New title (optional)"},
+					"start":       map[string]any{"type": "string", "description": "New start time RFC3339 (optional)"},
+					"end":         map[string]any{"type": "string", "description": "New end time RFC3339 (optional)"},
+					"description": map[string]any{"type": "string", "description": "New description (optional)"},
+					"location":    map[string]any{"type": "string", "description": "New location (optional)"},
+				},
+				"required": []string{"event_id"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "delete_calendar_event",
+			Description: "Delete an event from the user's Google Calendar. Call get_calendar_events first to get event IDs.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"event_id": map[string]any{"type": "string", "description": "The event ID to delete"},
+				},
+				"required": []string{"event_id"},
+			},
+		},
+	},
+	// ── Google Tasks ──────────────────────────────────────────────────────
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "list_tasks",
+			Description: "List tasks from the user's Google Tasks. Returns pending tasks by default.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"list_id": map[string]any{
+						"type":        "string",
+						"description": "Task list ID. Omit to use the default list.",
+					},
+					"show_completed": map[string]any{
+						"type":        "boolean",
+						"description": "Include completed tasks. Defaults to false.",
+					},
+				},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "create_task",
+			Description: "Create a new task in Google Tasks.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"title":   map[string]any{"type": "string", "description": "Task title"},
+					"notes":   map[string]any{"type": "string", "description": "Optional notes"},
+					"due":     map[string]any{"type": "string", "description": "Due date in YYYY-MM-DD format"},
+					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
+				},
+				"required": []string{"title"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "complete_task",
+			Description: "Mark a Google Task as completed.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"task_id": map[string]any{"type": "string", "description": "The task ID"},
+					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
+				},
+				"required": []string{"task_id"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "update_task",
+			Description: "Update a Google Task's title, notes, due date, or status.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"task_id": map[string]any{"type": "string", "description": "The task ID"},
+					"title":   map[string]any{"type": "string", "description": "New title"},
+					"notes":   map[string]any{"type": "string", "description": "New notes"},
+					"due":     map[string]any{"type": "string", "description": "Due date YYYY-MM-DD"},
+					"status":  map[string]any{"type": "string", "enum": []string{"needsAction", "completed"}},
+					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
+				},
+				"required": []string{"task_id"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "delete_task",
+			Description: "Permanently delete a Google Task.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"task_id": map[string]any{"type": "string", "description": "The task ID"},
+					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
+				},
+				"required": []string{"task_id"},
+			},
+		},
+	},
+	}
+}
+
+// toolsRequiringApproval are tools that create/modify/delete resources.
+// When autoApprove is false, calls to these tools are intercepted and
+// converted to confirm-type actionables automatically.
+var toolsRequiringApproval = map[string]string{
+	"create_routine":         "create_routine",
+	"update_routine":         "update_routine",
+	"delete_routine":         "delete_routine",
+	"create_calendar_event":  "create_calendar_event",
+	"update_calendar_event":  "update_calendar_event",
+	"delete_calendar_event":  "delete_calendar_event",
+	"create_task":            "create_task",
+	"update_task":            "update_task",
+	"delete_task":            "delete_task",
+	"complete_task":          "complete_task",
+}
+
+// toolActionTitle generates a human-readable title for an intercepted tool call.
+func toolActionTitle(toolName string, args map[string]any) string {
+	name, _ := args["name"].(string)
+	title, _ := args["title"].(string)
+	summary, _ := args["summary"].(string)
+	label := name
+	if label == "" { label = title }
+	if label == "" { label = summary }
+
+	switch toolName {
+	case "create_routine":
+		if label != "" { return fmt.Sprintf("Create routine: %s?", label) }
+		return "Create a new routine?"
+	case "create_calendar_event":
+		if label != "" { return fmt.Sprintf("Add to calendar: %s?", label) }
+		return "Add event to calendar?"
+	case "create_task":
+		if label != "" { return fmt.Sprintf("Add task: %s?", label) }
+		return "Add a new task?"
+	case "delete_calendar_event":
+		return "Delete calendar event?"
+	case "update_routine":
+		if label != "" { return fmt.Sprintf("Update routine: %s?", label) }
+		return "Update routine?"
+	case "delete_routine":
+		return "Delete routine?"
+	case "update_task":
+		if label != "" { return fmt.Sprintf("Update task: %s?", label) }
+		return "Update task?"
+	case "delete_task":
+		return "Delete task?"
+	case "complete_task":
+		return "Complete task?"
+	default:
+		return "Approve action?"
 	}
 }
 
 // executeTool dispatches a single tool call to the appropriate DB operation and
 // returns a JSON string result (always valid JSON).
-func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, call llms.ToolCall) string {
+// When autoApprove is false, write operations are intercepted and converted to
+// confirm-type actionables so the user must approve them.
+func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall) string {
 	var args map[string]any
 	if err := json.Unmarshal([]byte(call.FunctionCall.Arguments), &args); err != nil {
 		return jsonError("invalid arguments: " + err.Error())
+	}
+
+	// Intercept write tools when auto-approve is off — convert to actionable.
+	if !autoApprove {
+		if actionType, needsApproval := toolsRequiringApproval[call.FunctionCall.Name]; needsApproval {
+			log.Printf("life agent: intercepting %q → creating actionable (auto-approve off)", call.FunctionCall.Name)
+			title := toolActionTitle(call.FunctionCall.Name, args)
+			actionableArgs := map[string]any{
+				"type":           "confirm",
+				"title":          title,
+				"action_type":    actionType,
+				"action_payload": args,
+			}
+			return toolCreateActionable(ctx, db, userID, actionableArgs)
+		}
 	}
 
 	switch call.FunctionCall.Name {
@@ -309,6 +501,20 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolGetCalendarEvents(ctx, db, gcalClient, userID, args)
 	case "create_calendar_event":
 		return toolCreateCalendarEvent(ctx, db, gcalClient, userID, args)
+	case "update_calendar_event":
+		return toolUpdateCalendarEvent(ctx, db, gcalClient, userID, args)
+	case "delete_calendar_event":
+		return toolDeleteCalendarEvent(ctx, db, gcalClient, userID, args)
+	case "list_tasks":
+		return toolListTasks(ctx, db, gcalClient, userID, args)
+	case "create_task":
+		return toolCreateTask(ctx, db, gcalClient, userID, args)
+	case "complete_task":
+		return toolCompleteTask(ctx, db, gcalClient, userID, args)
+	case "update_task":
+		return toolUpdateTask(ctx, db, gcalClient, userID, args)
+	case "delete_task":
+		return toolDeleteTask(ctx, db, gcalClient, userID, args)
 	default:
 		return jsonError("unknown tool: " + call.FunctionCall.Name)
 	}
@@ -317,6 +523,7 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 // ----- individual tool implementations -----
 
 func toolCreateActionable(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	log.Printf("life agent: toolCreateActionable called with args: %v", args)
 	aType, _ := args["type"].(string)
 	if aType == "" {
 		aType = "info"
@@ -674,14 +881,28 @@ func toolGetCalendarEvents(ctx context.Context, db *sql.DB, gcalClient *GCalClie
 		daysAhead = 7
 	}
 
-	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	// Sync if the cache is stale (15-minute threshold for agent context).
+	needs, err := NeedsSync(ctx, db, userID, 15*time.Minute)
 	if err != nil {
-		return jsonError("calendar not connected: " + err.Error())
+		// Non-fatal — proceed with whatever is in the cache.
+	}
+	if needs {
+		accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			return jsonError("calendar not connected: " + err.Error())
+		}
+		if _, err := gcalClient.SyncEvents(ctx, db, userID, accessToken); err != nil {
+			// Non-fatal — serve from cache.
+		}
 	}
 
-	events, err := gcalClient.ListEvents(ctx, accessToken, daysAhead)
+	now := time.Now()
+	events, err := QueryLocalEvents(ctx, db, userID, now, now.AddDate(0, 0, daysAhead))
 	if err != nil {
 		return jsonError("failed to fetch calendar events: " + err.Error())
+	}
+	if events == nil {
+		events = []GCalEvent{}
 	}
 
 	return jsonOK(map[string]any{"events": events, "days_ahead": daysAhead})
@@ -733,6 +954,20 @@ func toolCreateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalCl
 		return jsonError("failed to create calendar event: " + err.Error())
 	}
 
+	// Write-through: insert the created event into local cache.
+	_, _ = db.ExecContext(ctx, `
+		INSERT INTO life_gcal_events
+			(id, user_id, summary, description, location, start_time, end_time, all_day, status, color_id, html_link, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'confirmed', '', $9, NOW())
+		ON CONFLICT (user_id, id) DO UPDATE SET
+			summary = EXCLUDED.summary, description = EXCLUDED.description,
+			location = EXCLUDED.location, start_time = EXCLUDED.start_time,
+			end_time = EXCLUDED.end_time, all_day = EXCLUDED.all_day,
+			html_link = EXCLUDED.html_link, updated_at = NOW()`,
+		ev.ID, userID, ev.Summary, ev.Description, ev.Location,
+		ev.Start, ev.End, ev.AllDay, ev.HtmlLink,
+	)
+
 	return jsonOK(map[string]any{
 		"id":       ev.ID,
 		"summary":  ev.Summary,
@@ -740,6 +975,257 @@ func toolCreateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalCl
 		"end":      ev.End.Format(time.RFC3339),
 		"htmlLink": ev.HtmlLink,
 	})
+}
+
+func toolUpdateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google Calendar is not configured")
+	}
+	eventID, _ := args["event_id"].(string)
+	if eventID == "" {
+		return jsonError("event_id is required")
+	}
+
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("calendar not connected: " + err.Error())
+	}
+
+	req := CreateEventRequest{}
+	req.Summary, _ = args["summary"].(string)
+	req.Description, _ = args["description"].(string)
+	req.Location, _ = args["location"].(string)
+
+	if startStr, ok := args["start"].(string); ok && startStr != "" {
+		if t, err := time.Parse(time.RFC3339, startStr); err == nil {
+			req.StartTime = t
+		}
+	}
+	if endStr, ok := args["end"].(string); ok && endStr != "" {
+		if t, err := time.Parse(time.RFC3339, endStr); err == nil {
+			req.EndTime = t
+		}
+	}
+
+	ev, err := gcalClient.UpdateEvent(ctx, accessToken, eventID, req)
+	if err != nil {
+		return jsonError("failed to update calendar event: " + err.Error())
+	}
+
+	// Update local cache
+	_, _ = db.ExecContext(ctx, `
+		UPDATE life_gcal_events SET summary = COALESCE(NULLIF($3, ''), summary),
+			start_time = CASE WHEN $4::timestamptz = '0001-01-01T00:00:00Z' THEN start_time ELSE $4 END,
+			end_time = CASE WHEN $5::timestamptz = '0001-01-01T00:00:00Z' THEN end_time ELSE $5 END,
+			updated_at = NOW()
+		WHERE user_id = $1 AND id = $2`,
+		userID, eventID, req.Summary, req.StartTime, req.EndTime,
+	)
+
+	return jsonOK(map[string]any{
+		"event_id": ev.ID,
+		"summary":  ev.Summary,
+		"htmlLink": ev.HtmlLink,
+		"updated":  true,
+	})
+}
+
+func toolDeleteCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google Calendar is not configured")
+	}
+	eventID, _ := args["event_id"].(string)
+	if eventID == "" {
+		return jsonError("event_id is required")
+	}
+
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("calendar not connected: " + err.Error())
+	}
+
+	if err := gcalClient.DeleteEvent(ctx, accessToken, eventID); err != nil {
+		return jsonError("failed to delete calendar event: " + err.Error())
+	}
+
+	// Remove from local cache
+	_, _ = db.ExecContext(ctx, `DELETE FROM life_gcal_events WHERE user_id = $1 AND id = $2`, userID, eventID)
+
+	return jsonOK(map[string]any{"event_id": eventID, "deleted": true})
+}
+
+// ----- Google Tasks tool implementations -----
+
+func resolveTaskListID(ctx context.Context, accessToken, listID string) (string, error) {
+	if listID != "" {
+		return listID, nil
+	}
+	lists, err := ListTaskLists(ctx, accessToken)
+	if err != nil {
+		return "", err
+	}
+	if len(lists) == 0 {
+		return "", fmt.Errorf("no task lists found")
+	}
+	return lists[0].ID, nil
+}
+
+func toolListTasks(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google is not configured")
+	}
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("Google not connected: " + err.Error())
+	}
+
+	listID, _ := args["list_id"].(string)
+	listID, err = resolveTaskListID(ctx, accessToken, listID)
+	if err != nil {
+		return jsonError("failed to resolve task list: " + err.Error())
+	}
+
+	showCompleted := false
+	if v, ok := args["show_completed"].(bool); ok {
+		showCompleted = v
+	}
+
+	tasks, err := ListTasks(ctx, accessToken, listID, showCompleted)
+	if err != nil {
+		return jsonError("failed to list tasks: " + err.Error())
+	}
+	return jsonOK(map[string]any{"tasks": tasks, "list_id": listID})
+}
+
+func toolCreateTask(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google is not configured")
+	}
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("Google not connected: " + err.Error())
+	}
+
+	title, _ := args["title"].(string)
+	if title == "" {
+		return jsonError("title is required")
+	}
+	notes, _ := args["notes"].(string)
+	due, _ := args["due"].(string)
+
+	listID, _ := args["list_id"].(string)
+	listID, err = resolveTaskListID(ctx, accessToken, listID)
+	if err != nil {
+		return jsonError("failed to resolve task list: " + err.Error())
+	}
+
+	// Convert YYYY-MM-DD to RFC3339 date format expected by Google Tasks
+	if due != "" && len(due) == 10 {
+		due = due + "T00:00:00.000Z"
+	}
+
+	task, err := CreateTask(ctx, accessToken, listID, GTask{Title: title, Notes: notes, Due: due})
+	if err != nil {
+		return jsonError("failed to create task: " + err.Error())
+	}
+	return jsonOK(map[string]any{"task_id": task.ID, "title": task.Title, "created": true})
+}
+
+func toolCompleteTask(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google is not configured")
+	}
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("Google not connected: " + err.Error())
+	}
+
+	taskID, _ := args["task_id"].(string)
+	if taskID == "" {
+		return jsonError("task_id is required")
+	}
+
+	listID, _ := args["list_id"].(string)
+	listID, err = resolveTaskListID(ctx, accessToken, listID)
+	if err != nil {
+		return jsonError("failed to resolve task list: " + err.Error())
+	}
+
+	task, err := CompleteTask(ctx, accessToken, listID, taskID)
+	if err != nil {
+		return jsonError("failed to complete task: " + err.Error())
+	}
+	return jsonOK(map[string]any{"task_id": task.ID, "completed": true})
+}
+
+func toolUpdateTask(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google is not configured")
+	}
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("Google not connected: " + err.Error())
+	}
+
+	taskID, _ := args["task_id"].(string)
+	if taskID == "" {
+		return jsonError("task_id is required")
+	}
+
+	listID, _ := args["list_id"].(string)
+	listID, err = resolveTaskListID(ctx, accessToken, listID)
+	if err != nil {
+		return jsonError("failed to resolve task list: " + err.Error())
+	}
+
+	update := GTask{}
+	if v, ok := args["title"].(string); ok {
+		update.Title = v
+	}
+	if v, ok := args["notes"].(string); ok {
+		update.Notes = v
+	}
+	if v, ok := args["due"].(string); ok {
+		if len(v) == 10 {
+			v = v + "T00:00:00.000Z"
+		}
+		update.Due = v
+	}
+	if v, ok := args["status"].(string); ok {
+		update.Status = v
+	}
+
+	task, err := UpdateTask(ctx, accessToken, listID, taskID, update)
+	if err != nil {
+		return jsonError("failed to update task: " + err.Error())
+	}
+	return jsonOK(map[string]any{"task_id": task.ID, "updated": true})
+}
+
+func toolDeleteTask(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google is not configured")
+	}
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("Google not connected: " + err.Error())
+	}
+
+	taskID, _ := args["task_id"].(string)
+	if taskID == "" {
+		return jsonError("task_id is required")
+	}
+
+	listID, _ := args["list_id"].(string)
+	listID, err = resolveTaskListID(ctx, accessToken, listID)
+	if err != nil {
+		return jsonError("failed to resolve task list: " + err.Error())
+	}
+
+	if err := DeleteTask(ctx, accessToken, listID, taskID); err != nil {
+		return jsonError("failed to delete task: " + err.Error())
+	}
+	return jsonOK(map[string]any{"task_id": taskID, "deleted": true})
 }
 
 // ----- helpers -----

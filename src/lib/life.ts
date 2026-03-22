@@ -301,12 +301,13 @@ export async function streamLifeChat(
   conversationId?: string,
   systemContext?: string,
   routineId?: string,
+  autoApprove?: boolean,
 ): Promise<void> {
   const res = await fetch("/api/proxy/life/chat/stream", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, conversationId, systemContext, routineId }),
+    body: JSON.stringify({ message, conversationId, systemContext, routineId, autoApprove }),
   });
 
   if (!res.ok) {
@@ -382,6 +383,7 @@ export interface GCalEvent {
   end: string;
   allDay: boolean;
   status: string;
+  colorId?: string;
   htmlLink: string;
 }
 
@@ -404,9 +406,13 @@ export async function disconnectGCal(): Promise<void> {
   await lifeApiFetch<void>("/gcal", { method: "DELETE" });
 }
 
-export async function listGCalEvents(days?: number): Promise<GCalEvent[]> {
-  const qs = days ? `?days=${days}` : "";
-  const res = await lifeApiFetch<{ events: GCalEvent[] }>(`/gcal/events${qs}`);
+export async function listGCalEvents(from?: string, to?: string, days?: number): Promise<GCalEvent[]> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (!from && !to && days) params.set("days", String(days));
+  const qs = params.toString();
+  const res = await lifeApiFetch<{ events: GCalEvent[] }>(`/gcal/events${qs ? `?${qs}` : ""}`);
   return res.events;
 }
 
@@ -415,12 +421,71 @@ export async function sendLifeChat(
   conversationId?: string,
   systemContext?: string,
   routineId?: string,
+  autoApprove?: boolean,
 ): Promise<{ conversationId: string; message: LifeMessage; effects?: ChatEffect[] }> {
   return lifeApiFetch<{ conversationId: string; message: LifeMessage; effects?: ChatEffect[] }>(
     "/chat",
     {
       method: "POST",
-      body: JSON.stringify({ message, conversationId, systemContext, routineId }),
+      body: JSON.stringify({ message, conversationId, systemContext, routineId, autoApprove }),
     }
   );
+}
+
+// ─── Google Tasks ────────────────────────────────────────────────────────────
+
+export interface GTaskList {
+  id: string;
+  title: string;
+}
+
+export interface GTask {
+  id: string;
+  title: string;
+  notes: string;
+  status: string; // "needsAction" | "completed"
+  due: string;
+  completed: string;
+  position: string;
+  parent: string;
+  updated: string;
+}
+
+export async function listGTaskLists(): Promise<GTaskList[]> {
+  const res = await lifeApiFetch<{ lists: GTaskList[] }>("/gtasks/lists");
+  return res.lists;
+}
+
+export async function listGTasks(listId: string, showCompleted = false): Promise<GTask[]> {
+  const params = new URLSearchParams({ listId });
+  if (showCompleted) params.set("showCompleted", "true");
+  const res = await lifeApiFetch<{ tasks: GTask[] }>(`/gtasks/tasks?${params}`);
+  return res.tasks;
+}
+
+export async function createGTask(listId: string, title: string, notes?: string, due?: string): Promise<GTask> {
+  return lifeApiFetch<GTask>("/gtasks/tasks", {
+    method: "POST",
+    body: JSON.stringify({ listId, title, notes, due }),
+  });
+}
+
+export async function updateGTask(listId: string, taskId: string, updates: { title?: string; notes?: string; due?: string; status?: string }): Promise<GTask> {
+  return lifeApiFetch<GTask>("/gtasks/tasks", {
+    method: "PUT",
+    body: JSON.stringify({ listId, taskId, ...updates }),
+  });
+}
+
+export async function deleteGTask(listId: string, taskId: string): Promise<void> {
+  await lifeApiFetch<void>(`/gtasks/tasks?listId=${encodeURIComponent(listId)}&taskId=${encodeURIComponent(taskId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function completeGTask(listId: string, taskId: string): Promise<GTask> {
+  return lifeApiFetch<GTask>("/gtasks/complete", {
+    method: "POST",
+    body: JSON.stringify({ listId, taskId }),
+  });
 }

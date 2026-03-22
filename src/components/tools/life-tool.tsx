@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Brain,
   MessageSquare,
@@ -27,8 +27,6 @@ import {
   Clock,
   AlertCircle,
   Info,
-  ToggleLeft,
-  ToggleRight,
   Copy,
   GripVertical,
   Sparkles,
@@ -40,7 +38,13 @@ import {
   MessageCircle,
   ExternalLink,
   MapPin,
+  ListTodo,
+  Square,
+  CheckSquare2,
+  Pin,
+  PinOff,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
@@ -86,6 +90,14 @@ import {
   listGCalEvents,
   type GCalStatus,
   type GCalEvent,
+  listGTaskLists,
+  listGTasks,
+  createGTask,
+  updateGTask,
+  deleteGTask,
+  completeGTask,
+  type GTaskList,
+  type GTask,
 } from "@/lib/life";
 import {
   Dialog,
@@ -105,7 +117,9 @@ type LifeTabType =
   | "chat"
   | "memories"
   | "calendar"
-  | "channels";
+  | "channels"
+  | "tasks"
+  | "settings";
 
 interface LifeTab {
   id: string;
@@ -114,6 +128,7 @@ interface LifeTab {
   convId?: string; // for chat tabs — the conversation ID
   chatNum?: number; // display number for chat tabs (#1, #2, etc.)
   routineId?: string; // for routine-detail tabs
+  pinned?: boolean;
 }
 
 interface SidebarGroup {
@@ -136,6 +151,8 @@ const TAB_LABELS: Record<LifeTabType, string> = {
   memories: "Memories",
   calendar: "Calendar",
   channels: "Channels",
+  tasks: "Tasks",
+  settings: "Settings",
 };
 
 const TAB_ICONS: Record<LifeTabType, React.ReactNode> = {
@@ -147,6 +164,21 @@ const TAB_ICONS: Record<LifeTabType, React.ReactNode> = {
   memories: <Lightbulb className="h-3 w-3" />,
   calendar: <CalendarDays className="h-3 w-3" />,
   channels: <Radio className="h-3 w-3" />,
+  tasks: <ListTodo className="h-3 w-3" />,
+  settings: <Settings className="h-3 w-3" />,
+};
+
+const TAB_COLORS: Record<LifeTabType, string> = {
+  today: "text-amber-500",
+  actionables: "text-emerald-500",
+  routines: "text-violet-500",
+  "routine-detail": "text-violet-500",
+  chat: "text-blue-500",
+  memories: "text-yellow-500",
+  calendar: "text-rose-500",
+  channels: "text-cyan-500",
+  tasks: "text-orange-500",
+  settings: "text-neutral-400",
 };
 
 // ─── URL Routing ──────────────────────────────────────────────────────────────
@@ -174,23 +206,39 @@ function urlToTab(pathname: string): { type: LifeTabType; convId?: string; routi
     const routineId = rel.slice(9);
     return routineId ? { type: "routine-detail", routineId } : { type: "routines" };
   }
-  const validTypes: LifeTabType[] = ["today", "actionables", "routines", "chat", "memories", "calendar", "channels"];
+  const validTypes: LifeTabType[] = ["today", "actionables", "routines", "chat", "memories", "calendar", "channels", "tasks", "settings"];
   if (validTypes.includes(rel as LifeTabType)) return { type: rel as LifeTabType };
   return { type: "chat" };
 }
 
 // ─── Persisted State ──────────────────────────────────────────────────────────
 
+type StartDay = 0 | 1 | 6; // Sunday, Monday, Saturday
+
+interface LifeSettings {
+  startDayOfWeek: StartDay;
+  timezone: string;
+  autoApproveActions: boolean;
+}
+
+const DEFAULT_SETTINGS: LifeSettings = {
+  startDayOfWeek: 1,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  autoApproveActions: false,
+};
+
 interface LifePersistedState {
   tabs: LifeTab[];
   activeTabId: string | null;
   activeConvId: string | null;
+  settings?: LifeSettings;
 }
 
 const DEFAULT_LIFE_STATE: LifePersistedState = {
   tabs: [{ id: "tab:chat", type: "chat" }],
   activeTabId: "tab:chat",
   activeConvId: null,
+  settings: DEFAULT_SETTINGS,
 };
 
 const MEMORY_CATEGORIES = [
@@ -266,9 +314,24 @@ function LifeSidebar({
           icon: <CalendarDays className="h-3.5 w-3.5" />,
         },
         {
+          id: "tasks",
+          label: "Tasks",
+          icon: <ListTodo className="h-3.5 w-3.5" />,
+        },
+        {
           id: "channels",
           label: "Channels",
           icon: <Radio className="h-3.5 w-3.5" />,
+        },
+      ],
+    },
+    {
+      label: "",
+      items: [
+        {
+          id: "settings",
+          label: "Settings",
+          icon: <Settings className="h-3.5 w-3.5" />,
         },
       ],
     },
@@ -277,7 +340,7 @@ function LifeSidebar({
   return (
     <aside className="w-52 shrink-0 border-r flex flex-col overflow-hidden bg-muted/20">
       <div className="flex-1 overflow-y-auto px-1.5 py-2 space-y-3">
-        {groups.map((group) => (
+        {groups.filter((g) => g.label !== "").map((group) => (
           <div key={group.label}>
             <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
               {group.label}
@@ -302,36 +365,116 @@ function LifeSidebar({
           </div>
         ))}
       </div>
+      {/* Settings at bottom */}
+      <div className="shrink-0 border-t px-1.5 py-2">
+        <button
+          onClick={() => onOpenTab("settings")}
+          className={cn(
+            "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors",
+            activeTabType === "settings"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+        >
+          <Settings className="h-3.5 w-3.5" />
+          Settings
+        </button>
+      </div>
     </aside>
   );
 }
 
 // ─── Typing Indicator ─────────────────────────────────────────────────────────
 
+const THINKING_PHRASES = [
+  "Thinking", "Pondering", "Figuring it out", "Mulling it over", "Processing",
+  "Brainstorming", "Cooking up a plan", "Connecting the dots", "On it",
+  "Working on it", "Crunching", "Plotting", "Scheming", "Noodling",
+  "Brewing ideas", "Putting pieces together", "Mapping it out", "Reflecting",
+  "Analyzing", "Considering options", "Weighing things up", "Digging in",
+  "Getting creative", "Spinning gears", "Running the numbers", "Sorting it out",
+  "Hatching a plan", "Chewing on it", "Wiring it up", "Assembling thoughts",
+  "Calibrating", "Strategizing", "Untangling", "Decoding", "Synthesizing",
+  "Forming a plan", "Sketching it out", "Piecing it together", "Evaluating",
+  "Exploring options", "Charting a course", "Doing the math", "Deliberating",
+  "Dreaming up ideas", "Building a plan", "Tuning in", "Getting organized",
+  "Scanning the horizon", "Deep in thought", "Conjuring", "Sifting through",
+  "Harmonizing", "Orchestrating", "Fine-tuning", "Laying groundwork",
+  "Cranking away", "Drilling down", "Looking into it", "Checking things",
+  "Running scenarios", "Meditating on it", "Wrestling with it", "Gathering intel",
+  "Surveying the landscape", "Taking stock", "Cross-referencing", "Calculating",
+  "Drafting a plan", "Composing thoughts", "Aligning the stars", "Forging ahead",
+  "Warming up", "Revving up", "Gearing up", "Sharpening the pencil",
+  "Dotting i's", "Tinkering", "Winding up", "Loading up", "Racking my brain",
+  "Dusting off ideas", "Percolating", "Ruminating", "Incubating",
+  "Germinating ideas", "Distilling", "Crystallizing", "Honing in",
+  "Zeroing in", "Locking in", "Firing neurons", "Booting up",
+  "Spinning up", "Compiling thoughts", "Rendering", "Buffering brilliance",
+  "Consulting the oracle", "Reading the tea leaves", "Channeling wisdom",
+  "Summoning focus", "Activating brain cells", "Engaging hyperdrive",
+  "Entering the zone", "Initiating sequence", "Deploying logic",
+];
+
 function TypingIndicator() {
+  const [phrase, setPhrase] = useState(() =>
+    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhrase(THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="flex items-end gap-2 mr-auto max-w-[80%]">
-      <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-3 flex items-center gap-1.5">
-        <span
-          className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "0ms" }}
-        />
-        <span
-          className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "150ms" }}
-        />
-        <span
-          className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "300ms" }}
-        />
+    <div className="py-3">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[10px] font-medium text-primary/70">Life</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <span className="h-1 w-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1s" }} />
+          <span className="h-1 w-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1s" }} />
+          <span className="h-1 w-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1s" }} />
+        </div>
+        <span className="text-xs text-muted-foreground animate-pulse">{phrase}…</span>
       </div>
     </div>
   );
 }
 
+function StreamingThinkingIndicator() {
+  const [phrase, setPhrase] = useState(() =>
+    THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhrase(THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex items-center gap-2 text-xs text-muted-foreground py-0.5"
+    >
+      <div className="flex items-center gap-0.5">
+        <span className="h-1 w-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1s" }} />
+        <span className="h-1 w-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1s" }} />
+        <span className="h-1 w-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1s" }} />
+      </div>
+      <span className="animate-pulse">{phrase}…</span>
+    </motion.div>
+  );
+}
+
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
-function MessageBubble({ msg }: { msg: LifeMessage }) {
+function MessageBubble({ msg, isLast }: { msg: LifeMessage; isLast?: boolean }) {
   const isUser = msg.role === "user";
   const [copied, setCopied] = useState(false);
   const time = new Date(msg.createdAt).toLocaleTimeString([], {
@@ -346,71 +489,74 @@ function MessageBubble({ msg }: { msg: LifeMessage }) {
   };
 
   return (
-    <div
-      className={cn(
-        "group flex items-end gap-2",
-        isUser ? "ml-auto flex-row-reverse max-w-[80%]" : "mr-auto max-w-[80%]"
-      )}
-    >
+    <div className="group">
       <div
         className={cn(
-          "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-          isUser
-            ? "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap break-words"
-            : "bg-muted text-foreground rounded-bl-sm"
+          "py-3",
+          isUser ? "flex justify-end" : "",
         )}
       >
         {isUser ? (
-          msg.content
+          <div className="max-w-[85%]">
+            <div className="flex items-center gap-2 mb-1 justify-end">
+              <span className="text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity">{time}</span>
+              <span className="text-[10px] font-medium text-muted-foreground/60">You</span>
+            </div>
+            <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words text-right">
+              {msg.content}
+            </p>
+          </div>
         ) : (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              ul: ({ children }) => <ul className="list-disc list-inside mb-2 last:mb-0 space-y-0.5">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal list-inside mb-2 last:mb-0 space-y-0.5">{children}</ol>,
-              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-              em: ({ children }) => <em className="italic">{children}</em>,
-              code: ({ children, className }) => {
-                const isBlock = className?.startsWith("language-");
-                if (isBlock) {
-                  return <code className="block bg-background/50 rounded-md px-3 py-2 text-xs font-mono my-2 overflow-x-auto">{children}</code>;
-                }
-                return <code className="bg-background/50 px-1 py-0.5 rounded text-xs font-mono">{children}</code>;
-              },
-              pre: ({ children }) => <pre className="my-2">{children}</pre>,
-              a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80">{children}</a>
-              ),
-              h1: ({ children }) => <p className="font-bold text-base mb-1">{children}</p>,
-              h2: ({ children }) => <p className="font-bold text-sm mb-1">{children}</p>,
-              h3: ({ children }) => <p className="font-semibold text-sm mb-1">{children}</p>,
-              blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 italic text-muted-foreground my-2">{children}</blockquote>,
-              hr: () => <hr className="border-border/50 my-2" />,
-              table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs border-collapse w-full">{children}</table></div>,
-              th: ({ children }) => <th className="text-left px-2 py-1 border-b font-semibold text-xs">{children}</th>,
-              td: ({ children }) => <td className="px-2 py-1 border-b border-border/30 text-xs">{children}</td>,
-            }}
-          >
-            {msg.content}
-          </ReactMarkdown>
+          <div className="max-w-[90%]">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-medium text-primary/70">Life</span>
+              <span className="text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity">{time}</span>
+              <button
+                onClick={handleCopy}
+                className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground/30 hover:text-muted-foreground opacity-0 group-hover:opacity-100 transition-all"
+                title="Copy message"
+              >
+                {copied ? <Check className="h-2.5 w-2.5 text-green-500" /> : <Copy className="h-2.5 w-2.5" />}
+              </button>
+            </div>
+            <div className="text-sm leading-relaxed text-foreground">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                  ul: ({ children }) => <ul className="list-disc list-inside mb-2 last:mb-0 space-y-0.5">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal list-inside mb-2 last:mb-0 space-y-0.5">{children}</ol>,
+                  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  em: ({ children }) => <em className="italic">{children}</em>,
+                  code: ({ children, className }) => {
+                    const isBlock = className?.startsWith("language-");
+                    if (isBlock) {
+                      return <code className="block bg-muted/60 rounded-md px-3 py-2 text-xs font-mono my-2 overflow-x-auto">{children}</code>;
+                    }
+                    return <code className="bg-muted/60 px-1 py-0.5 rounded text-xs font-mono">{children}</code>;
+                  },
+                  pre: ({ children }) => <pre className="my-2">{children}</pre>,
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80">{children}</a>
+                  ),
+                  h1: ({ children }) => <p className="font-bold text-base mb-1">{children}</p>,
+                  h2: ({ children }) => <p className="font-bold text-sm mb-1">{children}</p>,
+                  h3: ({ children }) => <p className="font-semibold text-sm mb-1">{children}</p>,
+                  blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-3 italic text-muted-foreground my-2">{children}</blockquote>,
+                  hr: () => <hr className="border-border/50 my-2" />,
+                  table: ({ children }) => <div className="overflow-x-auto my-2"><table className="text-xs border-collapse w-full">{children}</table></div>,
+                  th: ({ children }) => <th className="text-left px-2 py-1 border-b font-semibold text-xs">{children}</th>,
+                  td: ({ children }) => <td className="px-2 py-1 border-b border-border/30 text-xs">{children}</td>,
+                }}
+              >
+                {msg.content}
+              </ReactMarkdown>
+            </div>
+          </div>
         )}
       </div>
-      <div className="flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mb-1">
-        <span className="text-[10px] text-muted-foreground/50">
-          {time}
-        </span>
-        {!isUser && (
-          <button
-            onClick={handleCopy}
-            className="p-0.5 rounded hover:bg-muted/50 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-            title="Copy message"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-          </button>
-        )}
-      </div>
+      {!isLast && <div className="border-b border-border/30" />}
     </div>
   );
 }
@@ -435,18 +581,10 @@ function InlineChatActionable({
     setActing(false);
   };
 
-  const typeColors: Record<string, string> = {
-    confirm: "border-blue-500/30 bg-blue-500/5",
-    choose: "border-purple-500/30 bg-purple-500/5",
-    input: "border-amber-500/30 bg-amber-500/5",
-    info: "border-green-500/30 bg-green-500/5",
-  };
-
   return (
     <div className={cn(
-      "ml-0 mr-auto max-w-[80%] mt-2 rounded-xl border p-3 space-y-2 text-sm",
-      typeColors[actionable.type] ?? "border-border bg-muted/30",
-      resolved && "opacity-60"
+      "mt-2 space-y-2 text-sm",
+      resolved && "opacity-50"
     )}>
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -479,8 +617,8 @@ function InlineChatActionable({
             <label
               key={opt.id}
               className={cn(
-                "flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
-                selectedOption === opt.id ? "border-primary bg-primary/5" : "border-border/50 hover:bg-muted/30"
+                "flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors",
+                selectedOption === opt.id ? "bg-primary/10" : "hover:bg-muted/40"
               )}
             >
               <input
@@ -514,7 +652,7 @@ function InlineChatActionable({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Your response..."
-            className="w-full rounded-md border bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="w-full rounded-md bg-muted/40 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
           <div className="flex items-center gap-2">
             <Button size="sm" className="h-7 text-xs" disabled={acting || !inputText.trim()} onClick={() => handle("input", { text: inputText })}>
@@ -538,6 +676,28 @@ function InlineChatActionable({
   );
 }
 
+// ─── Tool metadata ───────────────────────────────────────────────────────────
+
+const TOOL_LABELS: Record<string, { label: string; activeLabel: string; icon: React.ReactNode }> = {
+  remember: { label: "Saved to memory", activeLabel: "Saving to memory", icon: <Lightbulb className="size-3.5" /> },
+  forget: { label: "Removed memory", activeLabel: "Removing memory", icon: <X className="size-3.5" /> },
+  create_routine: { label: "Created routine", activeLabel: "Creating routine", icon: <Repeat className="size-3.5" /> },
+  update_routine: { label: "Updated routine", activeLabel: "Updating routine", icon: <Repeat className="size-3.5" /> },
+  delete_routine: { label: "Removed routine", activeLabel: "Removing routine", icon: <Repeat className="size-3.5" /> },
+  list_routines: { label: "Looked up routines", activeLabel: "Looking up routines", icon: <Repeat className="size-3.5" /> },
+  create_actionable: { label: "Created actionable", activeLabel: "Creating actionable", icon: <CheckSquare className="size-3.5" /> },
+  list_actionables: { label: "Looked up actionables", activeLabel: "Looking up actionables", icon: <CheckSquare className="size-3.5" /> },
+  get_calendar_events: { label: "Fetched calendar", activeLabel: "Checking calendar", icon: <CalendarDays className="size-3.5" /> },
+  create_calendar_event: { label: "Created event", activeLabel: "Creating calendar event", icon: <CalendarDays className="size-3.5" /> },
+  update_calendar_event: { label: "Updated event", activeLabel: "Updating calendar event", icon: <CalendarDays className="size-3.5" /> },
+  delete_calendar_event: { label: "Deleted event", activeLabel: "Deleting calendar event", icon: <CalendarDays className="size-3.5" /> },
+  list_tasks: { label: "Fetched tasks", activeLabel: "Looking up tasks", icon: <ListTodo className="size-3.5" /> },
+  create_task: { label: "Created task", activeLabel: "Creating task", icon: <ListTodo className="size-3.5" /> },
+  complete_task: { label: "Completed task", activeLabel: "Completing task", icon: <Check className="size-3.5" /> },
+  update_task: { label: "Updated task", activeLabel: "Updating task", icon: <ListTodo className="size-3.5" /> },
+  delete_task: { label: "Deleted task", activeLabel: "Deleting task", icon: <ListTodo className="size-3.5" /> },
+};
+
 // ─── Tool Call Display ────────────────────────────────────────────────────────
 // Modern collapsible card inspired by Claude/Gemini tool call indicators.
 
@@ -546,24 +706,15 @@ function ToolCallDisplay({
   onActionableRespond,
   msgId,
   onActionableStatusChange,
+  onOpenRoutine,
 }: {
   effect: ChatEffect;
   onActionableRespond: (id: string, action: string, data?: unknown) => void;
   msgId: string;
   onActionableStatusChange?: (msgId: string, actionableId: string, status: string) => void;
+  onOpenRoutine?: (routineId: string, name: string) => void;
 }) {
-  const TOOL_META: Record<string, { label: string; icon: React.ReactNode }> = {
-    remember: { label: "Saved to memory", icon: <Lightbulb className="size-3.5" /> },
-    forget: { label: "Removed memory", icon: <X className="size-3.5" /> },
-    create_routine: { label: "Created routine", icon: <Repeat className="size-3.5" /> },
-    update_routine: { label: "Updated routine", icon: <Repeat className="size-3.5" /> },
-    delete_routine: { label: "Removed routine", icon: <Repeat className="size-3.5" /> },
-    create_actionable: { label: "Action required", icon: <CheckSquare className="size-3.5" /> },
-    list_routines: { label: "Looked up routines", icon: <Repeat className="size-3.5" /> },
-    list_actionables: { label: "Looked up actionables", icon: <CheckSquare className="size-3.5" /> },
-  };
-
-  const meta = TOOL_META[effect.tool] ?? { label: effect.tool, icon: <Settings className="size-3.5" /> };
+  const meta = TOOL_LABELS[effect.tool] ?? { label: effect.tool, activeLabel: effect.tool, icon: <Settings className="size-3.5" /> };
 
   // ── Actionable (interactive) ───────────────────────────────────────────────
   if (effect.tool === "create_actionable" && effect.actionable) {
@@ -583,11 +734,7 @@ function ToolCallDisplay({
     }
 
     return (
-      <div className="mt-2 rounded-lg border border-border/60 p-3 space-y-2 max-w-[85%]">
-        <p className="text-sm font-medium text-foreground">{a.title}</p>
-        {a.description && (
-          <p className="text-xs text-muted-foreground">{a.description}</p>
-        )}
+      <div className="mt-2 max-w-[85%]">
         <InlineChatActionable
           actionable={a}
           onRespond={async (action, data) => {
@@ -599,39 +746,66 @@ function ToolCallDisplay({
     );
   }
 
-  // ── Read-only tools (list_routines, list_actionables) — hide from UI ──────
-  if (effect.tool === "list_routines" || effect.tool === "list_actionables") {
+  // ── Read-only lookup tools — hide from UI ────────────────────────────────
+  const readOnlyTools = ["list_routines", "list_actionables", "get_calendar_events", "list_tasks"];
+  if (readOnlyTools.includes(effect.tool)) {
     return null;
   }
 
-  // ── All other tools — collapsible subtle trigger ──────────────────────────
-  const detail = effect.data
-    ? effect.tool === "remember"
-      ? String(effect.data.content ?? "")
-      : effect.tool === "create_routine" || effect.tool === "update_routine"
-        ? String(effect.data.name ?? "")
-        : effect.tool === "delete_routine"
-          ? "Deactivated"
-          : effect.tool === "forget"
-            ? "Removed"
-            : null
-    : null;
+  // ── All other tools — show result with link ────────────────────────────
+  const data = effect.data;
 
-  const isMemory = effect.tool === "remember" && effect.data;
-  const isRoutine = effect.tool === "create_routine" || effect.tool === "update_routine";
+  // Extract a human-readable detail string
+  const detail =
+    data?.content ? String(data.content) :             // remember
+    data?.name ? String(data.name) :                   // routine
+    data?.title ? String(data.title) :                 // task, actionable
+    data?.summary ? String(data.summary) :             // calendar event
+    data?.deleted ? "Deleted" :
+    data?.forgotten ? "Removed" :
+    null;
+
+  // Determine "View →" link target
+  const hasRoutineLink = (effect.tool === "create_routine" || effect.tool === "update_routine") && data?.routine_id != null;
+  const hasMemoryLink = effect.tool === "remember" && data;
+  const hasTaskLink = (effect.tool === "create_task" || effect.tool === "update_task" || effect.tool === "complete_task");
+  const hasCalendarLink = effect.tool === "create_calendar_event" && data?.htmlLink != null;
+
+  const linkEl = hasRoutineLink && onOpenRoutine ? (
+    <button
+      onClick={() => onOpenRoutine(String(data!.routine_id), String(data!.name ?? "Routine"))}
+      className="text-muted-foreground/50 hover:text-primary transition-colors"
+    >
+      <ExternalLink className="size-3" />
+    </button>
+  ) : hasMemoryLink ? (
+    <a href="/tools/life/memories" className="text-muted-foreground/50 hover:text-primary transition-colors">
+      <ExternalLink className="size-3" />
+    </a>
+  ) : hasTaskLink ? (
+    <a href="/tools/life/tasks" className="text-muted-foreground/50 hover:text-primary transition-colors">
+      <ExternalLink className="size-3" />
+    </a>
+  ) : hasCalendarLink ? (
+    <a href={String(data!.htmlLink)} target="_blank" rel="noopener noreferrer" className="text-muted-foreground/50 hover:text-primary transition-colors">
+      <ExternalLink className="size-3" />
+    </a>
+  ) : null;
 
   return (
-    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-      {meta.icon}
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground"
+    >
+      <div className="flex items-center justify-center size-4 rounded-full bg-primary/10 shrink-0">
+        {meta.icon}
+      </div>
       <span>{meta.label}</span>
       {detail && <span className="opacity-50 truncate max-w-[200px]">· {detail}</span>}
-      {isRoutine && (
-        <a href="/tools/life/routines" className="text-primary hover:underline ml-0.5">View →</a>
-      )}
-      {isMemory && (
-        <a href="/tools/life/memories" className="text-primary hover:underline ml-0.5">View →</a>
-      )}
-    </div>
+      {linkEl}
+    </motion.div>
   );
 }
 
@@ -719,6 +893,9 @@ function ChatView({
   routineId,
   hideConversations,
   onToolEffect,
+  onOpenRoutine,
+  autoApprove,
+  slotAboveInput,
 }: {
   persistedConvId: string | null;
   onConvIdChange: (id: string | null) => void;
@@ -727,12 +904,16 @@ function ChatView({
   routineId?: string;
   hideConversations?: boolean;
   onToolEffect?: (tool: string) => void;
+  onOpenRoutine?: (routineId: string, name: string) => void;
+  autoApprove?: boolean;
+  slotAboveInput?: React.ReactNode;
 }) {
   const [messages, setMessages] = useState<LifeMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [streamingToolCall, setStreamingToolCall] = useState<string | null>(null);
+  const [toolCallHistory, setToolCallHistory] = useState<string[]>([]);
   const [activeConvId, setActiveConvIdLocal] = useState<string | null>(persistedConvId);
   const [conversations, setConversations] = useState<LifeConversation[]>([]);
   const [convsLoading, setConvsLoading] = useState(true);
@@ -855,6 +1036,7 @@ function ChatView({
     setInput("");
     setStreamingText("");
     setStreamingToolCall(null);
+    setToolCallHistory([]);
     setSending(true);
 
     // Reset textarea height
@@ -893,6 +1075,7 @@ function ChatView({
           },
           onToolCall: (toolName) => {
             setStreamingToolCall(toolName);
+            setToolCallHistory((prev) => [...prev, toolName]);
           },
           onToolResult: () => {
             setStreamingToolCall(null);
@@ -926,6 +1109,7 @@ function ChatView({
 
             setStreamingText("");
             setStreamingToolCall(null);
+            setToolCallHistory([]);
 
             if (onToolEffect && result.effects) {
               for (const eff of result.effects) {
@@ -954,6 +1138,7 @@ function ChatView({
         activeConvId ?? undefined,
         systemContext,
         routineId,
+        autoApprove,
       );
     } catch (err) {
       // Network-level failure before streaming could start.
@@ -1047,7 +1232,7 @@ function ChatView({
         )}
 
         {/* Messages */}
-        <div className={cn("flex-1 px-4 py-4 space-y-3", messages.length > 0 || sending ? "overflow-y-auto" : "flex flex-col overflow-hidden")}>
+        <div className={cn("flex-1 px-5 py-2", messages.length > 0 || sending ? "overflow-y-auto" : "flex flex-col overflow-hidden")}>
           {messages.length === 0 && !sending && (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1092,9 +1277,9 @@ function ChatView({
               </div>
             </div>
           )}
-          {messages.map((msg) => (
+          {messages.map((msg, idx) => (
             <div key={msg.id}>
-              <MessageBubble msg={msg} />
+              <MessageBubble msg={msg} isLast={idx === messages.length - 1 && !sending} />
               {msg.role === "assistant" && msg.toolCalls?.map((eff, i) => (
                 <ToolCallDisplay
                   key={`${eff.tool}-${eff.id ?? i}`}
@@ -1121,22 +1306,69 @@ function ChatView({
                       )
                     );
                   }}
+                  onOpenRoutine={onOpenRoutine}
                 />
               ))}
             </div>
           ))}
-          {sending && streamingText === "" && streamingToolCall === null && <TypingIndicator />}
-          {streamingToolCall && (
-            <div className="flex items-end gap-2 mr-auto max-w-[80%]">
-              <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-                <span>Using {streamingToolCall}&hellip;</span>
-              </div>
-            </div>
+          {sending && streamingText === "" && streamingToolCall === null && toolCallHistory.length === 0 && <TypingIndicator />}
+          <AnimatePresence>
+          {(toolCallHistory.length > 0 || streamingToolCall) && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="py-2 max-w-[85%] space-y-0.5"
+            >
+              {/* Completed tool calls */}
+              <AnimatePresence>
+              {toolCallHistory.filter((t) => t !== streamingToolCall).map((toolName, i) => {
+                const m = TOOL_LABELS[toolName];
+                return (
+                  <motion.div
+                    key={`${toolName}-${i}`}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center gap-2 text-xs text-muted-foreground/70 py-0.5"
+                  >
+                    <div className="flex items-center justify-center size-4 rounded-full bg-primary/10">
+                      <Check className="size-2.5 text-primary" />
+                    </div>
+                    <span>{m?.label ?? toolName}</span>
+                  </motion.div>
+                );
+              })}
+              </AnimatePresence>
+              {/* Active tool call */}
+              <AnimatePresence mode="wait">
+              {streamingToolCall && (
+                <motion.div
+                  key={streamingToolCall}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-2 text-xs text-foreground/80 py-0.5"
+                >
+                  <div className="flex items-center justify-center size-4">
+                    <Loader2 className="size-3.5 animate-spin text-primary" />
+                  </div>
+                  <span>{TOOL_LABELS[streamingToolCall]?.activeLabel ?? streamingToolCall}&hellip;</span>
+                </motion.div>
+              )}
+              </AnimatePresence>
+              {/* Thinking state: tools ran but no text response yet */}
+              {!streamingToolCall && sending && streamingText === "" && (
+                <StreamingThinkingIndicator />
+              )}
+            </motion.div>
           )}
+          </AnimatePresence>
           <div ref={bottomRef} />
         </div>
 
+        {/* Slot above input */}
+        {slotAboveInput}
         {/* Input area */}
         <div className="shrink-0 border-t px-4 py-3">
           <div className="flex items-end gap-2">
@@ -1286,11 +1518,14 @@ function MemoriesView() {
               </div>
             )}
             {!loading && filtered.map((memory) => (
-              <button
+              <div
                 key={memory.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => selectMemory(memory)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") selectMemory(memory); }}
                 className={cn(
-                  "w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs border-b border-border/20 hover:bg-accent/40 transition-colors group",
+                  "w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs border-b border-border/20 hover:bg-accent/40 transition-colors group cursor-pointer",
                   selectedId === memory.id && "bg-accent/60"
                 )}
               >
@@ -1304,7 +1539,7 @@ function MemoriesView() {
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -1403,11 +1638,13 @@ function formatSchedule(schedule: unknown): string {
 
 // ─── Actionables View ─────────────────────────────────────────────────────────
 
-const ACTIONABLE_TYPE_COLORS: Record<string, string> = {
-  confirm: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  choose: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
-  input: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  info: "bg-green-500/15 text-green-600 dark:text-green-400",
+// Map action_type to human label + icon for deferred actions
+const ACTION_TYPE_META: Record<string, { label: string; icon: React.ReactNode }> = {
+  create_routine: { label: "Create routine", icon: <Repeat className="h-3.5 w-3.5 text-violet-500" /> },
+  create_memory: { label: "Save memory", icon: <Lightbulb className="h-3.5 w-3.5 text-yellow-500" /> },
+  create_calendar_event: { label: "Add to calendar", icon: <CalendarDays className="h-3.5 w-3.5 text-rose-500" /> },
+  delete_calendar_event: { label: "Remove event", icon: <CalendarDays className="h-3.5 w-3.5 text-red-500" /> },
+  create_task: { label: "Create task", icon: <ListTodo className="h-3.5 w-3.5 text-orange-500" /> },
 };
 
 function ActionableCard({
@@ -1422,12 +1659,15 @@ function ActionableCard({
   const [acting, setActing] = useState(false);
 
   const isPending = actionable.status === "pending";
-  const typeColor =
-    ACTIONABLE_TYPE_COLORS[actionable.type] ?? "bg-muted text-muted-foreground";
 
   const isDueSoon =
     actionable.dueAt &&
     new Date(actionable.dueAt).getTime() - Date.now() < 24 * 60 * 60 * 1000;
+
+  const isOverdue =
+    actionable.dueAt && new Date(actionable.dueAt).getTime() < Date.now();
+
+  const actionMeta = actionable.actionType ? ACTION_TYPE_META[actionable.actionType] : null;
 
   const handleAction = async (action: string, data?: unknown) => {
     setActing(true);
@@ -1438,230 +1678,168 @@ function ActionableCard({
     }
   };
 
+  // Resolved state — compact single line
+  if (!isPending) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-border/30 text-muted-foreground/50">
+        {actionable.status === "confirmed" ? (
+          <Check className="h-3.5 w-3.5 text-green-500/60 shrink-0" />
+        ) : (
+          <X className="h-3.5 w-3.5 shrink-0" />
+        )}
+        <span className="text-xs line-through truncate flex-1">{actionable.title}</span>
+        <span className="text-[10px] shrink-0">{relativeTime(actionable.resolvedAt ?? actionable.createdAt)}</span>
+      </div>
+    );
+  }
+
+  // Pending — full interactive card
   return (
-    <div
-      className={cn(
-        "rounded-lg border bg-card p-4 space-y-3 transition-colors",
-        !isPending && "opacity-60"
-      )}
-    >
-      {/* Header row */}
-      <div className="flex items-start gap-3">
+    <div className={cn(
+      "rounded-lg border bg-card transition-all",
+      isDueSoon && !isOverdue && "border-amber-500/30",
+      isOverdue && "border-red-500/30",
+    )}>
+      {/* Main row */}
+      <div className="flex items-start gap-3 p-4 pb-0">
+        {/* Action type icon */}
+        <div className="mt-0.5 shrink-0">
+          {actionMeta?.icon ?? (
+            actionable.type === "info"
+              ? <Info className="h-3.5 w-3.5 text-blue-500" />
+              : <Sparkles className="h-3.5 w-3.5 text-primary" />
+          )}
+        </div>
+
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground leading-snug">
-            {actionable.title}
-          </p>
-          {actionable.description && (
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              {actionable.description}
+          {/* Action label */}
+          {actionMeta && (
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-0.5">
+              {actionMeta.label}
             </p>
           )}
-        </div>
-        <span
-          className={cn(
-            "shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize",
-            typeColor
-          )}
-        >
-          {actionable.type}
-        </span>
-      </div>
-
-      {/* Meta row */}
-      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-        <span>{relativeTime(actionable.createdAt)}</span>
-        {actionable.dueAt && (
-          <span
-            className={cn(
-              "flex items-center gap-1",
-              isDueSoon && isPending && "text-amber-500"
-            )}
-          >
-            <Clock className="h-3 w-3" />
-            Due {relativeTime(actionable.dueAt)}
-          </span>
-        )}
-        {!isPending && (
-          <span className="flex items-center gap-1 ml-auto capitalize">
-            {actionable.status === "confirmed" ? (
-              <Check className="h-3 w-3 text-green-500" />
-            ) : (
-              <X className="h-3 w-3 text-muted-foreground" />
-            )}
-            {actionable.status}
-          </span>
-        )}
-      </div>
-
-      {/* Resolved response */}
-      {!isPending && actionable.response != null && (
-        <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-          Response: {typeof actionable.response === "string"
-            ? actionable.response
-            : JSON.stringify(actionable.response)}
-        </div>
-      )}
-
-      {/* Action area — only for pending */}
-      {isPending && (
-        <div className="space-y-2">
-          {actionable.type === "confirm" && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                className="h-7 text-xs gap-1.5"
-                disabled={acting}
-                onClick={() => handleAction("confirm")}
-              >
-                {acting ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Check className="h-3 w-3" />
-                )}
-                Confirm
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                disabled={acting}
-                onClick={() => handleAction("snooze")}
-              >
-                <Clock className="h-3 w-3 mr-1" />
-                Snooze
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs text-muted-foreground"
-                disabled={acting}
-                onClick={() => handleAction("dismiss")}
-              >
-                Dismiss
-              </Button>
-            </div>
+          <p className="text-sm font-medium text-foreground leading-snug">{actionable.title}</p>
+          {actionable.description && (
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{actionable.description}</p>
           )}
 
-          {actionable.type === "choose" && actionable.options && (
-            <div className="space-y-2">
-              <div className="space-y-1">
-                {actionable.options.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setSelectedOption(opt.id)}
-                    className={cn(
-                      "w-full flex items-start gap-2 rounded-md border px-3 py-2 text-xs text-left transition-colors",
-                      selectedOption === opt.id
-                        ? "border-primary bg-primary/5 text-foreground"
-                        : "border-border hover:border-border/80 hover:bg-muted/30 text-muted-foreground"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border",
-                        selectedOption === opt.id
-                          ? "border-primary bg-primary"
-                          : "border-muted-foreground/40"
-                      )}
-                    />
-                    <span>
-                      <span className="font-medium text-foreground">
-                        {opt.label}
-                      </span>
-                      {opt.detail && (
-                        <span className="block text-muted-foreground mt-0.5">
-                          {opt.detail}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  className="h-7 text-xs"
-                  disabled={acting || !selectedOption}
-                  onClick={() =>
-                    handleAction("choose", { optionId: selectedOption })
-                  }
-                >
-                  {acting && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                  Select
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs text-muted-foreground"
+          {/* Meta */}
+          <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
+            <span>{relativeTime(actionable.createdAt)}</span>
+            {actionable.dueAt && (
+              <span className={cn(
+                "flex items-center gap-0.5",
+                isOverdue ? "text-red-500" : isDueSoon ? "text-amber-500" : ""
+              )}>
+                <Clock className="h-2.5 w-2.5" />
+                {isOverdue ? "Overdue" : `Due ${relativeTime(actionable.dueAt)}`}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Action area */}
+      <div className="p-3 pt-3">
+        {actionable.type === "confirm" && (
+          <div className="flex items-center gap-2">
+            <button
+              disabled={acting}
+              onClick={() => handleAction("confirm")}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              Approve
+            </button>
+            <button
+              disabled={acting}
+              onClick={() => handleAction("dismiss")}
+              className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Skip
+            </button>
+          </div>
+        )}
+
+        {actionable.type === "choose" && actionable.options && (
+          <div className="space-y-2">
+            <div className="grid gap-1.5">
+              {actionable.options.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    setSelectedOption(opt.id);
+                    handleAction("choose", { optionId: opt.id });
+                  }}
                   disabled={acting}
-                  onClick={() => handleAction("dismiss")}
+                  className={cn(
+                    "w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-left transition-all disabled:opacity-50",
+                    "border-border hover:border-primary/50 hover:bg-primary/5"
+                  )}
                 >
-                  Dismiss
-                </Button>
-              </div>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <span className="flex-1">
+                    <span className="font-medium text-foreground">{opt.label}</span>
+                    {opt.detail && <span className="block text-muted-foreground mt-0.5">{opt.detail}</span>}
+                  </span>
+                </button>
+              ))}
             </div>
-          )}
+            <button
+              disabled={acting}
+              onClick={() => handleAction("dismiss")}
+              className="text-[10px] text-muted-foreground hover:underline"
+            >
+              Skip this
+            </button>
+          </div>
+        )}
 
-          {actionable.type === "input" && (
-            <div className="space-y-2">
+        {actionable.type === "input" && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Type your response…"
-                className={cn(
-                  "w-full rounded-md border bg-background px-3 py-2 text-sm",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  "placeholder:text-muted-foreground/50"
-                )}
+                placeholder="Type your answer…"
+                className="flex-1 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && textInput.trim()) {
                     handleAction("input", { value: textInput.trim() });
                   }
                 }}
               />
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  className="h-7 text-xs"
-                  disabled={acting || !textInput.trim()}
-                  onClick={() =>
-                    handleAction("input", { value: textInput.trim() })
-                  }
-                >
-                  {acting && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                  Submit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs text-muted-foreground"
-                  disabled={acting}
-                  onClick={() => handleAction("dismiss")}
-                >
-                  Dismiss
-                </Button>
-              </div>
+              <button
+                disabled={acting || !textInput.trim()}
+                onClick={() => handleAction("input", { value: textInput.trim() })}
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              </button>
             </div>
-          )}
-
-          {actionable.type === "info" && (
-            <Button
-              size="sm"
-              className="h-7 text-xs gap-1.5"
+            <button
               disabled={acting}
-              onClick={() => handleAction("confirm")}
+              onClick={() => handleAction("dismiss")}
+              className="text-[10px] text-muted-foreground hover:underline"
             >
-              {acting ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Info className="h-3 w-3" />
-              )}
-              Got it
-            </Button>
-          )}
-        </div>
-      )}
+              Skip this
+            </button>
+          </div>
+        )}
+
+        {actionable.type === "info" && (
+          <button
+            disabled={acting}
+            onClick={() => handleAction("confirm")}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+          >
+            {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            Acknowledge
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1670,7 +1848,7 @@ function ActionablesView() {
   const [actionables, setActionables] = useState<LifeActionable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "pending" | "resolved">("all");
+  const [showResolved, setShowResolved] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1685,56 +1863,49 @@ function ActionablesView() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   const handleRespond = useCallback(
     async (id: string, action: string, data?: unknown) => {
       await respondToActionable(id, action, data);
-      // Refresh to get updated status
+      // Optimistic: remove from list immediately, then refresh
+      setActionables((prev) => prev.map((a) =>
+        a.id === id ? { ...a, status: action === "dismiss" ? "dismissed" : "confirmed", resolvedAt: new Date().toISOString() } : a
+      ));
       const updated = await listLifeActionables();
       setActionables(updated);
     },
     []
   );
 
-  const filtered = actionables.filter((a) => {
-    if (filter === "pending") return a.status === "pending";
-    if (filter === "resolved") return a.status !== "pending";
-    return true;
-  });
+  const pending = actionables.filter((a) => a.status === "pending");
+  const resolved = actionables.filter((a) => a.status !== "pending");
 
-  const filterPills: { key: "all" | "pending" | "resolved"; label: string }[] =
-    [
-      { key: "all", label: "All" },
-      { key: "pending", label: "Pending" },
-      { key: "resolved", label: "Resolved" },
-    ];
+  // Sort pending: overdue first, then due soon, then by created
+  const sortedPending = [...pending].sort((a, b) => {
+    if (a.dueAt && b.dueAt) return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+    if (a.dueAt) return -1;
+    if (b.dueAt) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b shrink-0">
-        <div className="flex items-center gap-1.5 flex-1 flex-wrap">
-          {filterPills.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => setFilter(p.key)}
-              className={cn(
-                "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-                filter === p.key
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/50"
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Actionables</span>
+            {pending.length > 0 && (
+              <span className="inline-flex items-center justify-center h-5 min-w-[20px] rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                {pending.length}
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={load}
-          className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+          className="p-1.5 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
           title="Refresh"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
@@ -1742,53 +1913,65 @@ function ActionablesView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto">
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             {error}
-            <button
-              onClick={() => { setError(null); load(); }}
-              className="ml-auto text-xs underline"
-            >
-              Retry
-            </button>
+            <button onClick={() => { setError(null); load(); }} className="ml-auto text-xs underline">Retry</button>
           </div>
         )}
 
         {loading && (
-          <div className="space-y-2">
+          <div className="px-4 py-4 space-y-2">
             {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="h-28 rounded-lg border bg-card animate-pulse"
-              />
+              <div key={i} className="h-20 rounded-lg border bg-card animate-pulse" />
             ))}
           </div>
         )}
 
-        {!loading && filtered.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <CheckSquare className="h-10 w-10 text-muted-foreground/30" />
+        {!loading && pending.length === 0 && !error && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-8">
+            <div className="h-12 w-12 rounded-2xl bg-green-500/10 flex items-center justify-center">
+              <Check className="h-6 w-6 text-green-500" />
+            </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                {filter === "pending"
-                  ? "No pending actionables"
-                  : filter === "resolved"
-                  ? "No resolved actionables"
-                  : "No actionables — you're all caught up!"}
-              </p>
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                Items will appear here when your AI creates tasks for you
+              <p className="text-sm font-medium text-foreground">All caught up</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                No items need your attention right now. Your AI agent will create actionables as suggestions come up.
               </p>
             </div>
           </div>
         )}
 
-        {!loading &&
-          filtered.map((a) => (
-            <ActionableCard key={a.id} actionable={a} onRespond={handleRespond} />
-          ))}
+        {/* Pending items */}
+        {!loading && sortedPending.length > 0 && (
+          <div className="px-4 py-3 space-y-2">
+            {sortedPending.map((a) => (
+              <ActionableCard key={a.id} actionable={a} onRespond={handleRespond} />
+            ))}
+          </div>
+        )}
+
+        {/* Resolved section — collapsible */}
+        {!loading && resolved.length > 0 && (
+          <div className="border-t mt-2">
+            <button
+              onClick={() => setShowResolved(!showResolved)}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showResolved ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              <span>Resolved ({resolved.length})</span>
+            </button>
+            {showResolved && (
+              <div>
+                {resolved.slice(0, 20).map((a) => (
+                  <ActionableCard key={a.id} actionable={a} onRespond={handleRespond} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3228,7 +3411,6 @@ function formatDayHeader(dateStr: string): string {
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  // dateStr may be a date-only string like "2025-03-22" or full ISO
   const d = new Date(dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr);
   d.setHours(0, 0, 0, 0);
 
@@ -3251,28 +3433,677 @@ function groupEventsByDay(events: GCalEvent[]): { dateKey: string; events: GCalE
     .map(([dateKey, evs]) => ({ dateKey, events: evs }));
 }
 
+// ─── Calendar Grid Helpers ─────────────────────────────────────────────────────
+
+const CAL_START_HOUR = 6;
+const CAL_END_HOUR = 24; // midnight
+const TOTAL_HOURS = CAL_END_HOUR - CAL_START_HOUR;
+
+function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isTodayDate(d: Date): boolean {
+  const today = new Date();
+  return (
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  );
+}
+
+function getEventFraction(isoString: string): number {
+  const d = new Date(isoString);
+  const hours = d.getHours() + d.getMinutes() / 60;
+  return (hours - CAL_START_HOUR) / TOTAL_HOURS;
+}
+
+function getDurationFraction(startIso: string, endIso: string): number {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  return Math.max(durationHours / TOTAL_HOURS, 30 / (60 * TOTAL_HOURS));
+}
+
+function getCurrentTimeFraction(): number {
+  const now = new Date();
+  const hours = now.getHours() + now.getMinutes() / 60;
+  return (hours - CAL_START_HOUR) / TOTAL_HOURS;
+}
+
+function getEventsForDate(events: GCalEvent[], dateKey: string): GCalEvent[] {
+  return events.filter((ev) => {
+    if (ev.allDay) return ev.start === dateKey || ev.start.slice(0, 10) === dateKey;
+    return ev.start.slice(0, 10) === dateKey;
+  });
+}
+
+// ─── Calendar Sub-components ───────────────────────────────────────────────────
+
+type CalView = "day" | "week" | "2week";
+
+function CalendarHeader({
+  view,
+  setView,
+  currentDate,
+  onPrev,
+  onNext,
+  onToday,
+  agentOpen,
+  onToggleAgent,
+}: {
+  view: CalView;
+  setView: (v: CalView) => void;
+  currentDate: Date;
+  onPrev: () => void;
+  onNext: () => void;
+  onToday: () => void;
+  agentOpen?: boolean;
+  onToggleAgent?: () => void;
+}) {
+  const label = (() => {
+    if (view === "day") {
+      return formatDayHeader(toDateKey(currentDate));
+    }
+    const end = new Date(currentDate);
+    end.setDate(end.getDate() + (view === "week" ? 6 : 13));
+    const startFmt = currentDate.toLocaleDateString([], { month: "short", day: "numeric" });
+    const endFmt = end.toLocaleDateString([], { month: "short", day: "numeric" });
+    return `${startFmt} – ${endFmt}`;
+  })();
+
+  return (
+    <div data-cal-header className="flex items-center gap-2 px-4 py-2.5 border-b border-border/40 shrink-0 flex-wrap">
+      {/* Nav */}
+      <button
+        onClick={onPrev}
+        className="h-6 w-6 flex items-center justify-center rounded-md border border-border/50 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        aria-label="Previous"
+      >
+        <ChevronDown className="h-3.5 w-3.5 rotate-90" />
+      </button>
+      <span className="text-sm font-semibold min-w-[140px] text-center select-none">{label}</span>
+      <button
+        onClick={onNext}
+        className="h-6 w-6 flex items-center justify-center rounded-md border border-border/50 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        aria-label="Next"
+      >
+        <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
+      </button>
+
+      <button
+        onClick={onToday}
+        className="text-xs text-primary hover:underline ml-1 transition-colors"
+      >
+        Today
+      </button>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* View segmented control */}
+      <div className="flex items-center rounded-lg border border-border/60 bg-muted/40 p-0.5 gap-0.5">
+        {(["day", "week", "2week"] as CalView[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={cn(
+              "text-xs px-3 py-1 font-medium rounded-md transition-all",
+              view === v
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {v === "day" ? "Day" : v === "week" ? "Week" : "2Wk"}
+          </button>
+        ))}
+      </div>
+
+
+
+      {/* AI Agent toggle */}
+      {onToggleAgent && (
+        <button
+          onClick={onToggleAgent}
+          className={cn(
+            "ml-auto flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium transition-colors",
+            agentOpen
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60"
+          )}
+          title={agentOpen ? "Close AI assistant" : "Open AI assistant"}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">AI</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TimeGutter({ hourHeight }: { hourHeight: number }) {
+  const hours = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => CAL_START_HOUR + i);
+  return (
+    <div className="shrink-0 w-14 relative" style={{ height: TOTAL_HOURS * hourHeight }}>
+      {hours.map((h) => (
+        <div
+          key={h}
+          className="absolute right-2 -translate-y-1/2 text-[10px] uppercase tracking-wide text-muted-foreground/50 leading-none select-none text-right"
+          style={{ top: (h - CAL_START_HOUR) * hourHeight }}
+        >
+          {String(h % 24).padStart(2, "0")}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HourLines({ hourHeight }: { hourHeight: number }) {
+  const hours = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => i);
+  return (
+    <>
+      {hours.map((i) => (
+        <div key={i}>
+          {/* Main hour line */}
+          <div
+            className="absolute left-0 right-0 border-t border-border/20 pointer-events-none"
+            style={{ top: i * hourHeight }}
+          />
+          {/* Half-hour line — dashed, even more subtle */}
+          {i < TOTAL_HOURS && (
+            <div
+              className="absolute left-0 right-0 border-t border-border/10 border-dashed pointer-events-none"
+              style={{ top: i * hourHeight + hourHeight / 2 }}
+            />
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function CurrentTimeBar({ hourHeight }: { hourHeight: number }) {
+  const fraction = getCurrentTimeFraction();
+  if (fraction < 0 || fraction > 1) return null;
+  const top = fraction * TOTAL_HOURS * hourHeight;
+  return (
+    <div
+      className="absolute left-0 right-0 pointer-events-none z-20"
+      style={{ top }}
+    >
+      <div className="relative flex items-center">
+        <div className="h-[6px] w-[6px] rounded-full bg-red-500/80 shrink-0 -ml-[3px]" />
+        <div className="flex-1 h-px bg-red-500/80" />
+      </div>
+    </div>
+  );
+}
+
+// ── Overlap layout ───────────────────────────────────────────────────────────
+
+interface LayoutedEvent {
+  ev: GCalEvent;
+  col: number;    // column index within the overlap group
+  totalCols: number; // total columns in the overlap group
+}
+
+/** Assign column positions to overlapping events so they sit side-by-side. */
+function layoutEvents(events: GCalEvent[]): LayoutedEvent[] {
+  if (events.length === 0) return [];
+
+  // Sort by start time, then by duration (longer first)
+  const sorted = [...events].sort((a, b) => {
+    const diff = new Date(a.start).getTime() - new Date(b.start).getTime();
+    if (diff !== 0) return diff;
+    return (new Date(b.end).getTime() - new Date(b.start).getTime()) -
+           (new Date(a.end).getTime() - new Date(a.start).getTime());
+  });
+
+  const result: LayoutedEvent[] = [];
+  // columns[i] = end time of the event currently in column i
+  const columns: number[] = [];
+
+  for (const ev of sorted) {
+    const start = new Date(ev.start).getTime();
+    const end = new Date(ev.end).getTime();
+
+    // Find the first column where this event fits (doesn't overlap)
+    let placed = false;
+    for (let c = 0; c < columns.length; c++) {
+      if (columns[c] <= start) {
+        columns[c] = end;
+        result.push({ ev, col: c, totalCols: 0 }); // totalCols computed later
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      columns.push(end);
+      result.push({ ev, col: columns.length - 1, totalCols: 0 });
+    }
+  }
+
+  // Compute totalCols: for each event, find how many columns overlap with it
+  for (const item of result) {
+    const s = new Date(item.ev.start).getTime();
+    const e = new Date(item.ev.end).getTime();
+    let maxCol = item.col;
+    for (const other of result) {
+      const os = new Date(other.ev.start).getTime();
+      const oe = new Date(other.ev.end).getTime();
+      if (os < e && oe > s) { // overlaps
+        maxCol = Math.max(maxCol, other.col);
+      }
+    }
+    item.totalCols = maxCol + 1;
+  }
+
+  return result;
+}
+
+// Google Calendar color IDs → Tailwind-friendly HSL-ish colors
+// These approximate the actual Google Calendar event colors.
+const GCAL_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  "1":  { bg: "bg-[#7986cb]/25", border: "border-[#7986cb]", text: "text-[#7986cb]" },  // lavender
+  "2":  { bg: "bg-[#33b679]/25", border: "border-[#33b679]", text: "text-[#33b679]" },  // sage
+  "3":  { bg: "bg-[#8e24aa]/25", border: "border-[#8e24aa]", text: "text-[#8e24aa]" },  // grape
+  "4":  { bg: "bg-[#e67c73]/25", border: "border-[#e67c73]", text: "text-[#e67c73]" },  // flamingo
+  "5":  { bg: "bg-[#f6bf26]/25", border: "border-[#f6bf26]", text: "text-[#f6bf26]" },  // banana
+  "6":  { bg: "bg-[#f4511e]/25", border: "border-[#f4511e]", text: "text-[#f4511e]" },  // tangerine
+  "7":  { bg: "bg-[#039be5]/25", border: "border-[#039be5]", text: "text-[#039be5]" },  // peacock
+  "8":  { bg: "bg-[#616161]/25", border: "border-[#616161]", text: "text-[#616161]" },  // graphite
+  "9":  { bg: "bg-[#3f51b5]/25", border: "border-[#3f51b5]", text: "text-[#3f51b5]" },  // blueberry
+  "10": { bg: "bg-[#0b8043]/25", border: "border-[#0b8043]", text: "text-[#0b8043]" },  // basil
+  "11": { bg: "bg-[#d50000]/25", border: "border-[#d50000]", text: "text-[#d50000]" },  // tomato
+};
+
+// Fallback palette for events without a Google colorId — deterministic based on title hash
+const FALLBACK_COLORS = [
+  { bg: "bg-blue-500/20",    border: "border-blue-500",    text: "text-blue-500" },
+  { bg: "bg-emerald-500/20", border: "border-emerald-500", text: "text-emerald-500" },
+  { bg: "bg-violet-500/20",  border: "border-violet-500",  text: "text-violet-500" },
+  { bg: "bg-amber-500/20",   border: "border-amber-500",   text: "text-amber-500" },
+  { bg: "bg-rose-500/20",    border: "border-rose-500",    text: "text-rose-500" },
+  { bg: "bg-cyan-500/20",    border: "border-cyan-500",    text: "text-cyan-500" },
+  { bg: "bg-pink-500/20",    border: "border-pink-500",    text: "text-pink-500" },
+  { bg: "bg-teal-500/20",    border: "border-teal-500",    text: "text-teal-500" },
+];
+
+function getEventColor(ev: GCalEvent) {
+  if (ev.colorId && GCAL_COLORS[ev.colorId]) return GCAL_COLORS[ev.colorId];
+  // Deterministic hash from summary
+  let hash = 0;
+  const s = ev.summary || ev.id;
+  for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+  return FALLBACK_COLORS[Math.abs(hash) % FALLBACK_COLORS.length];
+}
+
+function EventSkeletons({ hourHeight, count = 3, compact, seed = 0 }: { hourHeight: number; count?: number; compact?: boolean; seed?: number }) {
+  // Deterministic pseudo-random based on seed (e.g. day index)
+  const skeletons = useMemo(() => {
+    let h = seed;
+    const next = () => { h = ((h * 1103515245 + 12345) & 0x7fffffff); return h; };
+    const items: { startHour: number; duration: number }[] = [];
+    for (let i = 0; i < (count ?? 3); i++) {
+      const startHour = CAL_START_HOUR + 1 + (next() % (TOTAL_HOURS - 4));
+      const duration = 0.5 + (next() % 3) * 0.5;
+      items.push({ startHour, duration });
+    }
+    // Sort and space them out so they don't overlap
+    items.sort((a, b) => a.startHour - b.startHour);
+    for (let i = 1; i < items.length; i++) {
+      const prev = items[i - 1];
+      if (items[i].startHour < prev.startHour + prev.duration + 0.5) {
+        items[i].startHour = prev.startHour + prev.duration + 0.5;
+      }
+    }
+    return items.filter((s) => s.startHour + s.duration <= CAL_END_HOUR);
+  }, [count, seed]);
+
+  return (
+    <>
+      {skeletons.map((s, i) => {
+        const top = (s.startHour - CAL_START_HOUR) * hourHeight;
+        const height = s.duration * hourHeight;
+        return (
+          <div
+            key={i}
+            className="absolute left-1 right-1 rounded-md bg-muted/40 animate-pulse border-l-[3px] border-muted-foreground/20 shadow-sm"
+            style={{ top, height: Math.max(height, 20) }}
+          >
+            <div className="px-1.5 py-1 space-y-1">
+              <div className={cn("rounded bg-muted-foreground/10", compact ? "h-1.5 w-10" : "h-2.5 w-20")} />
+              {!compact && height > 30 && (
+                <div className="h-2 w-14 rounded bg-muted-foreground/10" />
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function EventBlock({
+  ev,
+  hourHeight,
+  compact,
+  col,
+  totalCols,
+  onEventClick,
+  selectedEventIds,
+}: {
+  ev: GCalEvent;
+  hourHeight: number;
+  compact: boolean;
+  col?: number;
+  totalCols?: number;
+  onEventClick?: (ev: GCalEvent) => void;
+  selectedEventIds?: Set<string>;
+}) {
+  const topFraction = getEventFraction(ev.start);
+  const heightFraction = getDurationFraction(ev.start, ev.end);
+  const totalPx = TOTAL_HOURS * hourHeight;
+  const top = topFraction * totalPx;
+  const height = heightFraction * totalPx;
+
+  // Overlap positioning
+  const c = col ?? 0;
+  const tc = totalCols ?? 1;
+  const widthPct = `${(1 / tc) * 100 - 1}%`;
+  const leftPct = `${(c / tc) * 100}%`;
+
+  const color = getEventColor(ev);
+
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onEventClick) {
+          onEventClick(ev);
+        } else {
+          window.open(ev.htmlLink, "_blank");
+        }
+      }}
+      title={`${ev.summary || "(No title)"}\n${formatEventTime(ev.start)} – ${formatEventTime(ev.end)}`}
+      className={cn(
+        "absolute rounded-md overflow-hidden border-l-[3px] transition-all z-10 cursor-pointer group shadow-sm hover:shadow-md hover:brightness-105",
+        color.bg,
+        color.border,
+        selectedEventIds?.has(ev.id) && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+      )}
+      style={{ top, height: Math.max(height, 20), left: leftPct, width: widthPct }}
+    >
+      <div className="px-1.5 py-0.5 overflow-hidden h-full">
+        <p className={cn("font-semibold leading-tight truncate", color.text, compact ? "text-[9px]" : "text-[11px]")}>
+          {ev.summary || "(No title)"}
+        </p>
+        {!compact && height > 32 && (
+          <p className={cn("text-[9px] leading-tight truncate font-normal opacity-60", color.text)}>
+            {formatEventTime(ev.start)} – {formatEventTime(ev.end)}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AllDayRow({
+  events,
+  compact,
+}: {
+  events: GCalEvent[];
+  compact: boolean;
+}) {
+  if (events.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b border-border/30 bg-muted/30 sticky top-0 z-20">
+      {events.map((ev) => {
+        const color = getEventColor(ev);
+        return (
+          <a
+            key={ev.id}
+            href={ev.htmlLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              "rounded-md px-2 py-0.5 font-medium truncate max-w-full transition-all hover:brightness-105",
+              "text-[10px]",
+              color.bg,
+              color.text
+            )}
+            title={ev.summary || "(No title)"}
+          >
+            {ev.summary || "(No title)"}
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Day View ──────────────────────────────────────────────────────────────────
+
+function DayView({ date, events, loading, onEventClick, selectedEventIds }: { date: Date; events: GCalEvent[]; loading?: boolean; onEventClick?: (ev: GCalEvent) => void; selectedEventIds?: Set<string> }) {
+  const hourHeight = 60;
+  const dateKey = toDateKey(date);
+  const dayEvents = getEventsForDate(events, dateKey).filter((e) => !e.allDay);
+  const allDayEvents = getEventsForDate(events, dateKey).filter((e) => e.allDay);
+  const isToday = isTodayDate(date);
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <AllDayRow events={allDayEvents} compact={false} />
+      <div className="flex">
+        <TimeGutter hourHeight={hourHeight} />
+        <div
+          className={cn("flex-1 relative", isToday && "bg-primary/[0.02]")}
+          style={{ height: TOTAL_HOURS * hourHeight }}
+        >
+          <HourLines hourHeight={hourHeight} />
+          {isToday && <CurrentTimeBar hourHeight={hourHeight} />}
+          {loading ? (
+            <EventSkeletons hourHeight={hourHeight} count={4} seed={date.getDate()} />
+          ) : (
+            layoutEvents(dayEvents).map(({ ev, col, totalCols }) => (
+              <EventBlock key={ev.id} ev={ev} hourHeight={hourHeight} compact={false} col={col} totalCols={totalCols} onEventClick={onEventClick} selectedEventIds={selectedEventIds} />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Week / 2-Week View ────────────────────────────────────────────────────────
+
+function MultiDayView({
+  startDate,
+  days,
+  events,
+  loading,
+  onEventClick,
+  selectedEventIds,
+}: {
+  startDate: Date;
+  days: number;
+  events: GCalEvent[];
+  loading?: boolean;
+  onEventClick?: (ev: GCalEvent) => void;
+  selectedEventIds?: Set<string>;
+}) {
+  const compact = days > 7;
+  const hourHeight = compact ? 36 : 48;
+
+  const columns: Date[] = Array.from({ length: days }, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  return (
+    <div className="flex-1 overflow-auto">
+      {/* Day headers */}
+      <div className="flex border-b border-border/40 bg-background sticky top-0 z-30">
+        <div className="w-14 shrink-0" />
+        {columns.map((d) => {
+          const isToday = isTodayDate(d);
+          return (
+            <div
+              key={toDateKey(d)}
+              className={cn(
+                "flex-1 min-w-0 text-center py-2 border-l border-border/15",
+                isToday && "bg-primary/[0.02]"
+              )}
+            >
+              <div className={cn(
+                "uppercase tracking-wide leading-none",
+                compact ? "text-[8px]" : "text-[10px]",
+                "text-muted-foreground/60"
+              )}>
+                {d.toLocaleDateString([], { weekday: "short" })}
+              </div>
+              {compact ? (
+                <div className={cn(
+                  "leading-none mt-0.5 font-semibold",
+                  "text-[9px]",
+                  isToday ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {d.getDate()}
+                </div>
+              ) : (
+                <div className={cn("leading-none mt-1 flex items-center justify-center")}>
+                  {isToday ? (
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                      {d.getDate()}
+                    </span>
+                  ) : (
+                    <span className="text-lg font-semibold text-foreground/80">
+                      {d.getDate()}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* All-day rows */}
+      {columns.some((d) => getEventsForDate(events, toDateKey(d)).some((e) => e.allDay)) && (
+        <div className="flex border-b border-border/30">
+          <div className="w-14 shrink-0 flex items-center justify-end pr-2">
+            <span className="text-[9px] uppercase tracking-wide text-muted-foreground/40">all day</span>
+          </div>
+          {columns.map((d) => {
+            const allDay = getEventsForDate(events, toDateKey(d)).filter((e) => e.allDay);
+            return (
+              <div key={toDateKey(d)} className="flex-1 min-w-0 border-l border-border/15">
+                <AllDayRow events={allDay} compact={compact} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Time grid */}
+      <div className="flex relative">
+        <TimeGutter hourHeight={hourHeight} />
+        {columns.map((d) => {
+          const dateKey = toDateKey(d);
+          const isToday = isTodayDate(d);
+          const dayEvents = loading ? [] : getEventsForDate(events, dateKey).filter((e) => !e.allDay);
+          return (
+            <div
+              key={dateKey}
+              className={cn("flex-1 min-w-0 relative border-l border-border/15", isToday && "bg-primary/[0.02]")}
+              style={{ height: TOTAL_HOURS * hourHeight }}
+            >
+              <HourLines hourHeight={hourHeight} />
+              {isToday && <CurrentTimeBar hourHeight={hourHeight} />}
+              {loading ? (
+                <EventSkeletons hourHeight={hourHeight} count={2 + (d.getDate() % 3)} compact={compact} seed={d.getDate() * 31 + d.getMonth()} />
+              ) : (
+                layoutEvents(dayEvents).map(({ ev, col, totalCols }) => (
+                  <EventBlock key={ev.id} ev={ev} hourHeight={hourHeight} compact={compact} col={col} totalCols={totalCols} onEventClick={onEventClick} selectedEventIds={selectedEventIds} />
+                ))
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CalendarView() {
   const [status, setStatus] = useState<GCalStatus | null>(null);
   const [events, setEvents] = useState<GCalEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<CalView>("day");
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentWidth, setAgentWidth] = useState(380);
+  const [selectedEvents, setSelectedEvents] = useState<GCalEvent[]>([]);
+  const [calendarConvId, setCalendarConvId] = useState<string | null>(null);
+  const calendarConvLoaded = useRef(false);
+  const agentDragging = useRef(false);
+  const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  const daysToLoad = view === "day" ? 1 : view === "week" ? 7 : 14;
+
+  const loadEvents = useCallback(async (connected: boolean, startDate: Date, numDays: number) => {
+    if (!connected) return;
+    setEventsLoading(true);
+    try {
+      const fromDate = new Date(startDate);
+      const toDate = new Date(startDate);
+      toDate.setDate(toDate.getDate() + numDays);
+      const from = fromDate.toISOString().slice(0, 10);
+      const to = toDate.toISOString().slice(0, 10);
+      const evs = await listGCalEvents(from, to);
+      setEvents(evs);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load events");
+    } finally {
+      setEventsLoading(false);
+    }
+  }, []);
+
+  // Load the calendar-specific conversation (linked via routine_id="__calendar__")
+  useEffect(() => {
+    if (calendarConvLoaded.current) return;
+    calendarConvLoaded.current = true;
+    getRoutineConversationId("__calendar__")
+      .then((id) => { if (id) setCalendarConvId(id); })
+      .catch(() => {});
+  }, []);
 
   const loadStatus = useCallback(async () => {
     try {
       const s = await getGCalStatus();
       setStatus(s);
       if (s.connected) {
-        const evs = await listGCalEvents(7);
-        setEvents(evs);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        await loadEvents(true, today, 1);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load calendar status");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadEvents]);
 
   // Handle OAuth callback code in URL
   useEffect(() => {
@@ -3293,6 +4124,13 @@ function CalendarView() {
       loadStatus();
     }
   }, [loadStatus]);
+
+  // Reload when view/date changes
+  useEffect(() => {
+    if (status?.connected) {
+      loadEvents(true, currentDate, daysToLoad);
+    }
+  }, [view, currentDate, status?.connected, daysToLoad, loadEvents]);
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -3319,6 +4157,49 @@ function CalendarView() {
       setDisconnecting(false);
     }
   };
+
+  const handlePrev = () => {
+    setCurrentDate((d) => {
+      const next = new Date(d);
+      next.setDate(next.getDate() - (view === "day" ? 1 : view === "week" ? 7 : 14));
+      return next;
+    });
+  };
+
+  const handleNext = () => {
+    setCurrentDate((d) => {
+      const next = new Date(d);
+      next.setDate(next.getDate() + (view === "day" ? 1 : view === "week" ? 7 : 14));
+      return next;
+    });
+  };
+
+  const handleToday = () => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    setCurrentDate(d);
+  };
+
+  const handleEventClick = (ev: GCalEvent) => {
+    setSelectedEvents((prev) => {
+      const exists = prev.find((e) => e.id === ev.id);
+      if (exists) return prev.filter((e) => e.id !== ev.id);
+      return [...prev, ev];
+    });
+    setAgentOpen(true);
+  };
+
+  const calendarSystemContext = useMemo(() => {
+    const eventsContext = events.slice(0, 20).map((e) =>
+      `- ${e.summary || "(No title)"}: ${new Date(e.start).toLocaleString()} – ${new Date(e.end).toLocaleString()}${e.allDay ? " (all day)" : ""}`
+    ).join("\n");
+    const selectedContext = selectedEvents.length > 0
+      ? `\n\nThe user has selected ${selectedEvents.length} event(s):\n` + selectedEvents.map((ev) =>
+          `- ID: ${ev.id} | ${ev.summary || "(No title)"} | ${new Date(ev.start).toLocaleString()} – ${new Date(ev.end).toLocaleString()}${ev.location ? ` | Location: ${ev.location}` : ""}`
+        ).join("\n") + "\n\nHelp them with these events — they may want to reschedule, edit, compare, or delete them."
+      : "";
+    return `You are helping the user manage their Google Calendar. You can create, edit, and view calendar events using the create_calendar_event and get_calendar_events tools.\n\nUpcoming events:\n${eventsContext}${selectedContext}`;
+  }, [events, selectedEvents]);
 
   if (loading || connecting) {
     return (
@@ -3355,110 +4236,119 @@ function CalendarView() {
     );
   }
 
-  // Connected state
-  const grouped = groupEventsByDay(events);
-
-  // Build a list of the next 7 days to show even empty ones
-  const days7: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    days7.push(d.toISOString().slice(0, 10));
-  }
-
-  // Merge grouped events with the 7-day skeleton
-  const eventsMap = new Map(grouped.map((g) => [g.dateKey, g.events]));
-  const displayDays = days7.map((dateKey) => ({
-    dateKey,
-    events: eventsMap.get(dateKey) ?? [],
-  }));
-
+  // Connected — show calendar grid + optional agent panel
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-2xl px-6 py-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">Calendar</h2>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
-              <span className="text-xs text-muted-foreground">{status.email}</span>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDisconnect}
-            disabled={disconnecting}
-            className="text-xs h-7 px-2.5 text-muted-foreground hover:text-foreground shrink-0"
-          >
-            {disconnecting ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            ) : null}
-            Disconnect
-          </Button>
+    <div className="h-full flex flex-col overflow-hidden">
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-destructive/20 bg-destructive/5 text-xs text-destructive shrink-0">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          {error}
+        </div>
+      )}
+      <CalendarHeader
+        view={view}
+        setView={setView}
+        currentDate={currentDate}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onToday={handleToday}
+        agentOpen={agentOpen}
+        onToggleAgent={() => { setAgentOpen((v) => !v); if (!agentOpen) setSelectedEvents([]); }}
+      />
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          {view === "day" ? (
+            <DayView date={currentDate} events={events} loading={eventsLoading} onEventClick={handleEventClick} selectedEventIds={new Set(selectedEvents.map((e) => e.id))} />
+          ) : (
+            <MultiDayView
+              startDate={currentDate}
+              days={view === "week" ? 7 : 14}
+              events={events}
+              loading={eventsLoading}
+              onEventClick={handleEventClick}
+              selectedEventIds={new Set(selectedEvents.map((e) => e.id))}
+            />
+          )}
         </div>
 
-        {error && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            {error}
+        {/* AI Agent Panel */}
+        {agentOpen && (
+          <div className="shrink-0 border-l flex overflow-hidden" style={{ width: agentWidth }}>
+            {/* Resize handle */}
+            <div
+              className="w-1.5 shrink-0 cursor-col-resize hover:bg-primary/10 active:bg-primary/20 transition-colors flex items-center justify-center group"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                agentDragging.current = true;
+                const startX = e.clientX;
+                const startW = agentWidth;
+                document.body.style.cursor = "col-resize";
+                document.body.style.userSelect = "none";
+                const onMove = (ev: MouseEvent) => {
+                  if (!agentDragging.current) return;
+                  const delta = startX - ev.clientX;
+                  setAgentWidth(Math.max(300, Math.min(800, startW + delta)));
+                };
+                const onUp = () => {
+                  agentDragging.current = false;
+                  document.body.style.cursor = "";
+                  document.body.style.userSelect = "";
+                  document.removeEventListener("mousemove", onMove);
+                  document.removeEventListener("mouseup", onUp);
+                };
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup", onUp);
+              }}
+            >
+              <GripVertical className="h-4 w-4 text-muted-foreground/20 group-hover:text-muted-foreground/50" />
+            </div>
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <ChatView
+              persistedConvId={calendarConvId}
+              onConvIdChange={(id) => { if (id) setCalendarConvId(id); }}
+              systemContext={calendarSystemContext}
+              routineId="__calendar__"
+              hideConversations
+              onToolEffect={(tool) => {
+                if (tool === "create_calendar_event" || tool === "get_calendar_events") {
+                  loadEvents(true, currentDate, daysToLoad);
+                }
+              }}
+              slotAboveInput={selectedEvents.length > 0 ? (
+                <div className="border-t bg-muted/20 shrink-0 px-2 py-1.5 flex flex-wrap gap-1">
+                  {selectedEvents.map((ev) => {
+                    const color = getEventColor(ev);
+                    return (
+                      <div
+                        key={ev.id}
+                        className={cn("inline-flex items-center gap-1 rounded-md border-l-2 px-2 py-0.5 text-[11px]", color.bg, color.border)}
+                      >
+                        <span className={cn("font-medium truncate max-w-[120px]", color.text)}>
+                          {ev.summary || "(No title)"}
+                        </span>
+                        <button
+                          onClick={() => setSelectedEvents((prev) => prev.filter((e) => e.id !== ev.id))}
+                          className="shrink-0 p-0.5 rounded hover:bg-background/50 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {selectedEvents.length > 1 && (
+                    <button
+                      onClick={() => setSelectedEvents([])}
+                      className="text-[10px] text-muted-foreground hover:text-foreground px-1"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              ) : undefined}
+            />
+            </div>
           </div>
         )}
-
-        {/* Day groups */}
-        <div className="space-y-4">
-          {displayDays.map(({ dateKey, events: dayEvents }) => (
-            <div key={dateKey}>
-              {/* Day header */}
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {formatDayHeader(dateKey)}
-                </span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-
-              {dayEvents.length === 0 ? (
-                <p className="text-xs text-muted-foreground/50 px-3 py-1.5">No events</p>
-              ) : (
-                <div className="space-y-0.5">
-                  {dayEvents.map((ev) => (
-                    <a
-                      key={ev.id}
-                      href={ev.htmlLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start gap-3 py-2 px-3 rounded-lg hover:bg-muted/50 cursor-pointer group transition-colors"
-                    >
-                      {/* Time column */}
-                      <span className="text-xs text-muted-foreground font-mono w-24 shrink-0 pt-px">
-                        {ev.allDay
-                          ? "All day"
-                          : `${formatEventTime(ev.start)} – ${formatEventTime(ev.end)}`}
-                      </span>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm text-foreground truncate leading-snug">
-                            {ev.summary || "(No title)"}
-                          </span>
-                          <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/50 transition-colors shrink-0" />
-                        </div>
-                        {ev.location && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-2.5 w-2.5 text-muted-foreground/50 shrink-0" />
-                            <span className="text-xs text-muted-foreground truncate">{ev.location}</span>
-                          </div>
-                        )}
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -3521,6 +4411,16 @@ function PlaceholderView({
       title: "Memories",
       description: "",
     },
+    tasks: {
+      icon: <ListTodo className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Tasks",
+      description: "",
+    },
+    settings: {
+      icon: <Settings className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Settings",
+      description: "",
+    },
   };
 
   const { icon, title, description } = config[tab];
@@ -3541,25 +4441,559 @@ function PlaceholderView({
   );
 }
 
+// ─── Tasks View ──────────────────────────────────────────────────────────────
+
+function TasksView() {
+  const [lists, setLists] = useState<GTaskList[]>([]);
+  const [activeList, setActiveList] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<GTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
+  // Load task lists
+  const loadLists = useCallback(async () => {
+    try {
+      const ls = await listGTaskLists();
+      setLists(ls);
+      if (ls.length > 0 && !activeList) setActiveList(ls[0].id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load task lists. Make sure Google Calendar is connected.");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeList]);
+
+  // Load tasks for active list
+  const loadTasks = useCallback(async (listId: string) => {
+    setTasksLoading(true);
+    setError(null);
+    try {
+      const ts = await listGTasks(listId, showCompleted);
+      setTasks(ts);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load tasks");
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [showCompleted]);
+
+  useEffect(() => { loadLists(); }, [loadLists]);
+  useEffect(() => { if (activeList) loadTasks(activeList); }, [activeList, loadTasks]);
+
+  const handleCreateTask = async () => {
+    if (!newTaskTitle.trim() || !activeList) return;
+    setCreating(true);
+    try {
+      await createGTask(activeList, newTaskTitle.trim());
+      setNewTaskTitle("");
+      await loadTasks(activeList);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create task");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleToggleComplete = async (task: GTask) => {
+    if (!activeList) return;
+    try {
+      if (task.status === "completed") {
+        await updateGTask(activeList, task.id, { status: "needsAction" });
+      } else {
+        await completeGTask(activeList, task.id);
+      }
+      await loadTasks(activeList);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update task");
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!activeList) return;
+    try {
+      await deleteGTask(activeList, taskId);
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete task");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!activeList || !editingId) return;
+    try {
+      await updateGTask(activeList, editingId, { title: editTitle, notes: editNotes });
+      setEditingId(null);
+      await loadTasks(activeList);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update task");
+    }
+  };
+
+  const startEditing = (task: GTask) => {
+    setEditingId(task.id);
+    setEditTitle(task.title);
+    setEditNotes(task.notes || "");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (lists.length === 0 && !error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
+        <ListTodo className="h-10 w-10 text-muted-foreground/30" />
+        <p className="text-sm font-semibold">Google Tasks</p>
+        <p className="text-xs text-muted-foreground max-w-xs">
+          Connect your Google account in Settings to sync your tasks. Tasks uses the same Google connection as Calendar.
+        </p>
+      </div>
+    );
+  }
+
+  const pendingTasks = tasks.filter((t) => t.status !== "completed");
+  const completedTasks = tasks.filter((t) => t.status === "completed");
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 border-b px-4 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {/* List selector */}
+          <select
+            value={activeList ?? ""}
+            onChange={(e) => setActiveList(e.target.value)}
+            className="text-sm font-medium bg-transparent border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {lists.map((list) => (
+              <option key={list.id} value={list.id}>{list.title}</option>
+            ))}
+          </select>
+          <span className="text-xs text-muted-foreground">
+            {pendingTasks.length} task{pendingTasks.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCompleted(!showCompleted)}
+            className={cn(
+              "text-xs px-2 py-1 rounded-md border transition-colors",
+              showCompleted ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {showCompleted ? "Hide completed" : "Show completed"}
+          </button>
+          <button
+            onClick={() => activeList && loadTasks(activeList)}
+            disabled={tasksLoading}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", tasksLoading && "animate-spin")} />
+          </button>
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {/* New task input */}
+      <div className="shrink-0 px-4 py-3 border-b">
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleCreateTask(); }}
+          className="flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+          <input
+            type="text"
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            placeholder="Add a task..."
+            className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-muted-foreground/50"
+          />
+          {newTaskTitle.trim() && (
+            <button
+              type="submit"
+              disabled={creating}
+              className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
+            >
+              {creating ? "Adding..." : "Add"}
+            </button>
+          )}
+        </form>
+      </div>
+
+      {/* Task list */}
+      <div className="flex-1 overflow-y-auto">
+        {tasksLoading && tasks.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : pendingTasks.length === 0 && !showCompleted ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <CheckSquare className="h-8 w-8 text-muted-foreground/20 mb-2" />
+            <p className="text-sm text-muted-foreground">All done! No pending tasks.</p>
+          </div>
+        ) : (
+          <div>
+            {/* Pending tasks */}
+            {pendingTasks.map((task) => (
+              <div
+                key={task.id}
+                className="group flex items-start gap-3 px-4 py-2.5 border-b border-border/30 hover:bg-muted/20 transition-colors"
+              >
+                <button
+                  onClick={() => handleToggleComplete(task)}
+                  className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Square className="h-4 w-4" />
+                </button>
+
+                {editingId === task.id ? (
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full text-sm bg-transparent border-b border-border focus:outline-none focus:border-primary"
+                      autoFocus
+                    />
+                    <textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="Notes..."
+                      rows={2}
+                      className="w-full text-xs bg-transparent border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/50"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveEdit} className="text-xs text-primary font-medium hover:underline">Save</button>
+                      <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => startEditing(task)}
+                  >
+                    <p className="text-sm text-foreground">{task.title}</p>
+                    {task.notes && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.notes}</p>
+                    )}
+                    {task.due && (
+                      <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+                        {new Date(task.due).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => handleDeleteTask(task.id)}
+                  className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+
+            {/* Completed tasks */}
+            {showCompleted && completedTasks.length > 0 && (
+              <>
+                <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-muted/20">
+                  Completed ({completedTasks.length})
+                </div>
+                {completedTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="group flex items-start gap-3 px-4 py-2.5 border-b border-border/30 hover:bg-muted/20 transition-colors"
+                  >
+                    <button
+                      onClick={() => handleToggleComplete(task)}
+                      className="mt-0.5 shrink-0 text-primary transition-colors"
+                    >
+                      <CheckSquare2 className="h-4 w-4" />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-muted-foreground line-through">{task.title}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteTask(task.id)}
+                      className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Settings Panel ───────────────────────────────────────────────────────────
 
-function SettingsPanel({ onClose }: { onClose: () => void }) {
+const START_DAY_OPTIONS: { value: StartDay; label: string }[] = [
+  { value: 1, label: "Monday" },
+  { value: 0, label: "Sunday" },
+  { value: 6, label: "Saturday" },
+];
+
+const COMMON_TIMEZONES = Intl.supportedValuesOf?.("timeZone") ?? [
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "Europe/London",
+  "Europe/Berlin",
+  "Europe/Amsterdam",
+  "Asia/Tokyo",
+  "Asia/Shanghai",
+  "Asia/Kolkata",
+  "Australia/Sydney",
+];
+
+function SettingsView({ settings, onUpdate }: { settings: LifeSettings; onUpdate: (s: LifeSettings) => void }) {
+  const [calStatus, setCalStatus] = useState<GCalStatus | null>(null);
+  const [calLoading, setCalLoading] = useState(true);
+  const [calConnecting, setCalConnecting] = useState(false);
+  const [calError, setCalError] = useState<string | null>(null);
+
+  const loadCalStatus = useCallback(async () => {
+    try {
+      const s = await getGCalStatus();
+      setCalStatus(s);
+    } catch {
+      setCalStatus({ connected: false });
+    } finally {
+      setCalLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadCalStatus(); }, [loadCalStatus]);
+
+  const handleCalConnect = async () => {
+    setCalConnecting(true);
+    setCalError(null);
+    try {
+      const { url } = await getGCalAuthUrl();
+      window.open(url, "_self");
+    } catch (e) {
+      setCalError(e instanceof Error ? e.message : "Failed to get auth URL");
+      setCalConnecting(false);
+    }
+  };
+
+  const handleCalDisconnect = async () => {
+    setCalConnecting(true);
+    setCalError(null);
+    try {
+      await disconnectGCal();
+      setCalStatus({ connected: false });
+    } catch (e) {
+      setCalError(e instanceof Error ? e.message : "Failed to disconnect");
+    } finally {
+      setCalConnecting(false);
+    }
+  };
+
+  const [tzSearch, setTzSearch] = useState("");
+  const [tzOpen, setTzOpen] = useState(false);
+  const filteredTz = COMMON_TIMEZONES.filter((tz) =>
+    tz.toLowerCase().includes(tzSearch.toLowerCase())
+  );
+
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Life Tool Settings</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          Settings and profile configuration coming soon.
-        </p>
-        <DialogFooter>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-lg space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold">Settings</h2>
+          <p className="text-xs text-muted-foreground mt-1">Configure your Life Tool preferences.</p>
+        </div>
+
+        {/* General */}
+        <section className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">General</h3>
+
+          <div className="rounded-lg border bg-card divide-y divide-border">
+            {/* Start day */}
+            <div className="px-4 py-3.5 space-y-2.5">
+              <div>
+                <p className="text-sm font-medium">Start day of week</p>
+                <p className="text-xs text-muted-foreground mt-0.5">First day shown in calendar and weekly views.</p>
+              </div>
+              <div className="flex gap-1 p-0.5 rounded-lg border bg-muted/20 w-fit">
+                {START_DAY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => onUpdate({ ...settings, startDayOfWeek: opt.value })}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                      settings.startDayOfWeek === opt.value
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Timezone */}
+            <div className="px-4 py-3.5 space-y-2.5">
+              <div>
+                <p className="text-sm font-medium">Timezone</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Used for scheduling and time-based features.</p>
+              </div>
+              <div className="relative w-fit">
+                <button
+                  onClick={() => setTzOpen(!tzOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono rounded-md border bg-background hover:bg-muted/50 transition-colors min-w-[220px] text-left"
+                >
+                  <span className="truncate flex-1">{settings.timezone}</span>
+                  <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", tzOpen && "rotate-180")} />
+                </button>
+                {tzOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-72 max-h-60 rounded-lg border bg-popover shadow-lg z-50 flex flex-col overflow-hidden">
+                    <div className="p-2 border-b">
+                      <input
+                        type="text"
+                        value={tzSearch}
+                        onChange={(e) => setTzSearch(e.target.value)}
+                        placeholder="Search timezones..."
+                        className="w-full px-2.5 py-1.5 text-xs rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="overflow-y-auto flex-1">
+                      {filteredTz.map((tz) => (
+                        <button
+                          key={tz}
+                          onClick={() => {
+                            onUpdate({ ...settings, timezone: tz });
+                            setTzOpen(false);
+                            setTzSearch("");
+                          }}
+                          className={cn(
+                            "w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-muted/50 transition-colors",
+                            settings.timezone === tz && "bg-muted text-foreground font-medium"
+                          )}
+                        >
+                          {tz}
+                        </button>
+                      ))}
+                      {filteredTz.length === 0 && (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">No timezones match.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Agent */}
+        <section className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Agent</h3>
+
+          <div className="rounded-lg border bg-card">
+            <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+              <div>
+                <p className="text-sm font-medium">Auto-approve actions</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Let the agent create actionables, update routines, and save memories without asking first.</p>
+              </div>
+              <button
+                onClick={() => onUpdate({ ...settings, autoApproveActions: !settings.autoApproveActions })}
+                className="relative shrink-0"
+              >
+                <div className={cn(
+                  "h-5 w-9 rounded-full transition-colors",
+                  settings.autoApproveActions ? "bg-primary" : "bg-muted-foreground/20"
+                )} />
+                <div className={cn(
+                  "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                  settings.autoApproveActions ? "translate-x-[18px]" : "translate-x-0.5"
+                )} />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Calendar */}
+        <section className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Calendar</h3>
+
+          <div className="rounded-lg border bg-card">
+            <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+              <div>
+                <p className="text-sm font-medium">Google Calendar</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {calLoading
+                    ? "Checking connection..."
+                    : calStatus?.connected
+                    ? <>Connected as <span className="font-medium text-foreground">{calStatus.email ?? "unknown"}</span></>
+                    : "Connect to sync events and schedules with the agent."}
+                </p>
+              </div>
+              <div className="shrink-0">
+                {calLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : calStatus?.connected ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCalDisconnect}
+                    disabled={calConnecting}
+                    className="text-xs text-destructive hover:text-destructive"
+                  >
+                    {calConnecting && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
+                    Disconnect
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCalConnect}
+                    disabled={calConnecting}
+                    className="text-xs"
+                  >
+                    {calConnecting ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <CalendarDays className="h-3 w-3 mr-1.5" />}
+                    Connect
+                  </Button>
+                )}
+              </div>
+            </div>
+            {calError && (
+              <div className="flex items-center gap-2 px-4 py-2.5 text-xs text-destructive border-t">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                {calError}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -3573,62 +5007,227 @@ function LifeTabBar({
   onSwitch,
   onClose,
   onNewChat,
+  onReorder,
+  onPin,
 }: {
   tabs: LifeTab[];
   activeTabId: string | null;
   onSwitch: (id: string) => void;
   onClose: (id: string) => void;
   onNewChat: () => void;
+  onReorder: (tabs: LifeTab[]) => void;
+  onPin: (id: string) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
+
+  // Close context menu on click anywhere
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [ctxMenu]);
+
+  // Sort tabs: pinned first, preserve order within groups
+  const sortedTabs = useMemo(() => {
+    const pinned = tabs.filter((t) => t.pinned);
+    const unpinned = tabs.filter((t) => !t.pinned);
+    return [...pinned, ...unpinned];
+  }, [tabs]);
+
+  const checkOverflow = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+
+  // Convert vertical scroll to horizontal when cursor is on the tab bar
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    el.addEventListener("scroll", checkOverflow, { passive: true });
+    checkOverflow();
+    const ro = new ResizeObserver(checkOverflow);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+      el.removeEventListener("scroll", checkOverflow);
+      ro.disconnect();
+    };
+  }, [checkOverflow]);
+
+  // Recheck overflow when tabs change
+  useEffect(() => { checkOverflow(); }, [tabs.length, checkOverflow]);
+
+  // Scroll active tab into view
+  useEffect(() => {
+    if (!activeTabId || !scrollRef.current) return;
+    const el = scrollRef.current.querySelector(`[data-tab-id="${CSS.escape(activeTabId)}"]`) as HTMLElement | null;
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+  }, [activeTabId]);
+
+  const scrollRight = () => {
+    scrollRef.current?.scrollBy({ left: 200, behavior: "smooth" });
+  };
+
   return (
-    <div className="flex items-end border-b bg-muted/10 overflow-x-auto shrink-0 min-h-[36px]">
-      <div className="flex items-end min-w-0">
-        {tabs.map((tab) => {
+    <div className="relative shrink-0 border-b bg-muted/10">
+      <div
+        ref={scrollRef}
+        className="flex items-end overflow-x-auto min-h-[36px] hide-scrollbar"
+      >
+        {sortedTabs.map((tab) => {
           const isActive = tab.id === activeTabId;
+          const isDragging = dragId === tab.id;
+          const isDropTarget = dropTarget === tab.id && dragId !== tab.id;
+          const isPinned = !!tab.pinned;
           const label = tab.type === "chat"
             ? (tab.title ?? `Chat #${tab.chatNum ?? ""}`)
             : (tab.title ?? TAB_LABELS[tab.type]);
           return (
             <div
               key={tab.id}
+              data-tab-id={tab.id}
+              draggable
+              onDragStart={(e) => {
+                setDragId(tab.id);
+                e.dataTransfer.effectAllowed = "move";
+                const img = new Image();
+                img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                e.dataTransfer.setDragImage(img, 0, 0);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                setDropTarget(tab.id);
+              }}
+              onDragLeave={() => {
+                setDropTarget((prev) => prev === tab.id ? null : prev);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragId && dragId !== tab.id) {
+                  const fromIdx = tabs.findIndex((t) => t.id === dragId);
+                  const toIdx = tabs.findIndex((t) => t.id === tab.id);
+                  if (fromIdx !== -1 && toIdx !== -1) {
+                    const reordered = [...tabs];
+                    const [moved] = reordered.splice(fromIdx, 1);
+                    reordered.splice(toIdx, 0, moved);
+                    onReorder(reordered);
+                  }
+                }
+                setDragId(null);
+                setDropTarget(null);
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setDropTarget(null);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setCtxMenu({ tabId: tab.id, x: e.clientX, y: e.clientY });
+              }}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer select-none",
+                "flex items-center gap-1.5 px-3 py-2 text-xs cursor-grab select-none",
                 "border-r border-border/50 shrink-0 max-w-[180px] group transition-colors",
                 isActive
                   ? "bg-background border-b-2 border-b-primary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                isPinned && !isActive && "bg-primary/[0.04] text-foreground/80",
+                isDragging && "opacity-40",
+                isDropTarget && "border-l-2 border-l-primary",
               )}
               onClick={() => onSwitch(tab.id)}
             >
-              {TAB_ICONS[tab.type]}
+              <span className={TAB_COLORS[tab.type]}>{TAB_ICONS[tab.type]}</span>
               <span className="truncate font-medium">{label}</span>
-              <button
-                className={cn(
-                  "shrink-0 rounded hover:bg-muted transition-colors p-0.5 -mr-0.5",
-                  isActive
-                    ? "opacity-60 hover:opacity-100"
-                    : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
-                )}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClose(tab.id);
-                }}
-                aria-label={`Close ${label}`}
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
+              {isPinned ? (
+                <Pin className="h-2.5 w-2.5 shrink-0 text-primary/50 -mr-0.5 rotate-45" />
+              ) : (
+                <button
+                  className={cn(
+                    "shrink-0 rounded hover:bg-muted transition-colors p-0.5 -mr-0.5",
+                    isActive
+                      ? "opacity-60 hover:opacity-100"
+                      : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose(tab.id);
+                  }}
+                  aria-label={`Close ${label}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
             </div>
           );
         })}
+        {/* Tab context menu */}
+        {ctxMenu && (
+          <div
+            className="fixed z-50 min-w-[140px] rounded-md border bg-popover py-1 shadow-md text-popover-foreground animate-in fade-in-0 zoom-in-95"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const t = tabs.find((t) => t.id === ctxMenu.tabId);
+              const isPinned = !!t?.pinned;
+              return (
+                <>
+                  <button
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+                    onClick={() => { onPin(ctxMenu.tabId); setCtxMenu(null); }}
+                  >
+                    {isPinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
+                    {isPinned ? "Unpin tab" : "Pin tab"}
+                  </button>
+                  {!isPinned && (
+                    <button
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-destructive transition-colors"
+                      onClick={() => { onClose(ctxMenu.tabId); setCtxMenu(null); }}
+                    >
+                      <X className="size-3" />
+                      Close tab
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+        <button
+          className="flex items-center justify-center h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-sm transition-colors"
+          onClick={onNewChat}
+          aria-label="New chat"
+          title="New Chat"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
       </div>
-      <button
-        className="flex items-center justify-center h-8 w-8 shrink-0 ml-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-sm transition-colors"
-        onClick={onNewChat}
-        aria-label="New chat"
-        title="New Chat"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
+
+      {/* Scroll-right fade indicator */}
+      {canScrollRight && (
+        <button
+          onClick={scrollRight}
+          className="absolute right-0 top-0 bottom-0 w-10 flex items-center justify-end pr-1.5 transition-opacity"
+          style={{ background: "linear-gradient(to right, transparent, var(--background) 60%)" }}
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      )}
     </div>
   );
 }
@@ -3643,6 +5242,7 @@ export function LifeTool() {
   const setLifeState = stateSync.setData;
   const chatCounterRef = useRef(0);
   const [hydrated, setHydrated] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Wait for synced state to hydrate from localStorage before rendering content
   useEffect(() => {
@@ -3669,7 +5269,6 @@ export function LifeTool() {
 
   const tabs = lifeState.tabs;
   const activeTabId = lifeState.activeTabId;
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Update URL when active tab changes
   const updateUrl = useCallback((tab: LifeTab | null) => {
@@ -3783,6 +5382,8 @@ export function LifeTool() {
 
   const closeTab = useCallback((id: string) => {
     setLifeState((prev) => {
+      const tab = prev.tabs.find((t) => t.id === id);
+      if (tab?.pinned) return prev; // can't close pinned tabs
       const idx = prev.tabs.findIndex((t) => t.id === id);
       const next = prev.tabs.filter((t) => t.id !== id);
       const newActive = prev.activeTabId === id
@@ -3790,6 +5391,15 @@ export function LifeTool() {
         : prev.activeTabId;
       return { ...prev, tabs: next, activeTabId: newActive };
     });
+  }, [setLifeState]);
+
+  const pinTab = useCallback((id: string) => {
+    setLifeState((prev) => ({
+      ...prev,
+      tabs: prev.tabs.map((t) =>
+        t.id === id ? { ...t, pinned: !t.pinned } : t
+      ),
+    }));
   }, [setLifeState]);
 
   // When a chat tab gets a conversation ID, update the tab's convId and URL
@@ -3850,27 +5460,30 @@ export function LifeTool() {
       <div className="flex flex-col h-full overflow-hidden">
         {/* Top bar */}
         <div className="border-b shrink-0">
-          <div className="flex items-center gap-2 px-4 py-2">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className={cn(
+                "p-1.5 rounded-md hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
+                sidebarOpen && "bg-muted/50 text-foreground"
+              )}
+              title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+            >
+              {sidebarOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeft className="h-3.5 w-3.5" />}
+            </button>
             <Brain className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold">Life Tool</span>
-            <div className="flex items-center gap-2 ml-auto">
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="p-1.5 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                title="Settings"
-              >
-                <Settings className="h-3.5 w-3.5" />
-              </button>
-            </div>
           </div>
         </div>
 
         {/* Body */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <LifeSidebar
-            activeTabType={activeTab?.type ?? null}
-            onOpenTab={openTab}
-          />
+          {sidebarOpen && (
+            <LifeSidebar
+              activeTabType={activeTab?.type ?? null}
+              onOpenTab={openTab}
+            />
+          )}
 
           {/* Main content area */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -3881,6 +5494,8 @@ export function LifeTool() {
               onSwitch={switchTab}
               onClose={closeTab}
               onNewChat={openNewChat}
+              onReorder={(reordered) => setLifeState((prev) => ({ ...prev, tabs: reordered }))}
+              onPin={pinTab}
             />
 
             {/* Tab content */}
@@ -3893,6 +5508,8 @@ export function LifeTool() {
                   persistedConvId={activeTab.convId ?? null}
                   onConvIdChange={(id) => onChatConvIdChange(activeTab.id, id)}
                   onNewChat={openNewChat}
+                  onOpenRoutine={openRoutineDetail}
+                  autoApprove={lifeState.settings?.autoApproveActions}
                 />
               ) : activeTab.type === "memories" ? (
                 <MemoriesView />
@@ -3906,6 +5523,13 @@ export function LifeTool() {
                 <ChannelsView />
               ) : activeTab.type === "calendar" ? (
                 <CalendarView />
+              ) : activeTab.type === "tasks" ? (
+                <TasksView />
+              ) : activeTab.type === "settings" ? (
+                <SettingsView
+                  settings={lifeState.settings ?? DEFAULT_SETTINGS}
+                  onUpdate={(s) => setLifeState((prev) => ({ ...prev, settings: s }))}
+                />
               ) : (
                 <PlaceholderView tab={activeTab.type} />
               )}
@@ -3913,9 +5537,6 @@ export function LifeTool() {
           </div>
         </div>
 
-        {settingsOpen && (
-          <SettingsPanel onClose={() => setSettingsOpen(false)} />
-        )}
       </div>
     </AuthGate>
   );
