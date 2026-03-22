@@ -6,7 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 API_URL = "https://1tt.dev/api/v1/life/webhooks/email"
 
-# Send email binding — allows the worker to send replies from life@1tt.dev
+# Cloudflare Email Service binding — sends transactional emails to any recipient
+[[email]]
+name = "SEND_EMAIL"
+
+# Legacy send_email binding for Email Routing replies
 [[send_email]]
 name = "SEB"
 

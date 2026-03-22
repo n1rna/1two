@@ -98,9 +98,9 @@ func main() {
 	}
 
 	var emailSender *life.EmailSender
-	if cfg.EmailWorkerURL != "" && cfg.EmailWebhookSecret != "" {
-		emailSender = life.NewEmailSender(cfg.EmailWorkerURL, cfg.EmailWebhookSecret)
-		log.Printf("INFO: Email sender initialised (worker: %s)", cfg.EmailWorkerURL)
+	if cfg.ResendAPIKey != "" {
+		emailSender = life.NewEmailSender(cfg.ResendAPIKey, cfg.ResendFromEmail, cfg.EmailWorkerURL, cfg.EmailWebhookSecret)
+		log.Printf("INFO: Email sender initialised (Resend, from: %s)", cfg.ResendFromEmail)
 	}
 
 	var neonClient *neon.Client

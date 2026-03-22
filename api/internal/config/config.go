@@ -58,7 +58,9 @@ type Config struct {
 
 	// Email
 	EmailWebhookSecret string
-	EmailWorkerURL     string // URL of the Cloudflare Email Worker for sending
+	EmailWorkerURL     string // Cloudflare Email Worker URL
+	ResendAPIKey       string
+	ResendFromEmail    string
 
 	// Google Calendar OAuth
 	GoogleClientID     string
@@ -128,6 +130,8 @@ func Load() *Config {
 
 		EmailWebhookSecret: os.Getenv("EMAIL_WEBHOOK_SECRET"),
 		EmailWorkerURL:     getEnvOrDefault("EMAIL_WORKER_URL", "https://1tt-email-inbound.1twodev.workers.dev"),
+		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail:    getEnvOrDefault("RESEND_FROM_EMAIL", "1tt Life <life@1tt.dev>"),
 
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),

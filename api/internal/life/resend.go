@@ -9,26 +9,36 @@ import (
 	"net/http"
 )
 
-// EmailSender sends emails via the Cloudflare Email Worker's HTTP endpoint.
+// EmailSender sends emails. It first tries Resend (for transactional emails to
+// arbitrary recipients), and can fall back to the Cloudflare Email Worker.
 type EmailSender struct {
-	workerURL string // e.g., "https://1tt-email-inbound.1twodev.workers.dev"
-	secret    string // EMAIL_WEBHOOK_SECRET for authentication
-	client    *http.Client
+	resendKey  string // Resend API key
+	fromEmail  string // From address for Resend
+	workerURL  string // Cloudflare Email Worker URL (fallback)
+	secret     string // EMAIL_WEBHOOK_SECRET for worker auth
+	httpClient *http.Client
 }
 
-// NewEmailSender creates an email sender that calls the Cloudflare Email Worker.
-func NewEmailSender(workerURL, secret string) *EmailSender {
+// NewEmailSender creates an email sender.
+func NewEmailSender(resendKey, fromEmail, workerURL, secret string) *EmailSender {
 	return &EmailSender{
-		workerURL: workerURL,
-		secret:    secret,
-		client:    &http.Client{},
+		resendKey:  resendKey,
+		fromEmail:  fromEmail,
+		workerURL:  workerURL,
+		secret:     secret,
+		httpClient: &http.Client{},
 	}
 }
 
-// Send sends an email via the worker.
+// Send sends an email via Resend.
 func (s *EmailSender) Send(ctx context.Context, to, subject, text string) error {
-	payload, err := json.Marshal(map[string]string{
-		"to":      to,
+	if s.resendKey == "" {
+		return fmt.Errorf("email: Resend not configured")
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"from":    s.fromEmail,
+		"to":      []string{to},
 		"subject": subject,
 		"text":    text,
 	})
@@ -36,14 +46,14 @@ func (s *EmailSender) Send(ctx context.Context, to, subject, text string) error 
 		return fmt.Errorf("email: marshal: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.workerURL, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("email: create request: %w", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+s.resendKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.secret)
 
-	resp, err := s.client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("email: send: %w", err)
 	}
@@ -51,7 +61,7 @@ func (s *EmailSender) Send(ctx context.Context, to, subject, text string) error 
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("email: HTTP %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("email: Resend HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil

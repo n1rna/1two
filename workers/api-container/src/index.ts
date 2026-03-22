@@ -35,6 +35,8 @@ interface Env {
   TELEGRAM_WEBHOOK_SECRET: string;
   EMAIL_WEBHOOK_SECRET: string;
   EMAIL_WORKER_URL: string;
+  RESEND_API_KEY: string;
+  RESEND_FROM_EMAIL: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_REDIRECT_URI: string;
@@ -80,6 +82,8 @@ export class ApiContainer extends Container<Env> {
       TELEGRAM_WEBHOOK_SECRET: env.TELEGRAM_WEBHOOK_SECRET ?? "",
       EMAIL_WEBHOOK_SECRET: env.EMAIL_WEBHOOK_SECRET ?? "",
       EMAIL_WORKER_URL: env.EMAIL_WORKER_URL ?? "https://1tt-email-inbound.1twodev.workers.dev",
+      RESEND_API_KEY: env.RESEND_API_KEY ?? "",
+      RESEND_FROM_EMAIL: env.RESEND_FROM_EMAIL ?? "1tt Life <life@1tt.dev>",
       GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID ?? "",
       GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET ?? "",
       GOOGLE_REDIRECT_URI: env.GOOGLE_REDIRECT_URI ?? "",

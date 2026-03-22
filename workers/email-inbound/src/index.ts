@@ -3,6 +3,8 @@
  *
  * Inbound: receives emails at life@1tt.dev → forwards to API → sends reply
  * Outbound: POST /send endpoint for the API to trigger emails (verification codes, etc.)
+ *
+ * Uses Cloudflare Email Service (SEND_EMAIL binding) for outbound to arbitrary recipients.
  */
 
 import { EmailMessage } from "cloudflare:email";
@@ -11,11 +13,12 @@ import { createMimeMessage } from "mimetext";
 export interface Env {
   API_URL: string;
   EMAIL_WEBHOOK_SECRET: string;
-  SEB: SendEmail;
-}
-
-interface SendEmail {
-  send(message: EmailMessage): Promise<void>;
+  SEND_EMAIL: {
+    send(message: EmailMessage): Promise<void>;
+  };
+  SEB: {
+    send(message: EmailMessage): Promise<void>;
+  };
 }
 
 interface ApiResponse {
@@ -59,7 +62,12 @@ export default {
 
       const data = (await resp.json()) as ApiResponse;
       if (data.reply) {
-        await sendEmail(env, from, subject ? `Re: ${subject}` : "Life Tool — Response", data.reply);
+        await sendEmail(
+          env,
+          from,
+          subject ? `Re: ${subject}` : "Life Tool — Response",
+          data.reply
+        );
       }
     } catch (err) {
       console.error("Failed to process email:", err);
@@ -72,7 +80,6 @@ export default {
       return new Response("Method not allowed", { status: 405 });
     }
 
-    // Authenticate
     const auth = request.headers.get("Authorization");
     if (auth !== `Bearer ${env.EMAIL_WEBHOOK_SECRET}`) {
       return new Response("Unauthorized", { status: 401 });
@@ -86,7 +93,10 @@ export default {
       };
 
       if (!body.to || !body.subject || !body.text) {
-        return Response.json({ error: "to, subject, and text are required" }, { status: 400 });
+        return Response.json(
+          { error: "to, subject, and text are required" },
+          { status: 400 }
+        );
       }
 
       await sendEmail(env, body.to, body.subject, body.text);
@@ -100,7 +110,12 @@ export default {
 
 // ── Shared email sending ────────────────────────────────────────────────
 
-async function sendEmail(env: Env, to: string, subject: string, text: string): Promise<void> {
+async function sendEmail(
+  env: Env,
+  to: string,
+  subject: string,
+  text: string
+): Promise<void> {
   const msg = createMimeMessage();
   msg.setSender({ name: "1tt Life", addr: "life@1tt.dev" });
   msg.setRecipient(to);
@@ -108,7 +123,14 @@ async function sendEmail(env: Env, to: string, subject: string, text: string): P
   msg.addMessage({ contentType: "text/plain", data: text });
 
   const emailMessage = new EmailMessage("life@1tt.dev", to, msg.asRaw());
-  await env.SEB.send(emailMessage);
+
+  // Try the new Email Service binding first, fall back to legacy send_email
+  try {
+    await env.SEND_EMAIL.send(emailMessage);
+  } catch (err) {
+    console.log("SEND_EMAIL failed, trying SEB fallback:", err);
+    await env.SEB.send(emailMessage);
+  }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -122,7 +144,9 @@ async function readStream(stream: ReadableStream): Promise<string> {
     if (done) break;
   }
   reader.releaseLock();
-  const merged = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
+  const merged = new Uint8Array(
+    chunks.reduce((acc, c) => acc + c.length, 0)
+  );
   let offset = 0;
   for (const chunk of chunks) {
     merged.set(chunk, offset);
@@ -140,7 +164,8 @@ function extractPlainText(raw: string): string {
       if (part.toLowerCase().includes("content-type: text/plain")) {
         const headerEnd = part.indexOf("\r\n\r\n");
         const altEnd = part.indexOf("\n\n");
-        const end = headerEnd > 0 ? headerEnd + 4 : altEnd > 0 ? altEnd + 2 : -1;
+        const end =
+          headerEnd > 0 ? headerEnd + 4 : altEnd > 0 ? altEnd + 2 : -1;
         if (end > 0) return part.slice(end).trim();
       }
     }
