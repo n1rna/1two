@@ -16,6 +16,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       api: ${{ steps.filter.outputs.api }}
       cli: ${{ steps.filter.outputs.cli }}
+      email-worker: ${{ steps.filter.outputs.email-worker }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,6 +40,8 @@ jobs:
               - 'workers/api-container/**'
             cli:
               - 'cli/**'
+            email-worker:
+              - 'workers/email-inbound/**'
 
   deploy-web:
     name: Deploy Web (Cloudflare Workers)
@@ -261,3 +264,34 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
+
+  deploy-email-worker:
+    name: Deploy Email Worker
+    needs: changes
+    if: needs.changes.outputs.email-worker == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: workers/email-inbound
+        run: bun install
+
+      - name: Deploy Email Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/email-inbound
+          command: deploy --config wrangler.toml
+          packageManager: bun

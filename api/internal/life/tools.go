@@ -1,0 +1,764 @@
+package life
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/tmc/langchaingo/llms"
+)
+
+// toolDefs returns the full list of tool definitions the agent can call.
+func toolDefs() []llms.Tool {
+	return []llms.Tool{
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "create_actionable",
+				Description: "Create an actionable item that surfaces to the user for a decision or acknowledgement. Use this when the user needs to confirm, choose, provide input, or be informed about something.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"type": map[string]any{
+							"type":        "string",
+							"enum":        []string{"confirm", "choose", "input", "info"},
+							"description": "confirm = yes/no approval; choose = pick from options; input = free-text response; info = read-only notice",
+						},
+						"title": map[string]any{
+							"type":        "string",
+							"description": "Short headline for the actionable (max ~80 chars)",
+						},
+						"description": map[string]any{
+							"type":        "string",
+							"description": "Longer explanation shown to the user",
+						},
+						"options": map[string]any{
+							"type":        "array",
+							"description": "Required for type=choose. List of choices.",
+							"items": map[string]any{
+								"type": "object",
+								"properties": map[string]any{
+									"id":     map[string]any{"type": "string"},
+									"label":  map[string]any{"type": "string"},
+									"detail": map[string]any{"type": "string"},
+								},
+								"required": []string{"id", "label"},
+							},
+						},
+						"due_at": map[string]any{
+							"type":        "string",
+							"description": "Optional ISO-8601 deadline for the actionable",
+						},
+						"action_type": map[string]any{
+							"type":        "string",
+							"enum":        []string{"create_routine", "create_memory", "none"},
+							"description": "What action to execute when the user confirms. Use 'create_routine' to defer routine creation to user approval.",
+						},
+						"action_payload": map[string]any{
+							"type":        "object",
+							"description": "Data for the deferred action. For create_routine: the full routine object {name, type, description, schedule, config}.",
+						},
+					},
+					"required": []string{"type", "title"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "remember",
+				Description: "Store a new fact, preference, instruction, or habit about the user for future context.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"content": map[string]any{
+							"type":        "string",
+							"description": "The fact or preference to remember",
+						},
+						"category": map[string]any{
+							"type":        "string",
+							"enum":        []string{"preference", "instruction", "fact", "habit"},
+							"description": "Category for organising the memory",
+						},
+					},
+					"required": []string{"content"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "forget",
+				Description: "Remove a memory that is no longer accurate or relevant.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"memory_id": map[string]any{
+							"type":        "string",
+							"description": "The ID of the memory to delete (soft-delete)",
+						},
+					},
+					"required": []string{"memory_id"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "create_routine",
+				Description: "Create a new recurring routine. Only use when you have HIGH confidence the user wants this tracked. For medium confidence, create a confirm actionable instead.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"name": map[string]any{
+							"type":        "string",
+							"description": "Human-readable name (e.g. 'Morning Gym', 'Call Family', 'Evening Reading')",
+						},
+						"type": map[string]any{
+							"type":        "string",
+							"enum":        []string{"call_loved_ones", "gym", "reading", "morning_routine", "evening_routine", "weekly_review", "habit_tracker", "custom"},
+							"description": "Routine category",
+						},
+						"description": map[string]any{
+							"type":        "string",
+							"description": "What this routine involves",
+						},
+						"schedule": map[string]any{
+							"type":        "object",
+							"description": `When the routine occurs. Format: {"frequency": "daily"|"weekly"|"every_n_days", "interval": 2, "days": [1,3,5], "time": "09:00"}. days: 0=Sun..6=Sat.`,
+							"properties": map[string]any{
+								"frequency": map[string]any{"type": "string", "enum": []string{"daily", "weekly", "every_n_days"}},
+								"interval":  map[string]any{"type": "integer", "description": "For every_n_days: repeat every N days"},
+								"days":      map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "For weekly: which days (0=Sun..6=Sat)"},
+								"time":      map[string]any{"type": "string", "description": "Preferred time in HH:MM format"},
+							},
+						},
+						"config": map[string]any{
+							"type":        "object",
+							"description": `Type-specific data. Examples: call_loved_ones: {"contacts":[{"name":"Mom","frequency":"every_other_day"}]}; gym: {"variations":[{"day":"monday","workout":"legs"}]}; reading: {"books":[{"title":"...","status":"reading"}]}`,
+						},
+					},
+					"required": []string{"name", "type"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "update_routine",
+				Description: "Update an existing routine. Use this instead of creating a new one when the user wants to modify a routine. Call list_routines first to get the routine ID.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"routine_id": map[string]any{
+							"type":        "string",
+							"description": "ID of the routine to update",
+						},
+						"name": map[string]any{
+							"type":        "string",
+							"description": "New name (optional, only if changing)",
+						},
+						"description": map[string]any{
+							"type":        "string",
+							"description": "New description (optional)",
+						},
+						"schedule": map[string]any{
+							"type":        "object",
+							"description": "New schedule (optional, replaces existing)",
+						},
+						"config": map[string]any{
+							"type":        "object",
+							"description": "New config (optional, replaces existing)",
+						},
+						"active": map[string]any{
+							"type":        "boolean",
+							"description": "Set to false to deactivate the routine",
+						},
+					},
+					"required": []string{"routine_id"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "delete_routine",
+				Description: "Deactivate (soft-delete) a routine. Call list_routines first to get the routine ID.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"routine_id": map[string]any{
+							"type":        "string",
+							"description": "ID of the routine to delete",
+						},
+					},
+					"required": []string{"routine_id"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "list_routines",
+				Description: "Retrieve the user's active routines with their IDs. Always call this before updating or deleting a routine.",
+				Parameters: map[string]any{
+					"type":       "object",
+					"properties": map[string]any{},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "list_actionables",
+				Description: "Retrieve the user's actionables, optionally filtered by status.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"status": map[string]any{
+							"type":        "string",
+							"enum":        []string{"pending", "confirmed", "dismissed", "snoozed"},
+							"description": "Filter by status. Defaults to pending.",
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "get_calendar_events",
+				Description: "Fetch upcoming events from the user's connected Google Calendar.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"days_ahead": map[string]any{
+							"type":        "integer",
+							"description": "How many days ahead to fetch events. Defaults to 7.",
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        "create_calendar_event",
+				Description: "Create a new event on the user's Google Calendar.",
+				Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"summary": map[string]any{
+						"type":        "string",
+						"description": "Event title",
+					},
+					"start": map[string]any{
+						"type":        "string",
+						"description": "Start time in RFC3339 format (e.g. 2026-03-24T09:00:00Z)",
+					},
+					"end": map[string]any{
+						"type":        "string",
+						"description": "End time in RFC3339 format",
+					},
+					"description": map[string]any{
+						"type":        "string",
+						"description": "Optional event description",
+					},
+					"location": map[string]any{
+						"type":        "string",
+						"description": "Optional event location",
+					},
+				},
+				"required": []string{"summary", "start", "end"},
+			},
+		},
+	},
+	}
+}
+
+// executeTool dispatches a single tool call to the appropriate DB operation and
+// returns a JSON string result (always valid JSON).
+func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, call llms.ToolCall) string {
+	var args map[string]any
+	if err := json.Unmarshal([]byte(call.FunctionCall.Arguments), &args); err != nil {
+		return jsonError("invalid arguments: " + err.Error())
+	}
+
+	switch call.FunctionCall.Name {
+	case "create_actionable":
+		return toolCreateActionable(ctx, db, userID, args)
+	case "remember":
+		return toolRemember(ctx, db, userID, args)
+	case "forget":
+		return toolForget(ctx, db, userID, args)
+	case "create_routine":
+		return toolCreateRoutine(ctx, db, userID, args)
+	case "update_routine":
+		return toolUpdateRoutine(ctx, db, userID, args)
+	case "delete_routine":
+		return toolDeleteRoutine(ctx, db, userID, args)
+	case "list_routines":
+		return toolListRoutines(ctx, db, userID)
+	case "list_actionables":
+		return toolListActionables(ctx, db, userID, args)
+	case "get_calendar_events":
+		return toolGetCalendarEvents(ctx, db, gcalClient, userID, args)
+	case "create_calendar_event":
+		return toolCreateCalendarEvent(ctx, db, gcalClient, userID, args)
+	default:
+		return jsonError("unknown tool: " + call.FunctionCall.Name)
+	}
+}
+
+// ----- individual tool implementations -----
+
+func toolCreateActionable(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	aType, _ := args["type"].(string)
+	if aType == "" {
+		aType = "info"
+	}
+	title, _ := args["title"].(string)
+	if title == "" {
+		return jsonError("title is required")
+	}
+	description, _ := args["description"].(string)
+
+	// options JSONB
+	var optionsJSON []byte
+	if opts, ok := args["options"]; ok && opts != nil {
+		b, err := json.Marshal(opts)
+		if err != nil {
+			return jsonError("failed to encode options: " + err.Error())
+		}
+		optionsJSON = b
+	}
+
+	// due_at
+	var dueAt *time.Time
+	if dueStr, ok := args["due_at"].(string); ok && dueStr != "" {
+		if t, err := time.Parse(time.RFC3339, dueStr); err == nil {
+			dueAt = &t
+		}
+	}
+
+	// action_type + action_payload — deferred action to execute on confirmation
+	actionType, _ := args["action_type"].(string)
+	var actionPayloadJSON []byte
+	if ap, ok := args["action_payload"]; ok && ap != nil {
+		b, err := json.Marshal(ap)
+		if err != nil {
+			return jsonError("failed to encode action_payload: " + err.Error())
+		}
+		actionPayloadJSON = b
+	}
+
+	id := uuid.NewString()
+	const q = `
+		INSERT INTO life_actionables
+			(id, user_id, type, status, title, description, options, due_at, action_type, action_payload)
+		VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9)
+		RETURNING id, created_at`
+
+	var createdAt time.Time
+	err := db.QueryRowContext(ctx, q,
+		id, userID, aType, title, description,
+		nullableJSON(optionsJSON), dueAt, actionType, nullableJSON(actionPayloadJSON),
+	).Scan(&id, &createdAt)
+	if err != nil {
+		return jsonError("failed to create actionable: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{
+		"actionable_id": id,
+		"created_at":    createdAt.UTC().Format(time.RFC3339),
+	})
+}
+
+func toolRemember(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	content, _ := args["content"].(string)
+	if content == "" {
+		return jsonError("content is required")
+	}
+	category, _ := args["category"].(string)
+	if category == "" {
+		category = "fact"
+	}
+
+	id := uuid.NewString()
+	const q = `
+		INSERT INTO life_memories (id, user_id, category, content, source)
+		VALUES ($1, $2, $3, $4, 'agent')
+		RETURNING id`
+
+	var returnedID string
+	if err := db.QueryRowContext(ctx, q, id, userID, category, content).Scan(&returnedID); err != nil {
+		return jsonError("failed to store memory: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{"memory_id": returnedID, "content": content, "category": category})
+}
+
+func toolForget(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	memoryID, _ := args["memory_id"].(string)
+	if memoryID == "" {
+		return jsonError("memory_id is required")
+	}
+
+	res, err := db.ExecContext(ctx,
+		`UPDATE life_memories SET active = FALSE, updated_at = NOW()
+		 WHERE id = $1 AND user_id = $2`,
+		memoryID, userID,
+	)
+	if err != nil {
+		return jsonError("failed to forget memory: " + err.Error())
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return jsonError("memory not found")
+	}
+
+	return jsonOK(map[string]any{"forgotten": true})
+}
+
+func toolCreateRoutine(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	name, _ := args["name"].(string)
+	if name == "" {
+		return jsonError("name is required")
+	}
+	rType, _ := args["type"].(string)
+	if rType == "" {
+		return jsonError("type is required")
+	}
+	description, _ := args["description"].(string)
+
+	scheduleJSON := []byte("{}")
+	if sched, ok := args["schedule"]; ok && sched != nil {
+		b, err := json.Marshal(sched)
+		if err != nil {
+			return jsonError("failed to encode schedule: " + err.Error())
+		}
+		scheduleJSON = b
+	}
+
+	configJSON := []byte("{}")
+	if cfg, ok := args["config"]; ok && cfg != nil {
+		b, err := json.Marshal(cfg)
+		if err != nil {
+			return jsonError("failed to encode config: " + err.Error())
+		}
+		configJSON = b
+	}
+
+	id := uuid.NewString()
+	const q = `
+		INSERT INTO life_routines (id, user_id, name, type, description, schedule, config)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at`
+
+	var createdAt time.Time
+	if err := db.QueryRowContext(ctx, q,
+		id, userID, name, rType, description, string(scheduleJSON), string(configJSON),
+	).Scan(&id, &createdAt); err != nil {
+		return jsonError("failed to create routine: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{
+		"routine_id":  id,
+		"name":        name,
+		"type":        rType,
+		"description": description,
+		"created_at":  createdAt.UTC().Format(time.RFC3339),
+	})
+}
+
+func toolUpdateRoutine(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	routineID, _ := args["routine_id"].(string)
+	if routineID == "" {
+		return jsonError("routine_id is required")
+	}
+
+	// Verify ownership.
+	var ownerID string
+	if err := db.QueryRowContext(ctx,
+		`SELECT user_id FROM life_routines WHERE id = $1 AND active = TRUE`, routineID,
+	).Scan(&ownerID); err != nil {
+		return jsonError("routine not found")
+	}
+	if ownerID != userID {
+		return jsonError("routine not found")
+	}
+
+	// Build dynamic SET clauses.
+	sets := []string{"updated_at = NOW()"}
+	params := []any{}
+	paramIdx := 1
+
+	if name, ok := args["name"].(string); ok && name != "" {
+		sets = append(sets, fmt.Sprintf("name = $%d", paramIdx))
+		params = append(params, name)
+		paramIdx++
+	}
+	if desc, ok := args["description"].(string); ok {
+		sets = append(sets, fmt.Sprintf("description = $%d", paramIdx))
+		params = append(params, desc)
+		paramIdx++
+	}
+	if sched, ok := args["schedule"]; ok && sched != nil {
+		b, err := json.Marshal(sched)
+		if err != nil {
+			return jsonError("failed to encode schedule: " + err.Error())
+		}
+		sets = append(sets, fmt.Sprintf("schedule = $%d", paramIdx))
+		params = append(params, string(b))
+		paramIdx++
+	}
+	if cfg, ok := args["config"]; ok && cfg != nil {
+		b, err := json.Marshal(cfg)
+		if err != nil {
+			return jsonError("failed to encode config: " + err.Error())
+		}
+		sets = append(sets, fmt.Sprintf("config = $%d", paramIdx))
+		params = append(params, string(b))
+		paramIdx++
+	}
+	if active, ok := args["active"].(bool); ok {
+		sets = append(sets, fmt.Sprintf("active = $%d", paramIdx))
+		params = append(params, active)
+		paramIdx++
+	}
+
+	if len(params) == 0 {
+		return jsonOK(map[string]any{"routine_id": routineID, "message": "no changes"})
+	}
+
+	params = append(params, routineID, userID)
+	q := fmt.Sprintf(
+		"UPDATE life_routines SET %s WHERE id = $%d AND user_id = $%d",
+		strings.Join(sets, ", "), paramIdx, paramIdx+1,
+	)
+
+	if _, err := db.ExecContext(ctx, q, params...); err != nil {
+		return jsonError("failed to update routine: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{"routine_id": routineID, "updated": true})
+}
+
+func toolDeleteRoutine(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	routineID, _ := args["routine_id"].(string)
+	if routineID == "" {
+		return jsonError("routine_id is required")
+	}
+
+	result, err := db.ExecContext(ctx,
+		`UPDATE life_routines SET active = FALSE, updated_at = NOW() WHERE id = $1 AND user_id = $2 AND active = TRUE`,
+		routineID, userID,
+	)
+	if err != nil {
+		return jsonError("failed to delete routine: " + err.Error())
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return jsonError("routine not found")
+	}
+	return jsonOK(map[string]any{"routine_id": routineID, "deleted": true})
+}
+
+func toolListRoutines(ctx context.Context, db *sql.DB, userID string) string {
+	const q = `
+		SELECT id, name, type, description, active, created_at
+		FROM life_routines
+		WHERE user_id = $1 AND active = TRUE
+		ORDER BY created_at DESC`
+
+	rows, err := db.QueryContext(ctx, q, userID)
+	if err != nil {
+		return jsonError("failed to list routines: " + err.Error())
+	}
+	defer rows.Close()
+
+	type routineRow struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Type        string `json:"type"`
+		Description string `json:"description"`
+		Active      bool   `json:"active"`
+		CreatedAt   string `json:"createdAt"`
+	}
+	list := make([]routineRow, 0)
+	for rows.Next() {
+		var row routineRow
+		var createdAt time.Time
+		if err := rows.Scan(&row.ID, &row.Name, &row.Type, &row.Description, &row.Active, &createdAt); err != nil {
+			return jsonError("failed to read routine: " + err.Error())
+		}
+		row.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		list = append(list, row)
+	}
+	if err := rows.Err(); err != nil {
+		return jsonError("failed to iterate routines: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{"routines": list})
+}
+
+func toolListActionables(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	status, _ := args["status"].(string)
+	if status == "" {
+		status = "pending"
+	}
+
+	const q = `
+		SELECT id, type, status, title, description, due_at, created_at
+		FROM life_actionables
+		WHERE user_id = $1 AND status = $2
+		ORDER BY created_at DESC
+		LIMIT 50`
+
+	rows, err := db.QueryContext(ctx, q, userID, status)
+	if err != nil {
+		return jsonError("failed to list actionables: " + err.Error())
+	}
+	defer rows.Close()
+
+	type actionableRow struct {
+		ID          string  `json:"id"`
+		Type        string  `json:"type"`
+		Status      string  `json:"status"`
+		Title       string  `json:"title"`
+		Description string  `json:"description"`
+		DueAt       *string `json:"dueAt,omitempty"`
+		CreatedAt   string  `json:"createdAt"`
+	}
+	list := make([]actionableRow, 0)
+	for rows.Next() {
+		var row actionableRow
+		var dueAt sql.NullTime
+		var createdAt time.Time
+		if err := rows.Scan(&row.ID, &row.Type, &row.Status, &row.Title, &row.Description, &dueAt, &createdAt); err != nil {
+			return jsonError("failed to read actionable: " + err.Error())
+		}
+		row.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		if dueAt.Valid {
+			s := dueAt.Time.UTC().Format(time.RFC3339)
+			row.DueAt = &s
+		}
+		list = append(list, row)
+	}
+	if err := rows.Err(); err != nil {
+		return jsonError("failed to iterate actionables: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{"actionables": list, "status": status})
+}
+
+func toolGetCalendarEvents(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google Calendar is not configured")
+	}
+
+	daysAhead := 7
+	if v, ok := args["days_ahead"]; ok {
+		switch n := v.(type) {
+		case float64:
+			daysAhead = int(n)
+		case int:
+			daysAhead = n
+		}
+	}
+	if daysAhead <= 0 {
+		daysAhead = 7
+	}
+
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("calendar not connected: " + err.Error())
+	}
+
+	events, err := gcalClient.ListEvents(ctx, accessToken, daysAhead)
+	if err != nil {
+		return jsonError("failed to fetch calendar events: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{"events": events, "days_ahead": daysAhead})
+}
+
+func toolCreateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google Calendar is not configured")
+	}
+
+	summary, _ := args["summary"].(string)
+	if summary == "" {
+		return jsonError("summary is required")
+	}
+	startStr, _ := args["start"].(string)
+	if startStr == "" {
+		return jsonError("start is required")
+	}
+	endStr, _ := args["end"].(string)
+	if endStr == "" {
+		return jsonError("end is required")
+	}
+
+	startTime, err := time.Parse(time.RFC3339, startStr)
+	if err != nil {
+		return jsonError("invalid start time (must be RFC3339): " + err.Error())
+	}
+	endTime, err := time.Parse(time.RFC3339, endStr)
+	if err != nil {
+		return jsonError("invalid end time (must be RFC3339): " + err.Error())
+	}
+
+	description, _ := args["description"].(string)
+	location, _ := args["location"].(string)
+
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("calendar not connected: " + err.Error())
+	}
+
+	ev, err := gcalClient.CreateEvent(ctx, accessToken, CreateEventRequest{
+		Summary:     summary,
+		Description: description,
+		Location:    location,
+		StartTime:   startTime,
+		EndTime:     endTime,
+	})
+	if err != nil {
+		return jsonError("failed to create calendar event: " + err.Error())
+	}
+
+	return jsonOK(map[string]any{
+		"id":       ev.ID,
+		"summary":  ev.Summary,
+		"start":    ev.Start.Format(time.RFC3339),
+		"end":      ev.End.Format(time.RFC3339),
+		"htmlLink": ev.HtmlLink,
+	})
+}
+
+// ----- helpers -----
+
+func jsonOK(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+func jsonError(msg string) string {
+	b, _ := json.Marshal(map[string]string{"error": msg})
+	return string(b)
+}
+
+// nullableJSON returns nil if b is empty (so the DB column gets NULL), otherwise
+// returns b so it is stored as JSONB.
+func nullableJSON(b []byte) any {
+	if len(b) == 0 {
+		return nil
+	}
+	return fmt.Sprintf("%s", b)
+}

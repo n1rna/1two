@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/n1rna/1tt/api/internal/crawl"
 	"github.com/n1rna/1tt/api/internal/database"
 	"github.com/n1rna/1tt/api/internal/handler"
+	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/llms"
 	"github.com/n1rna/1tt/api/internal/middleware"
 	"github.com/n1rna/1tt/api/internal/neon"
@@ -71,11 +73,34 @@ func main() {
 		log.Printf("WARNING: llms.txt generator not configured (missing CLOUDFLARE_ACCOUNT_ID, LLM_API_KEY, DB, or R2)")
 	}
 
+	// Google Calendar OAuth client (optional).
+	var gcalClient *life.GCalClient
+	if cfg.GoogleClientID != "" && cfg.GoogleClientSecret != "" {
+		gcalClient = life.NewGCalClient(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURI)
+		log.Printf("INFO: Google Calendar client initialised (redirect URI: %s)", cfg.GoogleRedirectURI)
+	} else {
+		log.Printf("WARNING: Google Calendar not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)")
+	}
+
+	// Life tool — AI-powered life planning agent.
+	lifeAgent := life.NewAgent(ai.LLMConfig{
+		Provider: cfg.LLMProvider,
+		APIKey:   cfg.LLMAPIKey,
+		BaseURL:  cfg.LLMBaseURL,
+		Model:    cfg.LLMModel,
+	}, db, gcalClient)
+
 	var billingClient *billing.Client
 	if cfg.PolarAccessToken != "" && db != nil {
 		billingClient = billing.NewClient(cfg)
 	} else {
 		log.Printf("WARNING: Polar billing not configured (missing POLAR_ACCESS_TOKEN or DB)")
+	}
+
+	var resendClient *life.ResendClient
+	if cfg.ResendAPIKey != "" {
+		resendClient = life.NewResendClient(cfg.ResendAPIKey, cfg.ResendFromEmail)
+		log.Printf("INFO: Resend email client initialised (from: %s)", cfg.ResendFromEmail)
 	}
 
 	var neonClient *neon.Client
@@ -128,6 +153,7 @@ func main() {
 	// Public routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", handler.Health)
+		r.Get("/badge/*", handler.Badge())
 		r.Get("/ip", handler.IPAddress)
 		r.Get("/ip/all", handler.IPAll)
 		r.Get("/ip/info", handler.IPInfo)
@@ -138,6 +164,12 @@ func main() {
 		// Polar webhook (public, uses signature verification)
 		if billingClient != nil {
 			r.Post("/webhooks/polar", handler.PolarWebhook(cfg, db, billingClient))
+		}
+
+		// Life channel webhooks (public, use their own authentication)
+		if db != nil {
+			r.Post("/life/webhooks/telegram", handler.TelegramWebhook(cfg, db, lifeAgent))
+			r.Post("/life/webhooks/email", handler.EmailWebhook(cfg, db, lifeAgent))
 		}
 
 		// Internal routes (protected by secret)
@@ -264,6 +296,40 @@ func main() {
 				r.Post("/ai/query", handler.GenerateAiQuery(cfg, db))
 				r.Post("/ai/query/suggestions", handler.GenerateAiQuerySuggestions(db))
 			}
+			// Life tool — AI-powered life planning.
+			if db != nil {
+				r.Get("/life/profile", handler.GetLifeProfile(db))
+				r.Put("/life/profile", handler.UpdateLifeProfile(db))
+				r.Get("/life/channels", handler.ListChannelLinks(db))
+				r.Post("/life/channels", handler.InitChannelLink(db, resendClient))
+				r.Post("/life/channels/{id}/verify", handler.VerifyChannelLink(db))
+				r.Delete("/life/channels/{id}", handler.DeleteChannelLink(db))
+				r.Get("/life/memories", handler.ListLifeMemories(db))
+				r.Post("/life/memories", handler.CreateLifeMemory(db))
+				r.Put("/life/memories/{id}", handler.UpdateLifeMemory(db))
+				r.Delete("/life/memories/{id}", handler.DeleteLifeMemory(db))
+				r.Get("/life/conversations", handler.ListLifeConversations(db))
+				r.Get("/life/conversations/by-routine/{routineId}", handler.GetConversationByRoutine(db))
+				r.Get("/life/conversations/{id}", handler.GetLifeConversation(db))
+				r.Delete("/life/conversations/{id}", handler.DeleteLifeConversation(db))
+				r.Post("/life/chat", handler.LifeChat(db, lifeAgent, gcalClient))
+				r.Post("/life/chat/stream", handler.LifeChatStream(db, lifeAgent, gcalClient))
+				r.Get("/life/actionables", handler.ListLifeActionables(db))
+				r.Post("/life/actionables/{id}/respond", handler.RespondToActionable(db, lifeAgent))
+				r.Get("/life/routines", handler.ListLifeRoutines(db))
+				r.Get("/life/routines/{id}", handler.GetLifeRoutine(db))
+				r.Post("/life/routines", handler.CreateLifeRoutine(db))
+				r.Put("/life/routines/{id}", handler.UpdateLifeRoutine(db))
+				r.Delete("/life/routines/{id}", handler.DeleteLifeRoutine(db))
+				// Google Calendar integration (status always available; others need config).
+				r.Get("/life/gcal/status", handler.GetGCalStatus(db))
+				r.Get("/life/gcal/auth-url", handler.GetGCalAuthURL(gcalClient))
+				if gcalClient != nil {
+					r.Post("/life/gcal/callback", handler.GCalCallback(db, gcalClient))
+					r.Delete("/life/gcal", handler.DisconnectGCal(db))
+					r.Get("/life/gcal/events", handler.ListGCalEvents(db, gcalClient))
+				}
+			}
 			if llmsSvc != nil && db != nil && r2 != nil {
 				r.Post("/llms/generate", handler.GenerateLlms(llmsSvc))
 				r.Get("/llms/jobs", handler.ListLlmsJobs(llmsSvc))
@@ -304,6 +370,65 @@ func main() {
 			llmsSvc.Stop()
 		}
 	}()
+
+	// In dev mode, start Telegram polling if configured (production uses webhooks).
+	if cfg.TelegramBotToken != "" && db != nil && os.Getenv("TELEGRAM_POLL") == "1" {
+		// Delete any existing webhook so polling works
+		go func() {
+			life.PollTelegramUpdates(context.Background(), cfg.TelegramBotToken, func(update life.TelegramUpdate) {
+				if update.Message == nil || update.Message.Text == "" {
+					return
+				}
+
+				chatID := update.Message.Chat.ID
+				text := update.Message.Text
+
+				// Handle /start command for linking
+				if len(text) > 7 && text[:7] == "/start " {
+					code := text[7:]
+					var linkID string
+					err := db.QueryRow(
+						`UPDATE life_channel_links SET channel_uid = $1, verified = TRUE, verify_code = NULL
+						 WHERE verify_code = $2 AND channel = 'telegram' AND verified = FALSE AND verify_expires > NOW()
+						 RETURNING id`,
+						fmt.Sprintf("%d", chatID), code,
+					).Scan(&linkID)
+					if err == nil {
+						_ = life.SendTelegramMessage(context.Background(), cfg.TelegramBotToken, chatID, "✓ Account linked! You can now chat with your life assistant here.")
+					} else {
+						_ = life.SendTelegramMessage(context.Background(), cfg.TelegramBotToken, chatID, "Invalid or expired code. Please try again from https://1tt.dev/tools/life")
+					}
+					return
+				}
+
+				// Look up user
+				var userID string
+				err := db.QueryRow(
+					`SELECT user_id FROM life_channel_links WHERE channel = 'telegram' AND channel_uid = $1 AND verified = TRUE`,
+					fmt.Sprintf("%d", chatID),
+				).Scan(&userID)
+				if err != nil {
+					_ = life.SendTelegramMessage(context.Background(), cfg.TelegramBotToken, chatID, "Please link your account first at https://1tt.dev/tools/life")
+					return
+				}
+
+				// Ingest
+				resp, err := life.IngestChannelEvent(context.Background(), db, lifeAgent, life.ChannelEvent{
+					UserID:     userID,
+					Channel:    "telegram",
+					ChannelUID: fmt.Sprintf("%d", chatID),
+					Content:    text,
+				})
+				if err != nil {
+					log.Printf("telegram poll: ingest error: %v", err)
+					_ = life.SendTelegramMessage(context.Background(), cfg.TelegramBotToken, chatID, "Sorry, something went wrong. Please try again.")
+					return
+				}
+				_ = life.SendTelegramMessage(context.Background(), cfg.TelegramBotToken, chatID, resp.Text)
+			})
+		}()
+		log.Printf("INFO: Telegram polling enabled (TELEGRAM_POLL=1)")
+	}
 
 	log.Printf("API server listening on :%s", port)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

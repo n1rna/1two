@@ -1,0 +1,13 @@
+name = "1tt-email-inbound"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+API_URL = "https://1tt.dev/api/v1/life/webhooks/email"
+
+# Send email binding — allows the worker to send replies from life@1tt.dev
+[[send_email]]
+name = "SEB"
+
+# EMAIL_WEBHOOK_SECRET is set via `wrangler secret put EMAIL_WEBHOOK_SECRET`

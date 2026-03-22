@@ -190,6 +190,14 @@ export const tools: ToolDefinition[] = [
     keywords: ["logo", "text", "brand", "favicon", "icon", "svg", "png", "generate", "minimal", "typography"],
   },
   {
+    slug: "badge",
+    name: "Badge Generator",
+    description: "Create shields.io-style SVG badges for README files, docs, and project pages",
+    category: "generators",
+    icon: "Shield",
+    keywords: ["badge", "shield", "shields.io", "svg", "readme", "github", "status", "label", "flat badge", "coverage"],
+  },
+  {
     slug: "qr",
     name: "QR Code Generator",
     description: "Generate QR codes for URLs, WiFi credentials, vCard contacts, email, SMS, and more",
@@ -376,6 +384,15 @@ export const tools: ToolDefinition[] = [
     category: "data",
     icon: "Database",
     keywords: ["redis", "studio", "key value", "cache", "commands", "monitor", "streams", "consumer groups", "upstash"],
+  },
+  {
+    slug: "life",
+    name: "Life Planner",
+    description: "AI-powered life planning — routines, actionables, habits, and schedules",
+    category: "planning",
+    icon: "Brain",
+    keywords: ["life", "planner", "ai", "routine", "habit", "schedule", "reminder", "productivity", "assistant"],
+    requiresAuth: true,
   },
 ];
 

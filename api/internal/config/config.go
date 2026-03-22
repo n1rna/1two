@@ -51,6 +51,20 @@ type Config struct {
 	// Upstash Redis
 	UpstashEmail  string // UPSTASH_EMAIL
 	UpstashAPIKey string // UPSTASH_API_KEY
+
+	// Telegram bot
+	TelegramBotToken      string
+	TelegramWebhookSecret string
+
+	// Email
+	EmailWebhookSecret string
+	ResendAPIKey       string
+	ResendFromEmail    string // e.g., "1tt Life <life@1tt.dev>"
+
+	// Google Calendar OAuth
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURI  string
 }
 
 func getEnvOrDefault(key, fallback string) string {
@@ -109,5 +123,16 @@ func Load() *Config {
 
 		UpstashEmail:  os.Getenv("UPSTASH_EMAIL"),
 		UpstashAPIKey: os.Getenv("UPSTASH_API_KEY"),
+
+		TelegramBotToken:      os.Getenv("TELEGRAM_BOT_TOKEN"),
+		TelegramWebhookSecret: os.Getenv("TELEGRAM_WEBHOOK_SECRET"),
+
+		EmailWebhookSecret: os.Getenv("EMAIL_WEBHOOK_SECRET"),
+		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
+		ResendFromEmail:    getEnvOrDefault("RESEND_FROM_EMAIL", "1tt Life <life@1tt.dev>"),
+
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURI:  getEnvOrDefault("GOOGLE_REDIRECT_URI", "https://1tt.dev/tools/life/calendar/callback"),
 	}
 }

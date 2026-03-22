@@ -17,6 +17,7 @@ export const SYNCABLE_KEYS: SyncableKeyDef[] = [
   { key: "1tt-saved-invoices", toolSlug: "invoice", label: "Saved Invoice Templates", maxSizeBytes: 262144 },
   { key: "1tt:es-connections", toolSlug: "elasticsearch", label: "ES Connections", maxSizeBytes: 32768 },
   { key: "1tt:es-state", toolSlug: "elasticsearch", label: "ES Explorer State", maxSizeBytes: 65536 },
+  { key: "1tt:life-state", toolSlug: "life", label: "Life Tool State", maxSizeBytes: 65536 },
   { key: "1tt:bookmarks", toolSlug: "preferences", label: "Bookmarks", maxSizeBytes: 8192 },
   { key: "1tt:tool-order", toolSlug: "preferences", label: "Tool Order", maxSizeBytes: 8192 },
 ];
