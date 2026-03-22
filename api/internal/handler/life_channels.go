@@ -84,7 +84,7 @@ func ListChannelLinks(db *sql.DB) http.HandlerFunc {
 // InitChannelLink handles POST /life/channels.
 // Body: {"channel": "telegram"|"email", "channelUid": "..."}
 // Generates a verify_code and inserts a new (unverified) channel link.
-func InitChannelLink(db *sql.DB, resendClient *life.ResendClient) http.HandlerFunc {
+func InitChannelLink(db *sql.DB, emailSender *life.EmailSender) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -163,8 +163,8 @@ func InitChannelLink(db *sql.DB, resendClient *life.ResendClient) http.HandlerFu
 		}
 
 		// Send verification email for email channel.
-		if req.Channel == "email" && resendClient != nil {
-			if err := resendClient.SendVerificationEmail(r.Context(), req.ChannelUID, verifyCode); err != nil {
+		if req.Channel == "email" && emailSender != nil {
+			if err := emailSender.SendVerificationEmail(r.Context(), req.ChannelUID, verifyCode); err != nil {
 				log.Printf("life channels: send verification email to %s: %v", req.ChannelUID, err)
 				// Non-fatal — the code is returned in the response anyway for dev
 			}

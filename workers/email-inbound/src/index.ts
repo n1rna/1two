@@ -1,12 +1,8 @@
 /**
- * Cloudflare Email Worker — receives emails at life@1tt.dev, forwards them
- * to the 1tt API for processing, and sends the agent's reply back via email.
+ * Cloudflare Email Worker — handles both inbound and outbound emails.
  *
- * Setup:
- * 1. Configure Email Routing in Cloudflare dashboard for 1tt.dev
- * 2. Route life@1tt.dev → this worker
- * 3. Set EMAIL_WEBHOOK_SECRET via `wrangler secret put EMAIL_WEBHOOK_SECRET`
- * 4. The send_email binding allows replying from life@1tt.dev
+ * Inbound: receives emails at life@1tt.dev → forwards to API → sends reply
+ * Outbound: POST /send endpoint for the API to trigger emails (verification codes, etc.)
  */
 
 import { EmailMessage } from "cloudflare:email";
@@ -31,27 +27,21 @@ interface ApiResponse {
 }
 
 export default {
+  // ── Inbound email handler ─────────────────────────────────────────────
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
     const from = message.from;
     const to = message.to;
     const subject = message.headers.get("subject") ?? "";
 
-    // Only process emails to life@1tt.dev
     if (!to.toLowerCase().includes("life@")) {
       message.setReject("Unknown recipient");
       return;
     }
 
-    // Read the raw email body
     const rawEmail = await readStream(message.raw);
-
-    // Extract plain text body
     let body = extractPlainText(rawEmail);
-    if (!body) {
-      body = "(no text content)";
-    }
+    if (!body) body = "(no text content)";
 
-    // Forward to API
     try {
       const resp = await fetch(env.API_URL, {
         method: "POST",
@@ -63,50 +53,65 @@ export default {
       });
 
       if (!resp.ok) {
-        const text = await resp.text();
-        console.error(`API error: ${resp.status} ${text}`);
+        console.error(`API error: ${resp.status} ${await resp.text()}`);
         return;
       }
 
       const data = (await resp.json()) as ApiResponse;
-
-      // If the API returned a reply, send it back as an email
       if (data.reply) {
-        await sendReply(env, from, subject, data.reply);
+        await sendEmail(env, from, subject ? `Re: ${subject}` : "Life Tool — Response", data.reply);
       }
     } catch (err) {
       console.error("Failed to process email:", err);
     }
   },
+
+  // ── HTTP handler for outbound emails from the API ─────────────────────
+  async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405 });
+    }
+
+    // Authenticate
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${env.EMAIL_WEBHOOK_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    try {
+      const body = (await request.json()) as {
+        to: string;
+        subject: string;
+        text: string;
+      };
+
+      if (!body.to || !body.subject || !body.text) {
+        return Response.json({ error: "to, subject, and text are required" }, { status: 400 });
+      }
+
+      await sendEmail(env, body.to, body.subject, body.text);
+      return Response.json({ sent: true });
+    } catch (err) {
+      console.error("Failed to send email:", err);
+      return Response.json({ error: String(err) }, { status: 500 });
+    }
+  },
 };
 
-async function sendReply(
-  env: Env,
-  to: string,
-  originalSubject: string,
-  replyText: string
-): Promise<void> {
-  const replySubject = originalSubject
-    ? `Re: ${originalSubject}`
-    : "Life Tool — Response";
+// ── Shared email sending ────────────────────────────────────────────────
 
+async function sendEmail(env: Env, to: string, subject: string, text: string): Promise<void> {
   const msg = createMimeMessage();
   msg.setSender({ name: "1tt Life", addr: "life@1tt.dev" });
   msg.setRecipient(to);
-  msg.setSubject(replySubject);
-  msg.addMessage({
-    contentType: "text/plain",
-    data: replyText,
-  });
+  msg.setSubject(subject);
+  msg.addMessage({ contentType: "text/plain", data: text });
 
   const emailMessage = new EmailMessage("life@1tt.dev", to, msg.asRaw());
-
-  try {
-    await env.SEB.send(emailMessage);
-  } catch (err) {
-    console.error("Failed to send reply email:", err);
-  }
+  await env.SEB.send(emailMessage);
 }
+
+// ── Helpers ─────────────────────────────────────────────────────────────
 
 async function readStream(stream: ReadableStream): Promise<string> {
   const reader = stream.getReader();
@@ -116,9 +121,8 @@ async function readStream(stream: ReadableStream): Promise<string> {
     if (value) chunks.push(value);
     if (done) break;
   }
-  const merged = new Uint8Array(
-    chunks.reduce((acc, c) => acc + c.length, 0)
-  );
+  reader.releaseLock();
+  const merged = new Uint8Array(chunks.reduce((acc, c) => acc + c.length, 0));
   let offset = 0;
   for (const chunk of chunks) {
     merged.set(chunk, offset);
@@ -128,7 +132,6 @@ async function readStream(stream: ReadableStream): Promise<string> {
 }
 
 function extractPlainText(raw: string): string {
-  // Try to find text/plain part in multipart email
   const boundaryMatch = raw.match(/boundary="?([^\s"]+)"?/i);
   if (boundaryMatch) {
     const boundary = boundaryMatch[1];
@@ -138,22 +141,17 @@ function extractPlainText(raw: string): string {
         const headerEnd = part.indexOf("\r\n\r\n");
         const altEnd = part.indexOf("\n\n");
         const end = headerEnd > 0 ? headerEnd + 4 : altEnd > 0 ? altEnd + 2 : -1;
-        if (end > 0) {
-          return part.slice(end).trim();
-        }
+        if (end > 0) return part.slice(end).trim();
       }
     }
   }
-
-  // Fallback: body after headers
   const headerEnd = raw.indexOf("\r\n\r\n");
   const altEnd = raw.indexOf("\n\n");
   const end = headerEnd > 0 ? headerEnd + 4 : altEnd > 0 ? altEnd + 2 : -1;
   if (end > 0) {
     let body = raw.slice(end);
-    body = body.replace(/<[^>]*>/g, ""); // strip HTML
+    body = body.replace(/<[^>]*>/g, "");
     return body.trim().slice(0, 5000);
   }
-
   return "";
 }

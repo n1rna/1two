@@ -9,78 +9,58 @@ import (
 	"net/http"
 )
 
-// ResendClient sends emails via the Resend API.
-type ResendClient struct {
-	apiKey     string
-	fromEmail  string
-	httpClient *http.Client
+// EmailSender sends emails via the Cloudflare Email Worker's HTTP endpoint.
+type EmailSender struct {
+	workerURL string // e.g., "https://1tt-email-inbound.1twodev.workers.dev"
+	secret    string // EMAIL_WEBHOOK_SECRET for authentication
+	client    *http.Client
 }
 
-// NewResendClient creates a Resend email client.
-// fromEmail is the sender address (e.g., "life@1tt.dev").
-func NewResendClient(apiKey, fromEmail string) *ResendClient {
-	return &ResendClient{
-		apiKey:     apiKey,
-		fromEmail:  fromEmail,
-		httpClient: &http.Client{},
+// NewEmailSender creates an email sender that calls the Cloudflare Email Worker.
+func NewEmailSender(workerURL, secret string) *EmailSender {
+	return &EmailSender{
+		workerURL: workerURL,
+		secret:    secret,
+		client:    &http.Client{},
 	}
 }
 
-// SendEmail sends an email via Resend.
-func (c *ResendClient) SendEmail(ctx context.Context, to, subject, textBody string) error {
-	payload := map[string]any{
-		"from":    c.fromEmail,
-		"to":      []string{to},
+// Send sends an email via the worker.
+func (s *EmailSender) Send(ctx context.Context, to, subject, text string) error {
+	payload, err := json.Marshal(map[string]string{
+		"to":      to,
 		"subject": subject,
-		"text":    textBody,
+		"text":    text,
+	})
+	if err != nil {
+		return fmt.Errorf("email: marshal: %w", err)
 	}
 
-	body, err := json.Marshal(payload)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.workerURL, bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("resend: marshal: %w", err)
+		return fmt.Errorf("email: create request: %w", err)
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("resend: create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.secret)
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("resend: send: %w", err)
+		return fmt.Errorf("email: send: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("resend: HTTP %d: %s", resp.StatusCode, string(respBody))
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("email: HTTP %d: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
 }
 
 // SendVerificationEmail sends a verification code email.
-func (c *ResendClient) SendVerificationEmail(ctx context.Context, to, code string) error {
-	subject := "Verify your email — 1tt.dev Life Tool"
-	body := fmt.Sprintf(`Hi,
-
-Your verification code is: %s
-
-Enter this code in the Life Tool to link your email.
-This code expires in 15 minutes.
-
-— 1tt.dev`, code)
-
-	return c.SendEmail(ctx, to, subject, body)
-}
-
-// SendAgentReply sends an agent response as an email reply.
-func (c *ResendClient) SendAgentReply(ctx context.Context, to, originalSubject, agentText string) error {
-	subject := "Re: " + originalSubject
-	if originalSubject == "" {
-		subject = "Life Tool — Response"
-	}
-	return c.SendEmail(ctx, to, subject, agentText)
+func (s *EmailSender) SendVerificationEmail(ctx context.Context, to, code string) error {
+	return s.Send(ctx, to,
+		"Verify your email — 1tt.dev Life Tool",
+		fmt.Sprintf("Hi,\n\nYour verification code is: %s\n\nEnter this code in the Life Tool to link your email.\nThis code expires in 15 minutes.\n\n— 1tt.dev", code),
+	)
 }

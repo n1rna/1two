@@ -97,10 +97,10 @@ func main() {
 		log.Printf("WARNING: Polar billing not configured (missing POLAR_ACCESS_TOKEN or DB)")
 	}
 
-	var resendClient *life.ResendClient
-	if cfg.ResendAPIKey != "" {
-		resendClient = life.NewResendClient(cfg.ResendAPIKey, cfg.ResendFromEmail)
-		log.Printf("INFO: Resend email client initialised (from: %s)", cfg.ResendFromEmail)
+	var emailSender *life.EmailSender
+	if cfg.EmailWorkerURL != "" && cfg.EmailWebhookSecret != "" {
+		emailSender = life.NewEmailSender(cfg.EmailWorkerURL, cfg.EmailWebhookSecret)
+		log.Printf("INFO: Email sender initialised (worker: %s)", cfg.EmailWorkerURL)
 	}
 
 	var neonClient *neon.Client
@@ -301,7 +301,7 @@ func main() {
 				r.Get("/life/profile", handler.GetLifeProfile(db))
 				r.Put("/life/profile", handler.UpdateLifeProfile(db))
 				r.Get("/life/channels", handler.ListChannelLinks(db))
-				r.Post("/life/channels", handler.InitChannelLink(db, resendClient))
+				r.Post("/life/channels", handler.InitChannelLink(db, emailSender))
 				r.Post("/life/channels/{id}/verify", handler.VerifyChannelLink(db))
 				r.Delete("/life/channels/{id}", handler.DeleteChannelLink(db))
 				r.Get("/life/memories", handler.ListLifeMemories(db))
