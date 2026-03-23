@@ -64,6 +64,33 @@ func ListGTaskLists(db *sql.DB, gcalClient *life.GCalClient) http.HandlerFunc {
 	}
 }
 
+// CreateGTaskList handles POST /life/gtasks/lists.
+func CreateGTaskList(db *sql.DB, gcalClient *life.GCalClient) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_, accessToken, ok := requireGTasksToken(w, r, db, gcalClient)
+		if !ok {
+			return
+		}
+
+		var req struct {
+			Title string `json:"title"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Title == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "title is required"})
+			return
+		}
+
+		list, err := life.CreateTaskList(r.Context(), accessToken, req.Title)
+		if err != nil {
+			log.Printf("gtasks: create task list: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "failed to create task list"})
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, list)
+	}
+}
+
 // ListGTasks handles GET /life/gtasks/tasks?listId=xxx&showCompleted=true.
 // Returns tasks from the specified task list.
 func ListGTasks(db *sql.DB, gcalClient *life.GCalClient) http.HandlerFunc {

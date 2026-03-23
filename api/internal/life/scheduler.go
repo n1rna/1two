@@ -317,6 +317,26 @@ func runCycleForUser(ctx context.Context, db *sql.DB, agent *Agent, user Schedul
 	}
 	routineRows.Close()
 
+	// ── 5b. Load routine-event links ────────────────────────────────────
+	routineEventLinks := make(map[string][]string)
+	if len(routines) > 0 {
+		linkRows, err := db.QueryContext(ctx, `
+			SELECT rel.routine_id, lge.summary
+			FROM life_routine_event_links rel
+			JOIN life_gcal_events lge ON lge.id = rel.gcal_event_id AND lge.user_id = rel.user_id
+			WHERE rel.user_id = $1`,
+			userID)
+		if err == nil {
+			for linkRows.Next() {
+				var rid, summary string
+				if err := linkRows.Scan(&rid, &summary); err == nil && summary != "" {
+					routineEventLinks[rid] = append(routineEventLinks[rid], summary)
+				}
+			}
+			linkRows.Close()
+		}
+	}
+
 	// ── 6. Count pending actionables ─────────────────────────────────────
 	var pendingCount int
 	_ = db.QueryRowContext(ctx,
@@ -367,8 +387,9 @@ IMPORTANT RULES:
 		Routines:                routines,
 		PendingActionablesCount: pendingCount,
 		CalendarEvents:          calendarEvents,
+		RoutineEventLinks:       routineEventLinks,
 		AutoApprove:             true,
-		SystemContext:            systemCtx,
+		SystemContext:           systemCtx,
 	})
 	if err != nil {
 		return fmt.Errorf("agent chat: %w", err)

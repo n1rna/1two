@@ -40,9 +40,10 @@ type ChatRequest struct {
 	Profile                 *Profile
 	Routines                []Routine
 	PendingActionablesCount int
-	CalendarEvents          []GCalEvent // upcoming calendar events (may be nil)
-	AutoApprove             bool        // if true, agent executes actions directly; if false, creates actionables for confirmation
-	SystemContext           string      // optional extra context appended to system prompt
+	CalendarEvents          []GCalEvent       // upcoming calendar events (may be nil)
+	RoutineEventLinks       map[string][]string // maps routine_id → list of linked event summaries
+	AutoApprove             bool              // if true, agent executes actions directly; if false, creates actionables for confirmation
+	SystemContext           string            // optional extra context appended to system prompt
 }
 
 // Message represents a single turn in the conversation history.
@@ -90,6 +91,7 @@ func (a *Agent) buildToolAgentConfig(req ChatRequest) ai.ToolAgentConfig {
 		req.Routines,
 		req.PendingActionablesCount,
 		req.CalendarEvents,
+		req.RoutineEventLinks,
 		req.AutoApprove,
 		time.Now().UTC(),
 	)

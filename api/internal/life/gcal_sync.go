@@ -39,6 +39,9 @@ type gcalAPIItem struct {
 		DateTime string `json:"dateTime"`
 		Date     string `json:"date"`
 	} `json:"end"`
+	ExtendedProperties struct {
+		Private map[string]string `json:"private"`
+	} `json:"extendedProperties"`
 }
 
 // ── Sync ────────────────────────────────────────────────────────────────────
@@ -228,6 +231,12 @@ func upsertEvents(ctx context.Context, db *sql.DB, userID string, items []gcalAP
 
 		rawJSON, _ := json.Marshal(item)
 
+		// Extract routine_id from extendedProperties if present
+		var routineID *string
+		if rid, ok := item.ExtendedProperties.Private["routineId"]; ok && rid != "" {
+			routineID = &rid
+		}
+
 		// Compute duration in minutes for recurring events
 		var durationMinutes *int
 		if len(item.Recurrence) > 0 {
@@ -239,8 +248,8 @@ func upsertEvents(ctx context.Context, db *sql.DB, userID string, items []gcalAP
 			INSERT INTO life_gcal_events
 				(id, user_id, summary, description, location, start_time, end_time,
 				 all_day, status, color_id, html_link, recurring_event_id,
-				 recurrence, duration_minutes, raw_json, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
+				 recurrence, duration_minutes, raw_json, routine_id, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
 			ON CONFLICT (user_id, id) DO UPDATE SET
 				summary = EXCLUDED.summary,
 				description = EXCLUDED.description,
@@ -255,11 +264,12 @@ func upsertEvents(ctx context.Context, db *sql.DB, userID string, items []gcalAP
 				recurrence = EXCLUDED.recurrence,
 				duration_minutes = EXCLUDED.duration_minutes,
 				raw_json = EXCLUDED.raw_json,
+				routine_id = EXCLUDED.routine_id,
 				updated_at = NOW()`,
 			item.ID, userID, item.Summary, item.Description, item.Location,
 			start, end, allDay, item.Status, item.ColorID, item.HtmlLink,
 			nullStr(item.RecurringEventId), recurrenceJSON, durationMinutes,
-			string(rawJSON),
+			string(rawJSON), routineID,
 		)
 		if err != nil {
 			continue
@@ -274,7 +284,7 @@ func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to t
 	// 1. Get non-recurring events in the range
 	rows, err := db.QueryContext(ctx, `
 		SELECT id, summary, description, location, start_time, end_time,
-		       all_day, status, color_id, html_link
+		       all_day, status, color_id, html_link, routine_id
 		FROM life_gcal_events
 		WHERE user_id = $1 AND recurrence IS NULL AND recurring_event_id IS NULL
 		  AND start_time < $3 AND end_time > $2 AND status != 'cancelled'
@@ -289,18 +299,21 @@ func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to t
 	var events []GCalEvent
 	for rows.Next() {
 		var ev GCalEvent
+		var routineID sql.NullString
 		if err := rows.Scan(&ev.ID, &ev.Summary, &ev.Description, &ev.Location,
 			&ev.Start, &ev.End, &ev.AllDay, &ev.Status, &ev.ColorID, &ev.HtmlLink,
+			&routineID,
 		); err != nil {
 			continue
 		}
+		ev.RoutineID = routineID.String
 		events = append(events, ev)
 	}
 
 	// 2. Get recurring master events and expand them
 	recurRows, err := db.QueryContext(ctx, `
 		SELECT id, summary, description, location, start_time, end_time,
-		       all_day, status, color_id, html_link, recurrence, duration_minutes
+		       all_day, status, color_id, html_link, recurrence, duration_minutes, routine_id
 		FROM life_gcal_events
 		WHERE user_id = $1 AND recurrence IS NOT NULL AND status != 'cancelled'`,
 		userID,
@@ -314,12 +327,14 @@ func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to t
 		var ev GCalEvent
 		var recurrenceJSON sql.NullString
 		var durationMinutes sql.NullInt64
+		var routineID sql.NullString
 		if err := recurRows.Scan(&ev.ID, &ev.Summary, &ev.Description, &ev.Location,
 			&ev.Start, &ev.End, &ev.AllDay, &ev.Status, &ev.ColorID, &ev.HtmlLink,
-			&recurrenceJSON, &durationMinutes,
+			&recurrenceJSON, &durationMinutes, &routineID,
 		); err != nil {
 			continue
 		}
+		ev.RoutineID = routineID.String
 
 		if !recurrenceJSON.Valid {
 			continue
@@ -351,6 +366,7 @@ func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to t
 				Status:      ev.Status,
 				ColorID:     ev.ColorID,
 				HtmlLink:    ev.HtmlLink,
+				RoutineID:   ev.RoutineID,
 			})
 		}
 	}
@@ -358,7 +374,7 @@ func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to t
 	// 3. Get exceptions (edited instances of recurring events) in the range
 	excRows, err := db.QueryContext(ctx, `
 		SELECT id, summary, description, location, start_time, end_time,
-		       all_day, status, color_id, html_link
+		       all_day, status, color_id, html_link, routine_id
 		FROM life_gcal_events
 		WHERE user_id = $1 AND recurring_event_id IS NOT NULL
 		  AND start_time < $3 AND end_time > $2 AND status != 'cancelled'
@@ -369,12 +385,36 @@ func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to t
 		defer excRows.Close()
 		for excRows.Next() {
 			var ev GCalEvent
+			var routineID sql.NullString
 			if err := excRows.Scan(&ev.ID, &ev.Summary, &ev.Description, &ev.Location,
 				&ev.Start, &ev.End, &ev.AllDay, &ev.Status, &ev.ColorID, &ev.HtmlLink,
+				&routineID,
 			); err != nil {
 				continue
 			}
+			ev.RoutineID = routineID.String
 			events = append(events, ev)
+		}
+	}
+
+	// Enrich events with routine names via individual lookups
+	routineNameMap := make(map[string]string)
+	for _, ev := range events {
+		if ev.RoutineID != "" {
+			routineNameMap[ev.RoutineID] = "" // mark as needing lookup
+		}
+	}
+	for rid := range routineNameMap {
+		var name string
+		if err := db.QueryRowContext(ctx,
+			`SELECT name FROM life_routines WHERE id = $1 AND user_id = $2`,
+			rid, userID).Scan(&name); err == nil {
+			routineNameMap[rid] = name
+		}
+	}
+	for i := range events {
+		if events[i].RoutineID != "" {
+			events[i].RoutineName = routineNameMap[events[i].RoutineID]
 		}
 	}
 

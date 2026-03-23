@@ -7,7 +7,7 @@ import (
 )
 
 // buildSystemPrompt assembles the full system prompt for the life planning agent.
-func buildSystemPrompt(profile *Profile, memories []Memory, routines []Routine, pendingActionablesCount int, calendarEvents []GCalEvent, autoApprove bool, now time.Time) string {
+func buildSystemPrompt(profile *Profile, memories []Memory, routines []Routine, pendingActionablesCount int, calendarEvents []GCalEvent, routineEventLinks map[string][]string, autoApprove bool, now time.Time) string {
 	var sb strings.Builder
 
 	// ── Role & personality ───────────────────────────────────────────────
@@ -69,6 +69,9 @@ func buildSystemPrompt(profile *Profile, memories []Memory, routines []Routine, 
 			} else {
 				sb.WriteString(fmt.Sprintf("- [id=%s] **%s** (%s)\n", r.ID, r.Name, r.Type))
 			}
+			if links, ok := routineEventLinks[r.ID]; ok && len(links) > 0 {
+				sb.WriteString(fmt.Sprintf("  Linked calendar events: %s\n", strings.Join(links, ", ")))
+			}
 		}
 		sb.WriteString("\n")
 	}
@@ -77,19 +80,24 @@ func buildSystemPrompt(profile *Profile, memories []Memory, routines []Routine, 
 	if len(calendarEvents) > 0 {
 		sb.WriteString("## Upcoming calendar events (next 7 days)\n")
 		for _, ev := range calendarEvents {
+			var line string
 			if ev.AllDay {
-				sb.WriteString(fmt.Sprintf("- %s — %s (all day)\n",
+				line = fmt.Sprintf("- %s — %s (all day)",
 					ev.Start.Format("Mon Jan 2"),
 					ev.Summary,
-				))
+				)
 			} else {
-				sb.WriteString(fmt.Sprintf("- %s %s–%s — %s\n",
+				line = fmt.Sprintf("- %s %s–%s — %s",
 					ev.Start.Format("Mon Jan 2"),
 					ev.Start.Format("3:04 PM"),
 					ev.End.Format("3:04 PM"),
 					ev.Summary,
-				))
+				)
 			}
+			if ev.RoutineName != "" {
+				line += fmt.Sprintf(" [routine: %s]", ev.RoutineName)
+			}
+			sb.WriteString(line + "\n")
 		}
 		sb.WriteString("\n")
 	}
@@ -161,8 +169,13 @@ Fetch the user's upcoming Google Calendar events. Use this when the user asks ab
 
 ### create_calendar_event
 Create a new event on the user's Google Calendar. Use this when the user explicitly asks to schedule something.
-- params: summary (required), start (RFC3339, required), end (RFC3339, required), description (optional), location (optional)
+- params: summary (required), start (RFC3339, required), end (RFC3339, required), description (optional), location (optional), routine_id (optional), recurrence (optional RRULE array)
 - Always confirm the time back to the user after creating.
+
+### link_event_to_routine
+Link an existing Google Calendar event to a routine. Use when you notice a calendar event corresponds to one of the user's routines.
+- params: event_id (required), routine_id (required)
+- Call get_calendar_events and list_routines first to get the IDs.
 
 ### update_calendar_event
 Update an existing calendar event. Call get_calendar_events first to find the event_id.

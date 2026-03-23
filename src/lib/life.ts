@@ -390,6 +390,8 @@ export interface GCalEvent {
   status: string;
   colorId?: string;
   htmlLink: string;
+  routineId?: string;
+  routineName?: string;
 }
 
 export async function getGCalAuthUrl(): Promise<{ url: string }> {
@@ -459,6 +461,13 @@ export interface GTask {
 export async function listGTaskLists(): Promise<GTaskList[]> {
   const res = await lifeApiFetch<{ lists: GTaskList[] }>("/gtasks/lists");
   return res.lists;
+}
+
+export async function createGTaskList(title: string): Promise<GTaskList> {
+  return lifeApiFetch<GTaskList>("/gtasks/lists", {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
 }
 
 export async function listGTasks(listId: string, showCompleted = false): Promise<GTask[]> {

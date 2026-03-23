@@ -198,6 +198,8 @@ type GCalEvent struct {
 	Status      string    `json:"status"`  // confirmed, tentative, cancelled
 	ColorID     string    `json:"colorId"` // Google Calendar color ID (1-11)
 	HtmlLink    string    `json:"htmlLink"`
+	RoutineID   string    `json:"routineId,omitempty"`   // optional: linked routine ID
+	RoutineName string    `json:"routineName,omitempty"` // optional: linked routine name
 }
 
 // ListEvents fetches upcoming events from the user's primary calendar.
@@ -248,6 +250,8 @@ type CreateEventRequest struct {
 	StartTime   time.Time
 	EndTime     time.Time
 	AllDay      bool
+	RoutineID   string   // optional: link this event to a routine
+	Recurrence  []string // optional: RRULE strings for recurring events
 }
 
 // CreateEvent creates a new event on the user's primary Google Calendar.
@@ -275,6 +279,16 @@ func (c *GCalClient) CreateEvent(ctx context.Context, accessToken string, req Cr
 		"location":    req.Location,
 		"start":       startObj,
 		"end":         endObj,
+	}
+	if req.RoutineID != "" {
+		payload["extendedProperties"] = map[string]any{
+			"private": map[string]any{
+				"routineId": req.RoutineID,
+			},
+		}
+	}
+	if len(req.Recurrence) > 0 {
+		payload["recurrence"] = req.Recurrence
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -403,6 +417,13 @@ func (c *GCalClient) UpdateEvent(ctx context.Context, accessToken, eventID strin
 		} else {
 			payload["start"] = dateTimeObj{DateTime: req.StartTime.UTC().Format(time.RFC3339), TimeZone: "UTC"}
 			payload["end"] = dateTimeObj{DateTime: req.EndTime.UTC().Format(time.RFC3339), TimeZone: "UTC"}
+		}
+	}
+	if req.RoutineID != "" {
+		payload["extendedProperties"] = map[string]any{
+			"private": map[string]any{
+				"routineId": req.RoutineID,
+			},
 		}
 	}
 

@@ -72,6 +72,16 @@ func gtasksRequest(ctx context.Context, method, rawURL, accessToken string, body
 	return nil
 }
 
+// CreateTaskList creates a new task list.
+func CreateTaskList(ctx context.Context, accessToken, title string) (*GTaskList, error) {
+	body, _ := json.Marshal(map[string]string{"title": title})
+	var created GTaskList
+	if err := gtasksRequest(ctx, http.MethodPost, gtasksBaseURL+"/users/@me/lists", accessToken, body, &created); err != nil {
+		return nil, fmt.Errorf("gtasks: create task list: %w", err)
+	}
+	return &created, nil
+}
+
 // ListTaskLists returns all task lists for the authenticated user.
 func ListTaskLists(ctx context.Context, accessToken string) ([]GTaskList, error) {
 	endpoint := gtasksBaseURL + "/users/@me/lists"

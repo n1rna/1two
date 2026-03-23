@@ -1643,6 +1643,21 @@ func executeActionableAction(ctx context.Context, db *sql.DB, gcalClient *life.G
 			life.CompleteTask(ctx, accessToken, listID, payload.TaskID)
 		}
 
+	case "create_task_list":
+		accessToken, err := life.EnsureValidToken(ctx, db, gcalClient, userID)
+		if err != nil {
+			return
+		}
+		var payload struct {
+			Title string `json:"title"`
+		}
+		if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil || payload.Title == "" {
+			return
+		}
+		if _, err := life.CreateTaskList(ctx, accessToken, payload.Title); err != nil {
+			log.Printf("life: execute action create_task_list: %v", err)
+		}
+
 	default:
 		log.Printf("life: unknown action_type %q", actionType)
 	}

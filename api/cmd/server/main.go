@@ -330,6 +330,7 @@ func main() {
 				r.Post("/life/gcal/sync", handler.SyncGCalEvents(db, gcalClient))
 				// Google Tasks integration (reuses the same Google OAuth connection).
 				r.Get("/life/gtasks/lists", handler.ListGTaskLists(db, gcalClient))
+				r.Post("/life/gtasks/lists", handler.CreateGTaskList(db, gcalClient))
 				r.Get("/life/gtasks/tasks", handler.ListGTasks(db, gcalClient))
 				r.Post("/life/gtasks/tasks", handler.CreateGTask(db, gcalClient))
 				r.Put("/life/gtasks/tasks", handler.UpdateGTask(db, gcalClient))

@@ -99,6 +99,7 @@ import {
   type GTaskList,
   type GTask,
   markOnboarded,
+  createGTaskList,
 } from "@/lib/life";
 import {
   Dialog,
@@ -698,6 +699,8 @@ const TOOL_LABELS: Record<string, { label: string; activeLabel: string; icon: Re
   complete_task: { label: "Completed task", activeLabel: "Completing task", icon: <Check className="size-3.5" /> },
   update_task: { label: "Updated task", activeLabel: "Updating task", icon: <ListTodo className="size-3.5" /> },
   delete_task: { label: "Deleted task", activeLabel: "Deleting task", icon: <ListTodo className="size-3.5" /> },
+  create_task_list: { label: "Created task list", activeLabel: "Creating task list", icon: <ListTodo className="size-3.5" /> },
+  link_event_to_routine: { label: "Linked event to routine", activeLabel: "Linking event to routine", icon: <CalendarDays className="size-3.5" /> },
 };
 
 // ─── Tool Call Display ────────────────────────────────────────────────────────
@@ -3860,6 +3863,11 @@ function EventBlock({
             {formatEventTime(ev.start)} – {formatEventTime(ev.end)}
           </p>
         )}
+        {ev.routineName && height > 44 && (
+          <p className={cn("text-[8px] leading-tight truncate opacity-50 mt-0.5", color.text)}>
+            {ev.routineName}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -4470,21 +4478,23 @@ function TasksView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  const [listSelectorOpen, setListSelectorOpen] = useState(false);
+  const [newListName, setNewListName] = useState("");
+  const [creatingList, setCreatingList] = useState(false);
 
-  // Load task lists
   const loadLists = useCallback(async () => {
     try {
       const ls = await listGTaskLists();
       setLists(ls);
       if (ls.length > 0 && !activeList) setActiveList(ls[0].id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load task lists. Make sure Google Calendar is connected.");
+      setError(e instanceof Error ? e.message : "Failed to load task lists.");
     } finally {
       setLoading(false);
     }
   }, [activeList]);
 
-  // Load tasks for active list
   const loadTasks = useCallback(async (listId: string) => {
     setTasksLoading(true);
     setError(null);
@@ -4517,6 +4527,7 @@ function TasksView() {
 
   const handleToggleComplete = async (task: GTask) => {
     if (!activeList) return;
+    setTogglingIds((prev) => new Set(prev).add(task.id));
     try {
       if (task.status === "completed") {
         await updateGTask(activeList, task.id, { status: "needsAction" });
@@ -4526,16 +4537,19 @@ function TasksView() {
       await loadTasks(activeList);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update task");
+    } finally {
+      setTogglingIds((prev) => { const n = new Set(prev); n.delete(task.id); return n; });
     }
   };
 
   const handleDeleteTask = async (taskId: string) => {
     if (!activeList) return;
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
     try {
       await deleteGTask(activeList, taskId);
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete task");
+      if (activeList) loadTasks(activeList);
     }
   };
 
@@ -4550,10 +4564,38 @@ function TasksView() {
     }
   };
 
+  const handleCreateList = async () => {
+    if (!newListName.trim()) return;
+    setCreatingList(true);
+    try {
+      const created = await createGTaskList(newListName.trim());
+      setNewListName("");
+      setLists((prev) => [...prev, created]);
+      setActiveList(created.id);
+      setListSelectorOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create list");
+    } finally {
+      setCreatingList(false);
+    }
+  };
+
   const startEditing = (task: GTask) => {
     setEditingId(task.id);
     setEditTitle(task.title);
     setEditNotes(task.notes || "");
+  };
+
+  const hasSubtasks = (task: GTask) => task.parent != null && task.parent !== "";
+  const isOverdue = (task: GTask) => {
+    if (!task.due) return false;
+    const d = new Date(task.due); const today = new Date(); today.setHours(0,0,0,0);
+    return d < today;
+  };
+  const isDueToday = (task: GTask) => {
+    if (!task.due) return false;
+    const d = new Date(task.due); const t = new Date();
+    return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
   };
 
   if (loading) {
@@ -4570,12 +4612,13 @@ function TasksView() {
         <ListTodo className="h-10 w-10 text-muted-foreground/30" />
         <p className="text-sm font-semibold">Google Tasks</p>
         <p className="text-xs text-muted-foreground max-w-xs">
-          Connect your Google account in Settings to sync your tasks. Tasks uses the same Google connection as Calendar.
+          Connect your Google account in Settings to sync your tasks.
         </p>
       </div>
     );
   }
 
+  const activeListTitle = lists.find((l) => l.id === activeList)?.title ?? "Tasks";
   const pendingTasks = tasks.filter((t) => t.status !== "completed");
   const completedTasks = tasks.filter((t) => t.status === "completed");
 
@@ -4584,16 +4627,47 @@ function TasksView() {
       {/* Header */}
       <div className="shrink-0 border-b px-4 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          {/* List selector */}
-          <select
-            value={activeList ?? ""}
-            onChange={(e) => setActiveList(e.target.value)}
-            className="text-sm font-medium bg-transparent border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            {lists.map((list) => (
-              <option key={list.id} value={list.id}>{list.title}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <button
+              onClick={() => setListSelectorOpen(!listSelectorOpen)}
+              className="flex items-center gap-1.5 text-sm font-medium hover:text-foreground transition-colors"
+            >
+              {activeListTitle}
+              <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", listSelectorOpen && "rotate-180")} />
+            </button>
+            {listSelectorOpen && (
+              <div className="absolute left-0 top-full mt-1 w-56 rounded-lg border bg-popover shadow-lg z-50 overflow-hidden">
+                <div className="max-h-48 overflow-y-auto">
+                  {lists.map((list) => (
+                    <button
+                      key={list.id}
+                      onClick={() => { setActiveList(list.id); setListSelectorOpen(false); }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors",
+                        activeList === list.id && "bg-muted font-medium"
+                      )}
+                    >
+                      {list.title}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t px-2 py-2">
+                  <form onSubmit={(e) => { e.preventDefault(); handleCreateList(); }} className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      placeholder="New list..."
+                      className="flex-1 text-xs bg-transparent border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
+                    />
+                    <button type="submit" disabled={creatingList || !newListName.trim()} className="p-1 text-primary disabled:opacity-50">
+                      {creatingList ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
           <span className="text-xs text-muted-foreground">
             {pendingTasks.length} task{pendingTasks.length !== 1 ? "s" : ""}
           </span>
@@ -4601,25 +4675,16 @@ function TasksView() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCompleted(!showCompleted)}
-            className={cn(
-              "text-xs px-2 py-1 rounded-md border transition-colors",
-              showCompleted ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
+            className={cn("text-xs px-2 py-1 rounded-md border transition-colors", showCompleted ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
           >
-            {showCompleted ? "Hide completed" : "Show completed"}
+            {showCompleted ? "Hide done" : "Show done"}
           </button>
-          <button
-            onClick={() => activeList && loadTasks(activeList)}
-            disabled={tasksLoading}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-            title="Refresh"
-          >
+          <button onClick={() => activeList && loadTasks(activeList)} disabled={tasksLoading} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors" title="Refresh">
             <RefreshCw className={cn("h-3.5 w-3.5", tasksLoading && "animate-spin")} />
           </button>
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
           <AlertCircle className="h-3 w-3 shrink-0" />
@@ -4627,133 +4692,81 @@ function TasksView() {
         </div>
       )}
 
-      {/* New task input */}
       <div className="shrink-0 px-4 py-3 border-b">
-        <form
-          onSubmit={(e) => { e.preventDefault(); handleCreateTask(); }}
-          className="flex items-center gap-2"
-        >
+        <form onSubmit={(e) => { e.preventDefault(); handleCreateTask(); }} className="flex items-center gap-2">
           <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
-          <input
-            type="text"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder="Add a task..."
-            className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-muted-foreground/50"
-          />
+          <input type="text" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Add a task..." className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-muted-foreground/50" />
           {newTaskTitle.trim() && (
-            <button
-              type="submit"
-              disabled={creating}
-              className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
-            >
-              {creating ? "Adding..." : "Add"}
+            <button type="submit" disabled={creating} className="text-xs text-primary font-medium hover:underline disabled:opacity-50">
+              {creating ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
             </button>
           )}
         </form>
       </div>
 
-      {/* Task list */}
       <div className="flex-1 overflow-y-auto">
         {tasksLoading && tasks.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
+          <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : pendingTasks.length === 0 && !showCompleted ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <CheckSquare className="h-8 w-8 text-muted-foreground/20 mb-2" />
-            <p className="text-sm text-muted-foreground">All done! No pending tasks.</p>
+            <p className="text-sm text-muted-foreground">All done!</p>
           </div>
         ) : (
           <div>
-            {/* Pending tasks */}
-            {pendingTasks.map((task) => (
-              <div
-                key={task.id}
-                className="group flex items-start gap-3 px-4 py-2.5 border-b border-border/30 hover:bg-muted/20 transition-colors"
-              >
-                <button
-                  onClick={() => handleToggleComplete(task)}
-                  className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors"
-                >
-                  <Square className="h-4 w-4" />
-                </button>
-
-                {editingId === task.id ? (
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full text-sm bg-transparent border-b border-border focus:outline-none focus:border-primary"
-                      autoFocus
-                    />
-                    <textarea
-                      value={editNotes}
-                      onChange={(e) => setEditNotes(e.target.value)}
-                      placeholder="Notes..."
-                      rows={2}
-                      className="w-full text-xs bg-transparent border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/50"
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={handleSaveEdit} className="text-xs text-primary font-medium hover:underline">Save</button>
-                      <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+            {pendingTasks.map((task) => {
+              const toggling = togglingIds.has(task.id);
+              return (
+                <div key={task.id} className={cn("group flex items-start gap-3 px-4 py-2.5 border-b border-border/30 hover:bg-muted/20 transition-all", toggling && "opacity-50")}>
+                  <button onClick={() => handleToggleComplete(task)} disabled={toggling} className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50">
+                    {toggling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
+                  </button>
+                  {editingId === task.id ? (
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full text-sm bg-transparent border-b border-border focus:outline-none focus:border-primary" autoFocus onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(); if (e.key === "Escape") setEditingId(null); }} />
+                      <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Notes..." rows={2} className="w-full text-xs bg-transparent border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring resize-none placeholder:text-muted-foreground/50" />
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveEdit} className="text-xs text-primary font-medium hover:underline">Save</button>
+                        <button onClick={() => setEditingId(null)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div
-                    className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => startEditing(task)}
-                  >
-                    <p className="text-sm text-foreground">{task.title}</p>
-                    {task.notes && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.notes}</p>
-                    )}
-                    {task.due && (
-                      <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                        {new Date(task.due).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <button
-                  onClick={() => handleDeleteTask(task.id)}
-                  className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-
-            {/* Completed tasks */}
+                  ) : (
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => startEditing(task)}>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-foreground">{task.title}</p>
+                        {hasSubtasks(task) && <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-500 font-medium">subtask</span>}
+                      </div>
+                      {task.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.notes}</p>}
+                      {task.due && (
+                        <p className={cn("text-[10px] mt-0.5 font-mono", isOverdue(task) ? "text-red-500" : isDueToday(task) ? "text-amber-500" : "text-muted-foreground")}>
+                          {isOverdue(task) ? "Overdue: " : isDueToday(task) ? "Due today" : ""}{!isDueToday(task) && new Date(task.due).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <button onClick={() => handleDeleteTask(task.id)} className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
             {showCompleted && completedTasks.length > 0 && (
               <>
-                <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-muted/20">
-                  Completed ({completedTasks.length})
-                </div>
-                {completedTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="group flex items-start gap-3 px-4 py-2.5 border-b border-border/30 hover:bg-muted/20 transition-colors"
-                  >
-                    <button
-                      onClick={() => handleToggleComplete(task)}
-                      className="mt-0.5 shrink-0 text-primary transition-colors"
-                    >
-                      <CheckSquare2 className="h-4 w-4" />
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-muted-foreground line-through">{task.title}</p>
+                <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider bg-muted/20">Completed ({completedTasks.length})</div>
+                {completedTasks.map((task) => {
+                  const toggling = togglingIds.has(task.id);
+                  return (
+                    <div key={task.id} className={cn("group flex items-start gap-3 px-4 py-2.5 border-b border-border/30 hover:bg-muted/20 transition-all", toggling && "opacity-50")}>
+                      <button onClick={() => handleToggleComplete(task)} disabled={toggling} className="mt-0.5 shrink-0 text-primary transition-colors disabled:opacity-50">
+                        {toggling ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckSquare2 className="h-4 w-4" />}
+                      </button>
+                      <div className="flex-1 min-w-0"><p className="text-sm text-muted-foreground line-through">{task.title}</p></div>
+                      <button onClick={() => handleDeleteTask(task.id)} className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleDeleteTask(task.id)}
-                      className="shrink-0 p-0.5 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </>
             )}
           </div>
@@ -4762,6 +4775,7 @@ function TasksView() {
     </div>
   );
 }
+
 
 // ─── Onboarding View ─────────────────────────────────────────────────────────
 

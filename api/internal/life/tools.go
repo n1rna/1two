@@ -273,8 +273,32 @@ func toolDefs() []llms.Tool {
 						"type":        "string",
 						"description": "Optional event location",
 					},
+					"routine_id": map[string]any{
+						"type":        "string",
+						"description": "Optional: link this event to a routine by its ID",
+					},
+					"recurrence": map[string]any{
+						"type":        "array",
+						"description": `Optional: RRULE strings for recurring events, e.g. ["RRULE:FREQ=WEEKLY;BYDAY=MO"]`,
+						"items":       map[string]any{"type": "string"},
+					},
 				},
 				"required": []string{"summary", "start", "end"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "link_event_to_routine",
+			Description: "Link an existing Google Calendar event to a routine. Use when a calendar event corresponds to a routine.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"event_id":   map[string]any{"type": "string", "description": "Google Calendar event ID"},
+					"routine_id": map[string]any{"type": "string", "description": "Routine ID to link to"},
+				},
+				"required": []string{"event_id", "routine_id"},
 			},
 		},
 	},
@@ -398,6 +422,20 @@ func toolDefs() []llms.Tool {
 			},
 		},
 	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "create_task_list",
+			Description: "Create a new Google Tasks list.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"title": map[string]any{"type": "string", "description": "Name of the new task list"},
+				},
+				"required": []string{"title"},
+			},
+		},
+	},
 	}
 }
 
@@ -415,6 +453,7 @@ var toolsRequiringApproval = map[string]string{
 	"update_task":            "update_task",
 	"delete_task":            "delete_task",
 	"complete_task":          "complete_task",
+	"create_task_list":       "create_task_list",
 }
 
 // toolActionTitle generates a human-readable title for an intercepted tool call.
@@ -450,6 +489,9 @@ func toolActionTitle(toolName string, args map[string]any) string {
 		return "Delete task?"
 	case "complete_task":
 		return "Complete task?"
+	case "create_task_list":
+		if label != "" { return fmt.Sprintf("Create task list: %s?", label) }
+		return "Create a new task list?"
 	default:
 		return "Approve action?"
 	}
@@ -505,6 +547,8 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolUpdateCalendarEvent(ctx, db, gcalClient, userID, args)
 	case "delete_calendar_event":
 		return toolDeleteCalendarEvent(ctx, db, gcalClient, userID, args)
+	case "link_event_to_routine":
+		return toolLinkEventToRoutine(ctx, db, gcalClient, userID, args)
 	case "list_tasks":
 		return toolListTasks(ctx, db, gcalClient, userID, args)
 	case "create_task":
@@ -515,6 +559,8 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolUpdateTask(ctx, db, gcalClient, userID, args)
 	case "delete_task":
 		return toolDeleteTask(ctx, db, gcalClient, userID, args)
+	case "create_task_list":
+		return toolCreateTaskList(ctx, db, gcalClient, userID, args)
 	default:
 		return jsonError("unknown tool: " + call.FunctionCall.Name)
 	}
@@ -937,6 +983,17 @@ func toolCreateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalCl
 
 	description, _ := args["description"].(string)
 	location, _ := args["location"].(string)
+	routineID, _ := args["routine_id"].(string)
+	var recurrence []string
+	if recRaw, ok := args["recurrence"]; ok {
+		if recArr, ok := recRaw.([]any); ok {
+			for _, r := range recArr {
+				if s, ok := r.(string); ok {
+					recurrence = append(recurrence, s)
+				}
+			}
+		}
+	}
 
 	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
 	if err != nil {
@@ -949,6 +1006,8 @@ func toolCreateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalCl
 		Location:    location,
 		StartTime:   startTime,
 		EndTime:     endTime,
+		RoutineID:   routineID,
+		Recurrence:  recurrence,
 	})
 	if err != nil {
 		return jsonError("failed to create calendar event: " + err.Error())
@@ -968,13 +1027,28 @@ func toolCreateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalCl
 		ev.Start, ev.End, ev.AllDay, ev.HtmlLink,
 	)
 
-	return jsonOK(map[string]any{
+	// If a routine was linked, update the cache and create the link record.
+	if routineID != "" {
+		_, _ = db.ExecContext(ctx, `UPDATE life_gcal_events SET routine_id = $1 WHERE user_id = $2 AND id = $3`,
+			routineID, userID, ev.ID)
+		_, _ = db.ExecContext(ctx, `
+			INSERT INTO life_routine_event_links (id, user_id, routine_id, gcal_event_id, link_type)
+			VALUES ($1, $2, $3, $4, 'agent')
+			ON CONFLICT (user_id, routine_id, gcal_event_id) DO NOTHING`,
+			uuid.NewString(), userID, routineID, ev.ID)
+	}
+
+	result := map[string]any{
 		"id":       ev.ID,
 		"summary":  ev.Summary,
 		"start":    ev.Start.Format(time.RFC3339),
 		"end":      ev.End.Format(time.RFC3339),
 		"htmlLink": ev.HtmlLink,
-	})
+	}
+	if routineID != "" {
+		result["routine_id"] = routineID
+	}
+	return jsonOK(result)
 }
 
 func toolUpdateCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
@@ -1052,6 +1126,50 @@ func toolDeleteCalendarEvent(ctx context.Context, db *sql.DB, gcalClient *GCalCl
 	_, _ = db.ExecContext(ctx, `DELETE FROM life_gcal_events WHERE user_id = $1 AND id = $2`, userID, eventID)
 
 	return jsonOK(map[string]any{"event_id": eventID, "deleted": true})
+}
+
+func toolLinkEventToRoutine(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	eventID, _ := args["event_id"].(string)
+	routineID, _ := args["routine_id"].(string)
+	if eventID == "" || routineID == "" {
+		return jsonError("event_id and routine_id are required")
+	}
+
+	// Verify routine exists and belongs to user
+	var routineName string
+	if err := db.QueryRowContext(ctx,
+		`SELECT name FROM life_routines WHERE id = $1 AND user_id = $2`,
+		routineID, userID).Scan(&routineName); err != nil {
+		return jsonError("routine not found")
+	}
+
+	// Create the link record
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO life_routine_event_links (id, user_id, routine_id, gcal_event_id, link_type)
+		VALUES ($1, $2, $3, $4, 'agent')
+		ON CONFLICT (user_id, routine_id, gcal_event_id) DO NOTHING`,
+		uuid.NewString(), userID, routineID, eventID)
+	if err != nil {
+		return jsonError("failed to create link: " + err.Error())
+	}
+
+	// Update local cache
+	_, _ = db.ExecContext(ctx, `UPDATE life_gcal_events SET routine_id = $1 WHERE user_id = $2 AND id = $3`,
+		routineID, userID, eventID)
+
+	// Patch Google Calendar extendedProperties
+	if gcalClient != nil {
+		if token, err := EnsureValidToken(ctx, db, gcalClient, userID); err == nil {
+			_, _ = gcalClient.UpdateEvent(ctx, token, eventID, CreateEventRequest{RoutineID: routineID})
+		}
+	}
+
+	return jsonOK(map[string]any{
+		"linked":       true,
+		"event_id":     eventID,
+		"routine_id":   routineID,
+		"routine_name": routineName,
+	})
 }
 
 // ----- Google Tasks tool implementations -----
@@ -1226,6 +1344,25 @@ func toolDeleteTask(ctx context.Context, db *sql.DB, gcalClient *GCalClient, use
 		return jsonError("failed to delete task: " + err.Error())
 	}
 	return jsonOK(map[string]any{"task_id": taskID, "deleted": true})
+}
+
+func toolCreateTaskList(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, args map[string]any) string {
+	if gcalClient == nil {
+		return jsonError("Google is not configured")
+	}
+	accessToken, err := EnsureValidToken(ctx, db, gcalClient, userID)
+	if err != nil {
+		return jsonError("Google not connected: " + err.Error())
+	}
+	title, _ := args["title"].(string)
+	if title == "" {
+		return jsonError("title is required")
+	}
+	list, err := CreateTaskList(ctx, accessToken, title)
+	if err != nil {
+		return jsonError("failed to create task list: " + err.Error())
+	}
+	return jsonOK(map[string]any{"list_id": list.ID, "title": list.Title, "created": true})
 }
 
 // ----- helpers -----
