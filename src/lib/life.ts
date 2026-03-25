@@ -552,3 +552,25 @@ export async function completeGTask(listId: string, taskId: string): Promise<GTa
     body: JSON.stringify({ listId, taskId }),
   });
 }
+
+// ─── Day Summaries ────────────────────────────────────────────────────────────
+
+export interface DayBlock {
+  type: "sleep" | "wake" | "commute" | "work" | "meal" | "exercise" | "social" | "personal" | "project" | "free" | "errand";
+  label: string;
+  description: string;
+  start: string; // "HH:MM"
+  end: string;   // "HH:MM"
+  eventIds?: string[];
+}
+
+export interface DaySummary {
+  date: string; // "2026-03-25"
+  blocks: DayBlock[];
+  generatedAt: string;
+}
+
+export async function getDaySummaries(from: string, to: string): Promise<DaySummary[]> {
+  const res = await lifeApiFetch<{ summaries: DaySummary[] }>(`/calendar/summaries?from=${from}&to=${to}`);
+  return res.summaries;
+}

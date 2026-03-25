@@ -312,6 +312,59 @@ func ListGCalEvents(db *sql.DB, gcalClient *life.GCalClient) http.HandlerFunc {
 	}
 }
 
+// GetDaySummaries handles GET /life/calendar/summaries?from=2026-03-25&to=2026-03-31.
+// Returns AI-generated semantic day summaries for the requested date range.
+// Results are cached by events hash; regenerated only when the day's events change.
+func GetDaySummaries(db *sql.DB, agent *life.Agent) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		fromStr := r.URL.Query().Get("from")
+		toStr := r.URL.Query().Get("to")
+
+		var from, to time.Time
+		if fromStr != "" {
+			if t, err := time.Parse("2006-01-02", fromStr); err == nil {
+				from = t
+			}
+		}
+		if toStr != "" {
+			if t, err := time.Parse("2006-01-02", toStr); err == nil {
+				to = t.AddDate(0, 0, 1) // include the full "to" day
+			}
+		}
+		if from.IsZero() {
+			from = time.Now().Truncate(24 * time.Hour)
+		}
+		if to.IsZero() {
+			to = from.AddDate(0, 0, 7)
+		}
+
+		// Clamp to a max of 14 days to avoid runaway LLM costs.
+		if to.Sub(from) > 14*24*time.Hour {
+			to = from.AddDate(0, 0, 14)
+		}
+
+		summaries, err := life.GetDaySummaries(r.Context(), db, agent, userID, from, to)
+		if err != nil {
+			log.Printf("day summaries: user %s from %s to %s: %v", userID, fromStr, toStr, err)
+			http.Error(w, `{"error":"failed to generate day summaries"}`, http.StatusInternalServerError)
+			return
+		}
+
+		if summaries == nil {
+			summaries = []life.DaySummary{}
+		}
+		json.NewEncoder(w).Encode(map[string]any{"summaries": summaries})
+	}
+}
+
 // SyncGCalEvents handles POST /life/gcal/sync.
 // Forces a sync regardless of cache staleness and returns the sync result.
 func SyncGCalEvents(db *sql.DB, gcalClient *life.GCalClient) http.HandlerFunc {

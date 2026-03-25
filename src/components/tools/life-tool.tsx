@@ -100,6 +100,9 @@ import {
   type GTask,
   markOnboarded,
   createGTaskList,
+  getDaySummaries,
+  type DayBlock,
+  type DaySummary,
 } from "@/lib/life";
 import {
   Dialog,
@@ -3777,7 +3780,7 @@ function getEventsForDate(events: GCalEvent[], dateKey: string): GCalEvent[] {
 
 // ─── Calendar Sub-components ───────────────────────────────────────────────────
 
-type CalView = "day" | "week" | "2week";
+type CalView = "day" | "week" | "2week" | "summary";
 
 function CalendarHeader({
   view,
@@ -3786,6 +3789,8 @@ function CalendarHeader({
   onPrev,
   onNext,
   onToday,
+  onRefresh,
+  refreshing,
   agentOpen,
   onToggleAgent,
 }: {
@@ -3795,12 +3800,21 @@ function CalendarHeader({
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
   agentOpen?: boolean;
   onToggleAgent?: () => void;
 }) {
   const label = (() => {
     if (view === "day") {
       return formatDayHeader(toDateKey(currentDate));
+    }
+    if (view === "summary") {
+      const end = new Date(currentDate);
+      end.setDate(end.getDate() + 6);
+      const startFmt = currentDate.toLocaleDateString([], { month: "short", day: "numeric" });
+      const endFmt = end.toLocaleDateString([], { month: "short", day: "numeric" });
+      return `${startFmt} – ${endFmt}`;
     }
     const end = new Date(currentDate);
     end.setDate(end.getDate() + (view === "week" ? 6 : 13));
@@ -3840,7 +3854,7 @@ function CalendarHeader({
 
       {/* View segmented control */}
       <div className="flex items-center rounded-lg border border-border/60 bg-muted/40 p-0.5 gap-0.5">
-        {(["day", "week", "2week"] as CalView[]).map((v) => (
+        {(["day", "week", "2week", "summary"] as CalView[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -3851,12 +3865,24 @@ function CalendarHeader({
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {v === "day" ? "Day" : v === "week" ? "Week" : "2Wk"}
+            {v === "day" ? "Day" : v === "week" ? "Week" : v === "2week" ? "2Wk" : "Summary"}
           </button>
         ))}
       </div>
 
 
+
+      {/* Refresh */}
+      {onRefresh && (
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
+          title="Refresh events"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+        </button>
+      )}
 
       {/* AI Agent toggle */}
       {onToggleAgent && (
@@ -4338,6 +4364,170 @@ function MultiDayView({
   );
 }
 
+// ─── Color map for DayBlock types ─────────────────────────────────────────────
+
+const BLOCK_COLORS: Record<DayBlock["type"], { bg: string; border: string; text: string }> = {
+  sleep:    { bg: "bg-slate-800/70 dark:bg-slate-900/80",    border: "border-slate-600/50",  text: "text-slate-300" },
+  wake:     { bg: "bg-amber-400/20",                          border: "border-amber-400/50",  text: "text-amber-700 dark:text-amber-300" },
+  commute:  { bg: "bg-zinc-500/15",                           border: "border-zinc-400/40",   text: "text-zinc-600 dark:text-zinc-300" },
+  work:     { bg: "bg-blue-500/15",                           border: "border-blue-400/50",   text: "text-blue-700 dark:text-blue-300" },
+  meal:     { bg: "bg-orange-400/20",                         border: "border-orange-400/50", text: "text-orange-700 dark:text-orange-300" },
+  exercise: { bg: "bg-green-500/15",                          border: "border-green-400/50",  text: "text-green-700 dark:text-green-300" },
+  social:   { bg: "bg-purple-500/15",                         border: "border-purple-400/50", text: "text-purple-700 dark:text-purple-300" },
+  personal: { bg: "bg-indigo-500/15",                         border: "border-indigo-400/50", text: "text-indigo-700 dark:text-indigo-300" },
+  project:  { bg: "bg-violet-500/15",                         border: "border-violet-400/50", text: "text-violet-700 dark:text-violet-300" },
+  free:     { bg: "bg-transparent",                           border: "border-dashed border-border/50", text: "text-muted-foreground" },
+  errand:   { bg: "bg-rose-400/15",                           border: "border-rose-400/50",   text: "text-rose-700 dark:text-rose-300" },
+};
+
+// Converts "HH:MM" to minutes since midnight.
+function timeToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// Total day minutes (1440). Block height is proportional.
+const DAY_MINUTES = 24 * 60;
+
+function SummaryDayColumn({ date, summary, loading }: {
+  date: Date;
+  summary: DaySummary | undefined;
+  loading: boolean;
+}) {
+  const dateStr = date.toISOString().slice(0, 10);
+  const isToday = dateStr === new Date().toISOString().slice(0, 10);
+  const dayLabel = date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+
+  return (
+    <div className="flex flex-col min-w-0 flex-1">
+      {/* Day header */}
+      <div className={cn(
+        "text-center text-xs font-semibold py-1.5 px-1 border-b border-border/40 shrink-0",
+        isToday ? "text-primary" : "text-muted-foreground"
+      )}>
+        {dayLabel}
+      </div>
+
+      {/* Block column */}
+      <div className="flex-1 relative min-h-0 overflow-hidden">
+        {loading ? (
+          <div className="h-full flex flex-col gap-1 p-1 animate-pulse">
+            {[40, 20, 25, 10, 30, 15, 20].map((h, i) => (
+              <div key={i} className="rounded bg-muted/60" style={{ flexBasis: `${h}%`, flexGrow: 0, flexShrink: 0 }} />
+            ))}
+          </div>
+        ) : !summary || summary.blocks.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <span className="text-[10px] text-muted-foreground/50">No data</span>
+          </div>
+        ) : (
+          <div className="h-full flex flex-col">
+            {summary.blocks.map((block, idx) => {
+              const startMin = timeToMinutes(block.start);
+              const endMin = timeToMinutes(block.end);
+              const duration = Math.max(endMin - startMin, 1);
+              const heightPct = (duration / DAY_MINUTES) * 100;
+              const colors = BLOCK_COLORS[block.type] ?? BLOCK_COLORS.free;
+
+              return (
+                <div
+                  key={idx}
+                  title={`${block.label}\n${block.start}–${block.end}\n${block.description}`}
+                  className={cn(
+                    "group relative overflow-hidden border-l-2 cursor-default transition-opacity hover:opacity-90",
+                    colors.bg, colors.border,
+                  )}
+                  style={{ height: `${heightPct}%`, minHeight: heightPct > 2 ? "1.25rem" : undefined }}
+                >
+                  {heightPct >= 4 && (
+                    <div className={cn("px-1.5 py-0.5 overflow-hidden", colors.text)}>
+                      <p className="text-[10px] font-medium leading-tight truncate">{block.label}</p>
+                      {heightPct >= 7 && (
+                        <p className="text-[9px] leading-tight text-muted-foreground truncate">{block.start}–{block.end}</p>
+                      )}
+                    </div>
+                  )}
+                  {/* Tooltip on hover for small blocks */}
+                  <div className="absolute left-full top-0 ml-1 z-50 hidden group-hover:block pointer-events-none">
+                    <div className="bg-popover border border-border rounded-md shadow-md px-2 py-1.5 text-xs max-w-[180px]">
+                      <p className="font-semibold">{block.label}</p>
+                      <p className="text-muted-foreground text-[10px]">{block.start}–{block.end}</p>
+                      {block.description && <p className="mt-0.5 text-[10px] leading-snug">{block.description}</p>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SummaryView({ startDate, summaries, loading }: {
+  startDate: Date;
+  summaries: DaySummary[];
+  loading: boolean;
+}) {
+  // Build 7 day columns from startDate.
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const summaryMap = new Map(summaries.map((s) => [s.date, s]));
+
+  return (
+    <div className="flex-1 overflow-auto flex flex-col min-h-0">
+      {/* Time legend + columns */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Left time axis */}
+        <div className="w-10 shrink-0 flex flex-col border-r border-border/40 text-[9px] text-muted-foreground/60 select-none">
+          <div className="shrink-0 h-[1.875rem] border-b border-border/40" /> {/* header spacer */}
+          <div className="flex-1 relative overflow-hidden">
+            {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => (
+              <div
+                key={h}
+                className="absolute w-full text-right pr-1.5"
+                style={{ top: `${(h * 60 / DAY_MINUTES) * 100}%` }}
+              >
+                {h === 0 ? "12a" : h < 12 ? `${h}a` : h === 12 ? "12p" : `${h - 12}p`}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Day columns */}
+        <div className="flex-1 min-w-0 flex gap-px overflow-x-auto">
+          {days.map((d) => (
+            <SummaryDayColumn
+              key={d.toISOString()}
+              date={d}
+              summary={summaryMap.get(d.toISOString().slice(0, 10))}
+              loading={loading}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="shrink-0 border-t border-border/40 px-4 py-2 flex flex-wrap gap-x-3 gap-y-1">
+        {(Object.keys(BLOCK_COLORS) as DayBlock["type"][]).map((type) => {
+          const colors = BLOCK_COLORS[type];
+          return (
+            <div key={type} className="flex items-center gap-1">
+              <div className={cn("w-2.5 h-2.5 rounded-sm border", colors.bg, colors.border)} />
+              <span className="text-[10px] text-muted-foreground capitalize">{type}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function CalendarView() {
   const [status, setStatus] = useState<GCalStatus | null>(null);
   const [events, setEvents] = useState<GCalEvent[]>([]);
@@ -4359,7 +4549,10 @@ function CalendarView() {
     return d;
   });
 
-  const daysToLoad = view === "day" ? 1 : view === "week" ? 7 : 14;
+  const [summaries, setSummaries] = useState<DaySummary[]>([]);
+  const [summariesLoading, setSummariesLoading] = useState(false);
+
+  const daysToLoad = view === "day" ? 1 : view === "week" ? 7 : view === "2week" ? 14 : 7;
 
   const loadEvents = useCallback(async (connected: boolean, startDate: Date, numDays: number) => {
     if (!connected) return;
@@ -4376,6 +4569,23 @@ function CalendarView() {
       setError(e instanceof Error ? e.message : "Failed to load events");
     } finally {
       setEventsLoading(false);
+    }
+  }, []);
+
+  const loadSummaries = useCallback(async (connected: boolean, startDate: Date) => {
+    if (!connected) return;
+    setSummariesLoading(true);
+    try {
+      const from = startDate.toISOString().slice(0, 10);
+      const toDate = new Date(startDate);
+      toDate.setDate(toDate.getDate() + 7);
+      const to = toDate.toISOString().slice(0, 10);
+      const result = await getDaySummaries(from, to);
+      setSummaries(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load day summaries");
+    } finally {
+      setSummariesLoading(false);
     }
   }, []);
 
@@ -4427,9 +4637,13 @@ function CalendarView() {
   // Reload when view/date changes
   useEffect(() => {
     if (status?.connected) {
-      loadEvents(true, currentDate, daysToLoad);
+      if (view === "summary") {
+        loadSummaries(true, currentDate);
+      } else {
+        loadEvents(true, currentDate, daysToLoad);
+      }
     }
-  }, [view, currentDate, status?.connected, daysToLoad, loadEvents]);
+  }, [view, currentDate, status?.connected, daysToLoad, loadEvents, loadSummaries]);
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -4460,7 +4674,8 @@ function CalendarView() {
   const handlePrev = () => {
     setCurrentDate((d) => {
       const next = new Date(d);
-      next.setDate(next.getDate() - (view === "day" ? 1 : view === "week" ? 7 : 14));
+      const delta = view === "day" ? 1 : view === "week" || view === "summary" ? 7 : 14;
+      next.setDate(next.getDate() - delta);
       return next;
     });
   };
@@ -4468,7 +4683,8 @@ function CalendarView() {
   const handleNext = () => {
     setCurrentDate((d) => {
       const next = new Date(d);
-      next.setDate(next.getDate() + (view === "day" ? 1 : view === "week" ? 7 : 14));
+      const delta = view === "day" ? 1 : view === "week" || view === "summary" ? 7 : 14;
+      next.setDate(next.getDate() + delta);
       return next;
     });
   };
@@ -4551,6 +4767,8 @@ function CalendarView() {
         onPrev={handlePrev}
         onNext={handleNext}
         onToday={handleToday}
+        onRefresh={() => { if (status?.connected) loadEvents(true, currentDate, daysToLoad); }}
+        refreshing={eventsLoading}
         agentOpen={agentOpen}
         onToggleAgent={() => { setAgentOpen((v) => !v); if (!agentOpen) setSelectedEvents([]); }}
       />
@@ -4558,6 +4776,8 @@ function CalendarView() {
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {view === "day" ? (
             <DayView date={currentDate} events={events} loading={eventsLoading} onEventClick={handleEventClick} selectedEventIds={new Set(selectedEvents.map((e) => e.id))} />
+          ) : view === "summary" ? (
+            <SummaryView startDate={currentDate} summaries={summaries} loading={summariesLoading} />
           ) : (
             <MultiDayView
               startDate={currentDate}

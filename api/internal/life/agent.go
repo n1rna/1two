@@ -143,10 +143,16 @@ func (a *Agent) GCalClient() *GCalClient {
 	return a.gcalClient
 }
 
+// LLMConfig returns a pointer to the agent's LLM configuration.
+// This is used by sub-systems that need a direct LLM call (e.g. day summary generation).
+func (a *Agent) LLMConfig() *ai.LLMConfig {
+	return &a.llmCfg
+}
+
 // ProcessActionableResponse is called after a user responds to an actionable.
 // It feeds the response back to the agent in the scheduler conversation so the
 // agent can take follow-up actions (update calendar, create tasks, etc.).
-func (a *Agent) ProcessActionableResponse(ctx context.Context, db *sql.DB, userID string, actionable ActionableRecord, response string) error {
+func (a *Agent) ProcessActionableResponse(ctx context.Context, db *sql.DB, userID string, actionable ActionableRecord, response string) (*ChatResult, error) {
 	log.Printf("life agent: actionable %q (id=%s) resolved by user %s: %s",
 		actionable.Title, actionable.ID, userID, response)
 
@@ -227,13 +233,21 @@ func (a *Agent) ProcessActionableResponse(ctx context.Context, db *sql.DB, userI
 		Memories:    memories,
 		Profile:     &profile,
 		AutoApprove: true,
-		SystemContext: "The user just responded to an actionable. Take follow-up actions using tools if appropriate. " +
-			"Do NOT create new actionables asking the same question. Focus on executing the user's choice.",
+		SystemContext: `The user just responded to an actionable. Take follow-up actions using tools.
+
+IMPORTANT RULES for follow-up actions:
+- If the user confirmed completing a task/todo: call complete_task to mark it done on Google Tasks. Do NOT store a memory instead.
+- If the user confirmed completing a routine: do NOT create a memory — just acknowledge. Routine completion is tracked by the system.
+- If the user chose a schedule option: update or create the relevant calendar events using update_calendar_event or create_calendar_event.
+- If the user provided a preference: use remember to store it as a preference memory.
+- Do NOT create new actionables asking the same question.
+- Do NOT use remember for task/routine completions — those are transient facts, not preferences.
+- Focus on executing the user's choice with the appropriate tool.`,
 	})
 	if err != nil {
-		return fmt.Errorf("process actionable response: %w", err)
+		return nil, fmt.Errorf("process actionable response: %w", err)
 	}
 
 	log.Printf("life agent: actionable response processed — %d effects", len(result.Effects))
-	return nil
+	return result, nil
 }

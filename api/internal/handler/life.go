@@ -1333,7 +1333,6 @@ func RespondToActionable(db *sql.DB, agent *life.Agent) http.HandlerFunc {
 		// don't block the HTTP response.
 		if req.Action != "dismiss" {
 			go func() {
-				// Load actionable details for the agent
 				var title, aType string
 				_ = db.QueryRowContext(context.Background(),
 					`SELECT title, type FROM life_actionables WHERE id = $1`,
@@ -1341,12 +1340,48 @@ func RespondToActionable(db *sql.DB, agent *life.Agent) http.HandlerFunc {
 				).Scan(&title, &aType)
 
 				responseStr, _ := json.Marshal(responseData)
-				if err := agent.ProcessActionableResponse(
+				chatResult, err := agent.ProcessActionableResponse(
 					context.Background(), db, userID,
 					life.ActionableRecord{ID: actionableID, Type: aType, Title: title},
 					string(responseStr),
-				); err != nil {
+				)
+				if err != nil {
 					log.Printf("life: process actionable response %s: %v", actionableID, err)
+					return
+				}
+
+				// Store the agent's follow-up effects on the actionable so we can
+				// verify that actions were actually taken.
+				if len(chatResult.Effects) > 0 {
+					var effectsSummary []map[string]any
+					for _, eff := range chatResult.Effects {
+						item := map[string]any{"tool": eff.Tool, "id": eff.ID}
+						var parsed map[string]any
+						if json.Unmarshal([]byte(eff.Result), &parsed) == nil {
+							item["data"] = parsed
+						}
+						effectsSummary = append(effectsSummary, item)
+					}
+
+					// Merge effects into the existing response JSONB
+					var existing map[string]any
+					var existingJSON sql.NullString
+					_ = db.QueryRowContext(context.Background(),
+						`SELECT response FROM life_actionables WHERE id = $1`, actionableID,
+					).Scan(&existingJSON)
+					if existingJSON.Valid {
+						_ = json.Unmarshal([]byte(existingJSON.String), &existing)
+					}
+					if existing == nil {
+						existing = map[string]any{}
+					}
+					existing["follow_up_effects"] = effectsSummary
+					updatedJSON, _ := json.Marshal(existing)
+					_, _ = db.ExecContext(context.Background(),
+						`UPDATE life_actionables SET response = $1 WHERE id = $2`,
+						string(updatedJSON), actionableID,
+					)
+					log.Printf("life: stored %d follow-up effects on actionable %s", len(effectsSummary), actionableID)
 				}
 			}()
 		}
