@@ -27,9 +27,16 @@ type DayBlock struct {
 
 // DaySummary is the cached summary for one day.
 type DaySummary struct {
-	Date        string     `json:"date"`        // "2026-03-25"
-	Blocks      []DayBlock `json:"blocks"`
-	GeneratedAt string     `json:"generatedAt"`
+	Date        string     `json:"date"`                  // "2026-03-25"
+	Blocks      []DayBlock `json:"blocks"`                // nil when pending
+	Pending     bool       `json:"pending,omitempty"`     // true if not yet generated
+	GeneratedAt string     `json:"generatedAt,omitempty"` // empty when pending
+}
+
+// StaleSummary identifies a single user+date that needs (re)generation.
+type StaleSummary struct {
+	UserID string `json:"user_id"`
+	Date   string `json:"date"` // "2026-03-25"
 }
 
 const daySummarySystemPrompt = `You are a day planner that consolidates calendar events into semantic time blocks. Given a list of events for a day, produce a JSON array of blocks that covers the full day from wake to sleep.
@@ -44,7 +51,6 @@ Rules:
 - Output ONLY a JSON array, nothing else`
 
 // computeEventsHash produces a stable SHA-256 hash over the given events.
-// Events are sorted by start time before hashing to ensure determinism.
 func computeEventsHash(events []GCalEvent) string {
 	sorted := make([]GCalEvent, len(events))
 	copy(sorted, events)
@@ -63,11 +69,156 @@ func computeEventsHash(events []GCalEvent) string {
 	return fmt.Sprintf("%x", sum)
 }
 
-// GetDaySummaries returns DaySummary objects for each day in [from, to).
-// It checks the DB cache first; if the events hash has changed (or no cache exists),
-// it calls the LLM to regenerate the summary.
-func GetDaySummaries(ctx context.Context, db *sql.DB, agent *Agent, userID string, from, to time.Time) ([]DaySummary, error) {
-	// Load profile for wake/sleep times and routines for context.
+// ─── Read-only: return cached summaries (used by HTTP handler) ───────────────
+
+// GetCachedDaySummaries returns cached summaries for the date range.
+// Days without a cached summary are returned with Pending=true.
+func GetCachedDaySummaries(ctx context.Context, db *sql.DB, userID string, from, to time.Time) ([]DaySummary, error) {
+	// Load all cached summaries in the range
+	rows, err := db.QueryContext(ctx, `
+		SELECT date, events_hash, blocks, generated_at
+		FROM life_day_summaries
+		WHERE user_id = $1 AND date >= $2 AND date < $3
+		ORDER BY date`, userID, from.Format("2006-01-02"), to.Format("2006-01-02"))
+	if err != nil {
+		return nil, fmt.Errorf("query cached summaries: %w", err)
+	}
+	defer rows.Close()
+
+	cached := map[string]DaySummary{}
+	cachedHashes := map[string]string{}
+	for rows.Next() {
+		var dateStr, hash, blocksJSON string
+		var generatedAt time.Time
+		if err := rows.Scan(&dateStr, &hash, &blocksJSON, &generatedAt); err != nil {
+			continue
+		}
+		var blocks []DayBlock
+		_ = json.Unmarshal([]byte(blocksJSON), &blocks)
+		// Parse date — DB returns it as "2026-03-25T00:00:00Z", normalize
+		if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+			dateStr = t.Format("2006-01-02")
+		} else if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+			dateStr = t.Format("2006-01-02")
+		}
+		cached[dateStr] = DaySummary{
+			Date:        dateStr,
+			Blocks:      blocks,
+			GeneratedAt: generatedAt.UTC().Format(time.RFC3339),
+		}
+		cachedHashes[dateStr] = hash
+	}
+
+	// Check if cached summaries are still valid (events haven't changed)
+	var summaries []DaySummary
+	for d := from; d.Before(to); d = d.AddDate(0, 0, 1) {
+		dateStr := d.Format("2006-01-02")
+
+		if summary, ok := cached[dateStr]; ok {
+			// Verify hash is still valid
+			dayStart := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
+			dayEnd := dayStart.AddDate(0, 0, 1)
+			events, err := QueryLocalEvents(ctx, db, userID, dayStart, dayEnd)
+			if err != nil {
+				events = nil
+			}
+			currentHash := computeEventsHash(events)
+
+			if cachedHashes[dateStr] == currentHash {
+				summaries = append(summaries, summary)
+			} else {
+				// Stale — mark as pending
+				summaries = append(summaries, DaySummary{Date: dateStr, Pending: true})
+			}
+		} else {
+			summaries = append(summaries, DaySummary{Date: dateStr, Pending: true})
+		}
+	}
+
+	return summaries, nil
+}
+
+// ─── Check which summaries are stale (used by queue producer) ────────────────
+
+// CheckStaleSummaries finds all user+date pairs in the next 7 days that need
+// summary (re)generation. Returns one StaleSummary per stale day.
+func CheckStaleSummaries(ctx context.Context, db *sql.DB) ([]StaleSummary, error) {
+	// Get all users with agent enabled
+	userRows, err := db.QueryContext(ctx,
+		`SELECT user_id FROM life_profiles WHERE agent_enabled = TRUE`)
+	if err != nil {
+		return nil, fmt.Errorf("check stale summaries: load users: %w", err)
+	}
+	defer userRows.Close()
+
+	var users []string
+	for userRows.Next() {
+		var uid string
+		if err := userRows.Scan(&uid); err == nil {
+			users = append(users, uid)
+		}
+	}
+
+	now := time.Now().UTC()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	endDate := today.AddDate(0, 0, 7)
+
+	var stale []StaleSummary
+	for _, userID := range users {
+		for d := today; d.Before(endDate); d = d.AddDate(0, 0, 1) {
+			dateStr := d.Format("2006-01-02")
+			dayEnd := d.AddDate(0, 0, 1)
+
+			events, err := QueryLocalEvents(ctx, db, userID, d, dayEnd)
+			if err != nil {
+				continue
+			}
+			currentHash := computeEventsHash(events)
+
+			// Check if we have a cached summary with this hash
+			var cachedHash string
+			err = db.QueryRowContext(ctx,
+				`SELECT events_hash FROM life_day_summaries WHERE user_id = $1 AND date = $2`,
+				userID, dateStr,
+			).Scan(&cachedHash)
+
+			if err != nil || cachedHash != currentHash {
+				stale = append(stale, StaleSummary{UserID: userID, Date: dateStr})
+			}
+		}
+	}
+
+	log.Printf("day summaries: checked %d users, %d stale summaries", len(users), len(stale))
+	return stale, nil
+}
+
+// ─── Generate a single day summary (used by queue consumer) ──────────────────
+
+// GenerateAndCacheDaySummary generates a summary for a single user+date and caches it.
+func GenerateAndCacheDaySummary(ctx context.Context, db *sql.DB, agent *Agent, userID, dateStr string) error {
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return fmt.Errorf("parse date %q: %w", dateStr, err)
+	}
+
+	dayEnd := date.AddDate(0, 0, 1)
+	events, err := QueryLocalEvents(ctx, db, userID, date, dayEnd)
+	if err != nil {
+		return fmt.Errorf("query events: %w", err)
+	}
+
+	hash := computeEventsHash(events)
+
+	// Double-check cache hasn't been filled in the meantime
+	var cachedHash string
+	if err := db.QueryRowContext(ctx,
+		`SELECT events_hash FROM life_day_summaries WHERE user_id = $1 AND date = $2`,
+		userID, dateStr,
+	).Scan(&cachedHash); err == nil && cachedHash == hash {
+		return nil // already up to date
+	}
+
+	// Load profile + routines
 	var profile Profile
 	var wakeTime, sleepTime sql.NullString
 	_ = db.QueryRowContext(ctx,
@@ -94,88 +245,36 @@ func GetDaySummaries(ctx context.Context, db *sql.DB, agent *Agent, userID strin
 		routineRows.Close()
 	}
 
-	llmCfg := agent.LLMConfig()
-
-	var summaries []DaySummary
-	for d := from; d.Before(to); d = d.AddDate(0, 0, 1) {
-		dayStart := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
-		dayEnd := dayStart.AddDate(0, 0, 1)
-
-		events, err := QueryLocalEvents(ctx, db, userID, dayStart, dayEnd)
-		if err != nil {
-			log.Printf("day summaries: query events for %s on %s: %v", userID, dayStart.Format("2006-01-02"), err)
-			events = nil
-		}
-
-		hash := computeEventsHash(events)
-		dateStr := dayStart.Format("2006-01-02")
-
-		// Check cache.
-		var cachedHash string
-		var cachedBlocksJSON string
-		var cachedAt time.Time
-		err = db.QueryRowContext(ctx,
-			`SELECT events_hash, blocks, generated_at FROM life_day_summaries WHERE user_id = $1 AND date = $2`,
-			userID, dateStr,
-		).Scan(&cachedHash, &cachedBlocksJSON, &cachedAt)
-
-		if err == nil && cachedHash == hash {
-			// Cache hit.
-			var blocks []DayBlock
-			if jsonErr := json.Unmarshal([]byte(cachedBlocksJSON), &blocks); jsonErr == nil {
-				summaries = append(summaries, DaySummary{
-					Date:        dateStr,
-					Blocks:      blocks,
-					GeneratedAt: cachedAt.UTC().Format(time.RFC3339),
-				})
-				continue
-			}
-		}
-
-		// Cache miss or stale — generate.
-		blocks, genErr := generateDaySummary(ctx, llmCfg, userID, dayStart, events, &profile, routines)
-		if genErr != nil {
-			log.Printf("day summaries: generate for %s on %s: %v", userID, dateStr, genErr)
-			// Return an empty summary rather than failing the whole request.
-			summaries = append(summaries, DaySummary{
-				Date:        dateStr,
-				Blocks:      []DayBlock{},
-				GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-			})
-			continue
-		}
-
-		// Persist to cache.
-		blocksJSON, _ := json.Marshal(blocks)
-		id := fmt.Sprintf("%s_%s", userID, dateStr)
-		_, dbErr := db.ExecContext(ctx, `
-			INSERT INTO life_day_summaries (id, user_id, date, events_hash, blocks, generated_at)
-			VALUES ($1, $2, $3, $4, $5, NOW())
-			ON CONFLICT (user_id, date) DO UPDATE SET
-				events_hash  = EXCLUDED.events_hash,
-				blocks       = EXCLUDED.blocks,
-				generated_at = NOW()`,
-			id, userID, dateStr, hash, string(blocksJSON),
-		)
-		if dbErr != nil {
-			log.Printf("day summaries: persist for %s on %s: %v", userID, dateStr, dbErr)
-		}
-
-		summaries = append(summaries, DaySummary{
-			Date:        dateStr,
-			Blocks:      blocks,
-			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		})
+	blocks, err := generateDaySummary(ctx, agent.LLMConfig(), userID, date, events, &profile, routines)
+	if err != nil {
+		return fmt.Errorf("generate: %w", err)
 	}
 
-	return summaries, nil
+	blocksJSON, _ := json.Marshal(blocks)
+	id := fmt.Sprintf("%s_%s", userID, dateStr)
+	_, dbErr := db.ExecContext(ctx, `
+		INSERT INTO life_day_summaries (id, user_id, date, events_hash, blocks, generated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (user_id, date) DO UPDATE SET
+			events_hash  = EXCLUDED.events_hash,
+			blocks       = EXCLUDED.blocks,
+			generated_at = NOW()`,
+		id, userID, dateStr, hash, string(blocksJSON),
+	)
+	if dbErr != nil {
+		return fmt.Errorf("persist: %w", dbErr)
+	}
+
+	log.Printf("day summaries: generated %s for user %s — %d blocks", dateStr, userID, len(blocks))
+	return nil
 }
 
-// generateDaySummary calls the LLM directly (no tool loop) to produce []DayBlock for one day.
+// ─── LLM generation ─────────────────────────────────────────────────────────
+
 func generateDaySummary(ctx context.Context, llmCfg *ai.LLMConfig, userID string, date time.Time, events []GCalEvent, profile *Profile, routines []Routine) ([]DayBlock, error) {
 	model, err := ai.NewLLM(llmCfg)
 	if err != nil {
-		return nil, fmt.Errorf("generate day summary: create llm: %w", err)
+		return nil, fmt.Errorf("create llm: %w", err)
 	}
 
 	userMsg := buildDaySummaryUserMessage(date, events, profile, routines)
@@ -196,10 +295,10 @@ func generateDaySummary(ctx context.Context, llmCfg *ai.LLMConfig, userID string
 		llms.WithMaxTokens(2048),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("generate day summary: llm call: %w", err)
+		return nil, fmt.Errorf("llm call: %w", err)
 	}
 	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("generate day summary: no choices returned")
+		return nil, fmt.Errorf("no choices returned")
 	}
 
 	raw := strings.TrimSpace(resp.Choices[0].Content)
@@ -217,14 +316,13 @@ func generateDaySummary(ctx context.Context, llmCfg *ai.LLMConfig, userID string
 
 	var blocks []DayBlock
 	if err := json.Unmarshal([]byte(raw), &blocks); err != nil {
-		return nil, fmt.Errorf("generate day summary: parse json (%q): %w", raw[:min(len(raw), 200)], err)
+		return nil, fmt.Errorf("parse json (%q): %w", raw[:min(len(raw), 200)], err)
 	}
 
-	_ = userID // available for future per-user logging
+	_ = userID
 	return blocks, nil
 }
 
-// buildDaySummaryUserMessage constructs the user message for the day summary LLM call.
 func buildDaySummaryUserMessage(date time.Time, events []GCalEvent, profile *Profile, routines []Routine) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Date: %s\n", date.Format("2006-01-02 (Monday)")))

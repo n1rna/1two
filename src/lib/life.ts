@@ -566,8 +566,9 @@ export interface DayBlock {
 
 export interface DaySummary {
   date: string; // "2026-03-25"
-  blocks: DayBlock[];
-  generatedAt: string;
+  blocks: DayBlock[] | null;
+  pending?: boolean;
+  generatedAt?: string;
 }
 
 export async function getDaySummaries(from: string, to: string): Promise<DaySummary[]> {

@@ -328,7 +328,7 @@ func main() {
 				r.Delete("/life/gcal", handler.DisconnectGCal(db))
 				r.Get("/life/gcal/events", handler.ListGCalEvents(db, gcalClient))
 				r.Post("/life/gcal/sync", handler.SyncGCalEvents(db, gcalClient))
-				r.Get("/life/calendar/summaries", handler.GetDaySummaries(db, lifeAgent))
+				r.Get("/life/calendar/summaries", handler.GetDaySummaries(db))
 				// Google Tasks integration (reuses the same Google OAuth connection).
 				r.Get("/life/gtasks/lists", handler.ListGTaskLists(db, gcalClient))
 				r.Post("/life/gtasks/lists", handler.CreateGTaskList(db, gcalClient))

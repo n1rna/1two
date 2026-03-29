@@ -190,6 +190,29 @@ export default {
       }
 
       console.log(`Scheduler: enqueued ${cycles.length} cycle(s)`);
+
+      // Also check for stale day summaries and enqueue regeneration
+      const summaryRes = await sendMessage(stub, secret, {
+        type: "life_summary_check",
+      });
+
+      if (summaryRes.ok) {
+        const summaryBody = (await summaryRes.json()) as {
+          stale: { user_id: string; date: string }[];
+        };
+        const stale = summaryBody.stale ?? [];
+
+        for (const item of stale) {
+          await env.SCHEDULER_QUEUE.send({
+            type: "life_summary_generate",
+            data: { user_id: item.user_id, date: item.date },
+          });
+        }
+
+        if (stale.length > 0) {
+          console.log(`Summaries: enqueued ${stale.length} regeneration(s)`);
+        }
+      }
     }
   },
 

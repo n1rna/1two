@@ -393,32 +393,37 @@ function LifeSidebar({
 // ─── Typing Indicator ─────────────────────────────────────────────────────────
 
 const THINKING_PHRASES = [
-  "Thinking", "Pondering", "Figuring it out", "Mulling it over", "Processing",
-  "Brainstorming", "Cooking up a plan", "Connecting the dots", "On it",
-  "Working on it", "Crunching", "Plotting", "Scheming", "Noodling",
-  "Brewing ideas", "Putting pieces together", "Mapping it out", "Reflecting",
-  "Analyzing", "Considering options", "Weighing things up", "Digging in",
-  "Getting creative", "Spinning gears", "Running the numbers", "Sorting it out",
-  "Hatching a plan", "Chewing on it", "Wiring it up", "Assembling thoughts",
-  "Calibrating", "Strategizing", "Untangling", "Decoding", "Synthesizing",
-  "Forming a plan", "Sketching it out", "Piecing it together", "Evaluating",
-  "Exploring options", "Charting a course", "Doing the math", "Deliberating",
-  "Dreaming up ideas", "Building a plan", "Tuning in", "Getting organized",
-  "Scanning the horizon", "Deep in thought", "Conjuring", "Sifting through",
-  "Harmonizing", "Orchestrating", "Fine-tuning", "Laying groundwork",
-  "Cranking away", "Drilling down", "Looking into it", "Checking things",
-  "Running scenarios", "Meditating on it", "Wrestling with it", "Gathering intel",
-  "Surveying the landscape", "Taking stock", "Cross-referencing", "Calculating",
-  "Drafting a plan", "Composing thoughts", "Aligning the stars", "Forging ahead",
-  "Warming up", "Revving up", "Gearing up", "Sharpening the pencil",
-  "Dotting i's", "Tinkering", "Winding up", "Loading up", "Racking my brain",
-  "Dusting off ideas", "Percolating", "Ruminating", "Incubating",
-  "Germinating ideas", "Distilling", "Crystallizing", "Honing in",
-  "Zeroing in", "Locking in", "Firing neurons", "Booting up",
-  "Spinning up", "Compiling thoughts", "Rendering", "Buffering brilliance",
-  "Consulting the oracle", "Reading the tea leaves", "Channeling wisdom",
-  "Summoning focus", "Activating brain cells", "Engaging hyperdrive",
-  "Entering the zone", "Initiating sequence", "Deploying logic",
+  "Accomplishing", "Actioning", "Actualizing", "Architecting", "Baking", "Beaming",
+  "Beboppin'", "Befuddling", "Billowing", "Blanching", "Bloviating", "Boogieing",
+  "Boondoggling", "Booping", "Bootstrapping", "Brewing", "Burrowing", "Calculating",
+  "Canoodling", "Caramelizing", "Cascading", "Catapulting", "Cerebrating", "Channelling",
+  "Choreographing", "Churning", "Clauding", "Coalescing", "Cogitating", "Combobulating",
+  "Composing", "Computing", "Concocting", "Considering", "Contemplating", "Cooking",
+  "Crafting", "Creating", "Crystallizing", "Cultivating", "Crunching", "Deciphering",
+  "Deliberating", "Determining", "Dilly-dallying", "Discombobulating", "Doing", "Doodling",
+  "Drizzling", "Ebbing", "Effecting", "Elucidating", "Embellishing", "Enchanting",
+  "Envisioning", "Evaporating", "Fermenting", "Fiddle-faddling", "Finagling", "Flambéing",
+  "Flibbertigibbeting", "Flowing", "Flummoxing", "Fluttering", "Forging", "Forming",
+  "Frosting", "Frolicking", "Gallivanting", "Galloping", "Garnishing", "Generating",
+  "Germinating", "Gitifying", "Grooving", "Gusting", "Harmonizing", "Hashing", "Hatching",
+  "Herding", "Hibernating", "Honking", "Hullaballooing", "Hyperspacing", "Ideating",
+  "Imagining", "Improvising", "Incubating", "Inferring", "Infusing", "Ionizing",
+  "Jitterbugging", "Julienning", "Kneading", "Leavening", "Levitating", "Lollygagging",
+  "Manifesting", "Marinating", "Meandering", "Metamorphosing", "Misting", "Moonwalking",
+  "Moseying", "Mulling", "Mustering", "Musing", "Nebulizing", "Nesting", "Noodling",
+  "Nucleating", "Orbiting", "Orchestrating", "Osmosing", "Perambulating", "Percolating",
+  "Perusing", "Philosophising", "Photosynthesizing", "Pollinating", "Pontificating",
+  "Pondering", "Pouncing", "Precipitating", "Prestidigitating", "Processing", "Proofing",
+  "Propagating", "Puttering", "Puzzling", "Quantumizing", "Razzle-dazzling", "Razzmatazzing",
+  "Recombobulating", "Reticulating", "Roosting", "Ruminating", "Sautéing", "Scampering",
+  "Scheming", "Schlepping", "Scurrying", "Seasoning", "Shenaniganing", "Shimmying",
+  "Simmering", "Skedaddling", "Sketching", "Slithering", "Smooshing", "Sock-hopping",
+  "Spelunking", "Spinning", "Sprouting", "Stewing", "Sublimating", "Sussing", "Swirling",
+  "Swooping", "Symbioting", "Synthesizing", "Tempering", "Thinking", "Thundering",
+  "Tinkering", "Tomfoolering", "Topsy-turvying", "Transfiguring", "Transmuting", "Twisting",
+  "Undulating", "Unfurling", "Unravelling", "Vibing", "Waddling", "Wandering", "Warping",
+  "Whatchamacalliting", "Whirlpooling", "Whirring", "Whisking", "Wibbling", "Working",
+  "Wrangling", "Zesting", "Zigzagging",
 ];
 
 function TypingIndicator() {
@@ -3780,7 +3785,7 @@ function getEventsForDate(events: GCalEvent[], dateKey: string): GCalEvent[] {
 
 // ─── Calendar Sub-components ───────────────────────────────────────────────────
 
-type CalView = "day" | "week" | "2week" | "summary";
+type CalView = "day" | "week" | "2week";
 
 function CalendarHeader({
   view,
@@ -3792,6 +3797,8 @@ function CalendarHeader({
   onRefresh,
   refreshing,
   agentOpen,
+  showSummary,
+  onToggleSummary,
   onToggleAgent,
 }: {
   view: CalView;
@@ -3804,17 +3811,12 @@ function CalendarHeader({
   refreshing?: boolean;
   agentOpen?: boolean;
   onToggleAgent?: () => void;
+  showSummary?: boolean;
+  onToggleSummary?: () => void;
 }) {
   const label = (() => {
     if (view === "day") {
       return formatDayHeader(toDateKey(currentDate));
-    }
-    if (view === "summary") {
-      const end = new Date(currentDate);
-      end.setDate(end.getDate() + 6);
-      const startFmt = currentDate.toLocaleDateString([], { month: "short", day: "numeric" });
-      const endFmt = end.toLocaleDateString([], { month: "short", day: "numeric" });
-      return `${startFmt} – ${endFmt}`;
     }
     const end = new Date(currentDate);
     end.setDate(end.getDate() + (view === "week" ? 6 : 13));
@@ -3854,7 +3856,7 @@ function CalendarHeader({
 
       {/* View segmented control */}
       <div className="flex items-center rounded-lg border border-border/60 bg-muted/40 p-0.5 gap-0.5">
-        {(["day", "week", "2week", "summary"] as CalView[]).map((v) => (
+        {(["day", "week", "2week"] as CalView[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -3865,10 +3867,27 @@ function CalendarHeader({
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            {v === "day" ? "Day" : v === "week" ? "Week" : v === "2week" ? "2Wk" : "Summary"}
+            {v === "day" ? "Day" : v === "week" ? "Week" : "2Wk"}
           </button>
         ))}
       </div>
+
+      {/* Summary overlay toggle */}
+      {onToggleSummary && (
+        <button
+          onClick={onToggleSummary}
+          className={cn(
+            "flex items-center gap-1 px-2 h-7 rounded-md text-xs font-medium transition-colors border",
+            showSummary
+              ? "bg-primary/10 text-primary border-primary/30"
+              : "text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted/50"
+          )}
+          title={showSummary ? "Show actual events" : "Show day summary"}
+        >
+          <Sun className="h-3 w-3" />
+          <span className="hidden sm:inline">Summary</span>
+        </button>
+      )}
 
 
 
@@ -4380,6 +4399,52 @@ const BLOCK_COLORS: Record<DayBlock["type"], { bg: string; border: string; text:
   errand:   { bg: "bg-rose-400/15",                           border: "border-rose-400/50",   text: "text-rose-700 dark:text-rose-300" },
 };
 
+// Map block types to Google Calendar colorIds for EventBlock rendering.
+const BLOCK_TYPE_COLOR_ID: Record<string, string> = {
+  sleep: "8",    // graphite
+  wake: "5",     // banana
+  commute: "8",  // graphite
+  work: "9",     // blueberry
+  meal: "6",     // tangerine
+  exercise: "2", // sage
+  social: "3",   // grape
+  personal: "7", // peacock
+  project: "1",  // lavender
+  free: "",
+  errand: "4",   // flamingo
+};
+
+/** Convert DaySummary blocks into GCalEvent objects so they render on the same calendar grid. */
+function summaryBlocksToEvents(summaries: DaySummary[], viewStartDate: Date): GCalEvent[] {
+  const events: GCalEvent[] = [];
+  for (const summary of summaries) {
+    if (!summary.blocks || summary.pending) continue;
+    for (const block of summary.blocks) {
+      if (block.type === "sleep" || block.type === "free") continue; // skip sleep/free blocks
+      const [sh, sm] = block.start.split(":").map(Number);
+      const [eh, em] = block.end.split(":").map(Number);
+      const start = new Date(summary.date + "T00:00:00");
+      start.setHours(sh, sm, 0, 0);
+      const end = new Date(summary.date + "T00:00:00");
+      end.setHours(eh, em, 0, 0);
+
+      events.push({
+        id: `summary-${summary.date}-${block.start}-${block.type}`,
+        summary: block.label,
+        description: block.description,
+        location: "",
+        start: start.toISOString(),
+        end: end.toISOString(),
+        allDay: false,
+        status: "confirmed",
+        colorId: BLOCK_TYPE_COLOR_ID[block.type] ?? "",
+        htmlLink: "",
+      });
+    }
+  }
+  return events;
+}
+
 // Converts "HH:MM" to minutes since midnight.
 function timeToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
@@ -4416,9 +4481,16 @@ function SummaryDayColumn({ date, summary, loading }: {
               <div key={i} className="rounded bg-muted/60" style={{ flexBasis: `${h}%`, flexGrow: 0, flexShrink: 0 }} />
             ))}
           </div>
-        ) : !summary || summary.blocks.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <span className="text-[10px] text-muted-foreground/50">No data</span>
+        ) : !summary || summary.pending || !summary.blocks || summary.blocks.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center gap-1.5 p-2">
+            {summary?.pending ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground/40" />
+                <span className="text-[9px] text-muted-foreground/40">Generating...</span>
+              </>
+            ) : (
+              <span className="text-[10px] text-muted-foreground/50">No data</span>
+            )}
           </div>
         ) : (
           <div className="h-full flex flex-col">
@@ -4551,8 +4623,9 @@ function CalendarView() {
 
   const [summaries, setSummaries] = useState<DaySummary[]>([]);
   const [summariesLoading, setSummariesLoading] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
-  const daysToLoad = view === "day" ? 1 : view === "week" ? 7 : view === "2week" ? 14 : 7;
+  const daysToLoad = view === "day" ? 1 : view === "week" ? 7 : 14;
 
   const loadEvents = useCallback(async (connected: boolean, startDate: Date, numDays: number) => {
     if (!connected) return;
@@ -4637,13 +4710,23 @@ function CalendarView() {
   // Reload when view/date changes
   useEffect(() => {
     if (status?.connected) {
-      if (view === "summary") {
+      loadEvents(true, currentDate, daysToLoad);
+      if (showSummary) {
         loadSummaries(true, currentDate);
-      } else {
-        loadEvents(true, currentDate, daysToLoad);
       }
     }
-  }, [view, currentDate, status?.connected, daysToLoad, loadEvents, loadSummaries]);
+  }, [view, currentDate, status?.connected, daysToLoad, loadEvents, showSummary, loadSummaries]);
+
+  // Auto-poll when summaries have pending items
+  useEffect(() => {
+    if (!showSummary || !status?.connected) return;
+    const hasPending = summaries.some((s) => s.pending);
+    if (!hasPending) return;
+    const interval = setInterval(() => {
+      loadSummaries(true, currentDate);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [view, summaries, status?.connected, currentDate, loadSummaries]);
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -4674,7 +4757,7 @@ function CalendarView() {
   const handlePrev = () => {
     setCurrentDate((d) => {
       const next = new Date(d);
-      const delta = view === "day" ? 1 : view === "week" || view === "summary" ? 7 : 14;
+      const delta = view === "day" ? 1 : view === "week" ? 7 : 14;
       next.setDate(next.getDate() - delta);
       return next;
     });
@@ -4683,7 +4766,7 @@ function CalendarView() {
   const handleNext = () => {
     setCurrentDate((d) => {
       const next = new Date(d);
-      const delta = view === "day" ? 1 : view === "week" || view === "summary" ? 7 : 14;
+      const delta = view === "day" ? 1 : view === "week" ? 7 : 14;
       next.setDate(next.getDate() + delta);
       return next;
     });
@@ -4767,25 +4850,31 @@ function CalendarView() {
         onPrev={handlePrev}
         onNext={handleNext}
         onToday={handleToday}
-        onRefresh={() => { if (status?.connected) loadEvents(true, currentDate, daysToLoad); }}
+        onRefresh={() => { if (status?.connected) { loadEvents(true, currentDate, daysToLoad); if (showSummary) loadSummaries(true, currentDate); } }}
         refreshing={eventsLoading}
         agentOpen={agentOpen}
         onToggleAgent={() => { setAgentOpen((v) => !v); if (!agentOpen) setSelectedEvents([]); }}
+        showSummary={showSummary}
+        onToggleSummary={() => setShowSummary((v) => !v)}
       />
       <div className="flex-1 min-h-0 flex overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {view === "day" ? (
-            <DayView date={currentDate} events={events} loading={eventsLoading} onEventClick={handleEventClick} selectedEventIds={new Set(selectedEvents.map((e) => e.id))} />
-          ) : view === "summary" ? (
-            <SummaryView startDate={currentDate} summaries={summaries} loading={summariesLoading} />
+            <DayView
+              date={currentDate}
+              events={showSummary ? summaryBlocksToEvents(summaries, currentDate) : events}
+              loading={showSummary ? summariesLoading : eventsLoading}
+              onEventClick={showSummary ? undefined : handleEventClick}
+              selectedEventIds={showSummary ? undefined : new Set(selectedEvents.map((e) => e.id))}
+            />
           ) : (
             <MultiDayView
               startDate={currentDate}
               days={view === "week" ? 7 : 14}
-              events={events}
-              loading={eventsLoading}
-              onEventClick={handleEventClick}
-              selectedEventIds={new Set(selectedEvents.map((e) => e.id))}
+              events={showSummary ? summaryBlocksToEvents(summaries, currentDate) : events}
+              loading={showSummary ? summariesLoading : eventsLoading}
+              onEventClick={showSummary ? undefined : handleEventClick}
+              selectedEventIds={showSummary ? undefined : new Set(selectedEvents.map((e) => e.id))}
             />
           )}
         </div>

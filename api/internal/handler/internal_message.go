@@ -44,6 +44,12 @@ func HandleInternalMessage(cfg *config.Config, db *sql.DB, r2 *storage.R2Client,
 		case "life_scheduler_run":
 			handleSchedulerRun(r, w, db, agent, msg.Data)
 
+		case "life_summary_check":
+			handleSummaryCheck(r, w, db)
+
+		case "life_summary_generate":
+			handleSummaryGenerate(r, w, db, agent, msg.Data)
+
 		default:
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{"error": "unknown message type: " + msg.Type})
@@ -137,5 +143,48 @@ func handleSchedulerRun(r *http.Request, w http.ResponseWriter, db *sql.DB, agen
 		"status":  "ok",
 		"user_id": payload.UserID,
 		"cycle":   string(payload.Cycle),
+	})
+}
+
+// handleSummaryCheck returns which user+date pairs need summary (re)generation.
+func handleSummaryCheck(r *http.Request, w http.ResponseWriter, db *sql.DB) {
+	stale, err := life.CheckStaleSummaries(r.Context(), db)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{"stale": stale})
+}
+
+// handleSummaryGenerate generates a single day summary for one user.
+func handleSummaryGenerate(r *http.Request, w http.ResponseWriter, db *sql.DB, agent *life.Agent, data json.RawMessage) {
+	var payload struct {
+		UserID string `json:"user_id"`
+		Date   string `json:"date"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid data: " + err.Error()})
+		return
+	}
+	if payload.UserID == "" || payload.Date == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "user_id and date are required"})
+		return
+	}
+
+	if err := life.GenerateAndCacheDaySummary(r.Context(), db, agent, payload.UserID, payload.Date); err != nil {
+		log.Printf("summary generate: %s/%s failed: %v", payload.UserID, payload.Date, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"user_id": payload.UserID,
+		"date":    payload.Date,
 	})
 }
