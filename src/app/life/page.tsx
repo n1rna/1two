@@ -4,7 +4,7 @@ import { LifeLanding } from "@/components/life-landing";
 const SITE_URL = "https://1tt.dev";
 
 export const metadata: Metadata = {
-  title: "Life Tool — AI-powered life planning",
+  title: "Life Tool - AI-powered life planning",
   description:
     "Chat with an AI agent that manages your tasks, routines, habits, memories, and calendar. Stay on track with Telegram and WhatsApp notifications.",
   metadataBase: new URL(SITE_URL),
@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: `${SITE_URL}/life`,
     siteName: "1tt.dev",
-    title: "Life Tool — Your AI Life Planner",
+    title: "Life Tool - Your AI Life Planner",
     description:
       "Chat with an AI agent that manages your tasks, routines, habits, memories, and calendar. Stay on track with Telegram and WhatsApp notifications.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Life Tool — Your AI Life Planner",
+    title: "Life Tool - Your AI Life Planner",
     description:
       "Chat with an AI agent that manages your tasks, routines, habits, memories, and calendar.",
   },
