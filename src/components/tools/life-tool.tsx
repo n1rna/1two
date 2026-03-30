@@ -805,19 +805,22 @@ function ToolCallDisplay({
     </a>
   ) : null;
 
+  const failed = effect.success === false;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground"
+      className={cn("mt-1.5 flex items-center gap-2 text-xs", failed ? "text-red-500/70" : "text-muted-foreground")}
     >
-      <div className="flex items-center justify-center size-4 rounded-full bg-primary/10 shrink-0">
-        {meta.icon}
+      <div className={cn("flex items-center justify-center size-4 rounded-full shrink-0", failed ? "bg-red-500/10" : "bg-primary/10")}>
+        {failed ? <AlertCircle className="size-2.5 text-red-500" /> : meta.icon}
       </div>
-      <span>{meta.label}</span>
-      {detail && <span className="opacity-50 truncate max-w-[200px]">· {detail}</span>}
-      {linkEl}
+      <span>{failed ? "Failed" : meta.label}</span>
+      {failed && effect.error && <span className="opacity-60 truncate max-w-[200px]">· {effect.error}</span>}
+      {!failed && detail && <span className="opacity-50 truncate max-w-[200px]">· {detail}</span>}
+      {!failed && linkEl}
     </motion.div>
   );
 }

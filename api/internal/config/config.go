@@ -106,7 +106,7 @@ func Load() *Config {
 		LLMProvider: getEnvOrDefault("LLM_PROVIDER", "openai"),
 		LLMAPIKey:   os.Getenv("LLM_API_KEY"),
 		LLMBaseURL:  getEnvOrDefault("LLM_BASE_URL", "https://api.moonshot.ai/v1"),
-		LLMModel:    getEnvOrDefault("LLM_MODEL", "kimi-k2-0711-preview"),
+		LLMModel:    getEnvOrDefault("LLM_MODEL", "kimi-k2.5"),
 
 		PolarAccessToken:       os.Getenv("POLAR_ACCESS_TOKEN"),
 		PolarWebhookSecret:     os.Getenv("POLAR_WEBHOOK_SECRET"),

@@ -204,7 +204,7 @@ func GenerateAiQuery(cfg *config.Config, db *sql.DB) http.HandlerFunc {
 			llmCfg.BaseURL = "https://api.moonshot.ai/v1"
 		}
 		if llmCfg.Model == "" {
-			llmCfg.Model = "kimi-k2-0711-preview"
+			llmCfg.Model = "kimi-k2.5"
 		}
 
 		agentResult, agentErr := query.Generate(r.Context(), llmCfg, query.GenerateRequest{

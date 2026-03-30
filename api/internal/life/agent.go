@@ -120,6 +120,9 @@ func (a *Agent) buildToolAgentConfig(req ChatRequest) ai.ToolAgentConfig {
 
 // Chat executes a single conversation turn with a ReAct tool-calling loop.
 func (a *Agent) Chat(ctx context.Context, req ChatRequest) (*ChatResult, error) {
+	// Compact history if it exceeds the context window budget.
+	req.History = CompactHistory(ctx, &a.llmCfg, req.History)
+
 	model, err := ai.NewLLM(&a.llmCfg)
 	if err != nil {
 		return nil, err
@@ -130,6 +133,9 @@ func (a *Agent) Chat(ctx context.Context, req ChatRequest) (*ChatResult, error) 
 // ChatStream executes a single conversation turn with streaming. The onEvent
 // callback is called for each token, tool call, tool result, and final done event.
 func (a *Agent) ChatStream(ctx context.Context, req ChatRequest, onEvent func(StreamEvent)) (*ChatResult, error) {
+	// Compact history if it exceeds the context window budget.
+	req.History = CompactHistory(ctx, &a.llmCfg, req.History)
+
 	model, err := ai.NewLLM(&a.llmCfg)
 	if err != nil {
 		return nil, err

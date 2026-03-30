@@ -782,23 +782,42 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 			http.Error(w, `{"error":"failed to read history"}`, http.StatusInternalServerError)
 			return nil, nil
 		}
-		// For assistant messages with tool calls, append a summary so the LLM
-		// knows what actions were taken (and doesn't hallucinate repeating them).
+		// For assistant messages with tool calls, append a structured summary so the
+		// LLM knows exactly what actions were taken and their results.
 		if m.Role == "assistant" && toolCallsRaw.Valid && toolCallsRaw.String != "" {
 			var effects []struct {
 				Tool string         `json:"tool"`
+				ID   string         `json:"id,omitempty"`
 				Data map[string]any `json:"data,omitempty"`
 			}
 			if json.Unmarshal([]byte(toolCallsRaw.String), &effects) == nil && len(effects) > 0 {
 				var summary strings.Builder
-				summary.WriteString("\n[Tools used in this response: ")
-				for i, eff := range effects {
-					if i > 0 {
-						summary.WriteString(", ")
+				summary.WriteString("\n\n[Actions taken:")
+				for _, eff := range effects {
+					summary.WriteString(fmt.Sprintf("\n- %s", eff.Tool))
+					if eff.ID != "" {
+						summary.WriteString(fmt.Sprintf(" (id=%s)", eff.ID))
 					}
-					summary.WriteString(eff.Tool)
+					// Include key result fields so the model knows what actually happened
+					if eff.Data != nil {
+						if name, ok := eff.Data["name"].(string); ok {
+							summary.WriteString(fmt.Sprintf(": %s", name))
+						} else if title, ok := eff.Data["title"].(string); ok {
+							summary.WriteString(fmt.Sprintf(": %s", title))
+						} else if content, ok := eff.Data["content"].(string); ok {
+							if len(content) > 80 {
+								content = content[:80] + "..."
+							}
+							summary.WriteString(fmt.Sprintf(": %s", content))
+						} else if summary2, ok := eff.Data["summary"].(string); ok {
+							summary.WriteString(fmt.Sprintf(": %s", summary2))
+						}
+						if errMsg, ok := eff.Data["error"].(string); ok {
+							summary.WriteString(fmt.Sprintf(" [FAILED: %s]", errMsg))
+						}
+					}
 				}
-				summary.WriteString("]")
+				summary.WriteString("\n]")
 				m.Content += summary.String()
 			}
 		}
@@ -929,8 +948,12 @@ func buildEffects(ctx context.Context, db *sql.DB, chatResult *life.ChatResult) 
 	var effects []map[string]any
 	for _, eff := range chatResult.Effects {
 		item := map[string]any{
-			"tool": eff.Tool,
-			"id":   eff.ID,
+			"tool":    eff.Tool,
+			"id":      eff.ID,
+			"success": eff.Success,
+		}
+		if eff.Error != "" {
+			item["error"] = eff.Error
 		}
 		var parsed map[string]any
 		if json.Unmarshal([]byte(eff.Result), &parsed) == nil {

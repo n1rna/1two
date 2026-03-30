@@ -14,9 +14,22 @@ type ToolExecutor func(ctx context.Context, call llms.ToolCall) string
 
 // ToolEffect represents a side effect from a tool call during a tool agent run.
 type ToolEffect struct {
-	Tool   string `json:"tool"`   // tool name
-	ID     string `json:"id"`     // ID of the created object (if applicable)
-	Result string `json:"result"` // raw JSON result from the tool
+	Tool    string `json:"tool"`              // tool name
+	ID      string `json:"id"`                // ID of the created object (if applicable)
+	Result  string `json:"result"`            // raw JSON result from the tool
+	Success bool   `json:"success"`           // whether the tool call succeeded
+	Error   string `json:"error,omitempty"`   // error message if failed
+}
+
+// isToolError checks if a tool result JSON contains an error field.
+func isToolError(result string) (bool, string) {
+	var parsed struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal([]byte(result), &parsed) == nil && parsed.Error != "" {
+		return true, parsed.Error
+	}
+	return false, ""
 }
 
 // ToolAgentResult holds the result of a tool agent chat turn.
@@ -144,12 +157,20 @@ func RunToolAgent(ctx context.Context, model llms.Model, cfg ToolAgentConfig) (*
 		for _, tc := range choice.ToolCalls {
 			log.Printf("tool agent: executing %q (id=%s)", tc.FunctionCall.Name, tc.ID)
 			result := cfg.Execute(ctx, tc)
-			log.Printf("tool agent: %q result: %s", tc.FunctionCall.Name, result)
+
+			isErr, errMsg := isToolError(result)
+			if isErr {
+				log.Printf("tool agent: %q FAILED: %s", tc.FunctionCall.Name, errMsg)
+			} else {
+				log.Printf("tool agent: %q OK: %s", tc.FunctionCall.Name, result)
+			}
 
 			effects = append(effects, ToolEffect{
-				Tool:   tc.FunctionCall.Name,
-				ID:     cfg.parseEffectID(tc.FunctionCall.Name, result),
-				Result: result,
+				Tool:    tc.FunctionCall.Name,
+				ID:      cfg.parseEffectID(tc.FunctionCall.Name, result),
+				Result:  result,
+				Success: !isErr,
+				Error:   errMsg,
 			})
 
 			messages = append(messages, llms.MessageContent{
@@ -249,13 +270,20 @@ func RunToolAgentStream(ctx context.Context, model llms.Model, cfg ToolAgentConf
 			onEvent(StreamEvent{Type: "tool_call", Data: tc.FunctionCall.Name})
 
 			result := cfg.Execute(ctx, tc)
-			log.Printf("tool agent stream: %q result: %s", tc.FunctionCall.Name, result)
+			isErr, errMsg := isToolError(result)
+			if isErr {
+				log.Printf("tool agent stream: %q FAILED: %s", tc.FunctionCall.Name, errMsg)
+			} else {
+				log.Printf("tool agent stream: %q OK: %s", tc.FunctionCall.Name, result)
+			}
 			onEvent(StreamEvent{Type: "tool_result", Data: result})
 
 			effects = append(effects, ToolEffect{
-				Tool:   tc.FunctionCall.Name,
-				ID:     cfg.parseEffectID(tc.FunctionCall.Name, result),
-				Result: result,
+				Tool:    tc.FunctionCall.Name,
+				ID:      cfg.parseEffectID(tc.FunctionCall.Name, result),
+				Result:  result,
+				Success: !isErr,
+				Error:   errMsg,
 			})
 
 			messages = append(messages, llms.MessageContent{

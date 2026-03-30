@@ -46,6 +46,8 @@ export interface LifeMessage {
 export interface ChatEffect {
   tool: string; // "create_actionable" | "remember" | "create_routine" | "forget" | etc.
   id: string;
+  success?: boolean;
+  error?: string;
   actionable?: LifeActionable;
   data?: Record<string, unknown>; // parsed tool result for memory/routine
 }
