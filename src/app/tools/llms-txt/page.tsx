@@ -6,7 +6,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "llms-txt",
-  title: "llms.txt Generator - 1tt.dev",
+  title: "llms.txt Generator",
   description:
     "Generate llms.txt files from any website or documentation. Crawls the site, analyzes content with AI, and outputs a structured file optimized for LLM consumption.",
   keywords: [

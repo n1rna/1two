@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { PokerLanding } from "@/components/tools/poker-landing";
 
 export const metadata: Metadata = {
-  title: "Planning Poker - 1tt.dev",
+  title: "Planning Poker",
   description:
     "Real-time planning poker for agile teams. Create or join a session to vote on story sizes together using Fibonacci, T-shirt, or custom scales.",
   keywords: [

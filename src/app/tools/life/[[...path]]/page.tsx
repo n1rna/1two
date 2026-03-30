@@ -3,7 +3,7 @@ import { toolMetadata, toolJsonLd } from "@/lib/tools/seo";
 
 export const metadata = toolMetadata({
   slug: "life",
-  title: "Life Tool - AI Life Planner - 1tt.dev",
+  title: "Life Tool - AI Life Planner",
   description:
     "AI-powered life planning - manage routines, actionables, habits, and daily schedules with an intelligent assistant.",
   keywords: [

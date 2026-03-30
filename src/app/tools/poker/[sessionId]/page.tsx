@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PokerSession } from "@/components/tools/poker-session";
 
 export const metadata: Metadata = {
-  title: "Planning Poker Session - 1tt.dev",
+  title: "Planning Poker Session",
   description: "Real-time planning poker session. Vote on story points with your team.",
 };
 
