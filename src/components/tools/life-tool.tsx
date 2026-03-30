@@ -943,7 +943,7 @@ function ChatView({
   const [conversations, setConversations] = useState<LifeConversation[]>([]);
   const [convsLoading, setConvsLoading] = useState(true);
   const [showConvList, setShowConvList] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [messagesLoading, setMessagesLoading] = useState(!!persistedConvId || !!routineId);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const setActiveConvId = useCallback((id: string | null) => {
@@ -959,7 +959,8 @@ function ChatView({
       setActiveConvIdLocal(persistedConvId);
       getLifeConversationMessages(persistedConvId)
         .then(setMessages)
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setMessagesLoading(false));
     }
   }, [persistedConvId]);
 
@@ -971,25 +972,35 @@ function ChatView({
 
     let cancelled = false;
     getRoutineConversationId(routineId).then(async (convId) => {
-      if (cancelled || !convId) return;
+      if (cancelled) return;
+      if (!convId) {
+        setMessagesLoading(false);
+        return;
+      }
       setActiveConvIdLocal(convId);
       loadedConvRef.current = convId;
       try {
         const msgs = await getLifeConversationMessages(convId);
         if (!cancelled) setMessages(msgs);
       } catch { /* ignore */ }
-    });
+      if (!cancelled) setMessagesLoading(false);
+    }).catch(() => { if (!cancelled) setMessagesLoading(false); });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routineId]);
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const wasAtBottomRef = useRef(true);
 
+  // Keep scroll at bottom when new messages arrive, but only if user was already at bottom.
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, sending, scrollToBottom]);
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    // column-reverse: scrollTop 0 = bottom, negative = scrolled up
+    if (wasAtBottomRef.current) {
+      el.scrollTop = 0;
+    }
+  }, [messages, sending]);
 
   // Load conversation list
   const loadConversations = useCallback(async () => {
@@ -1017,11 +1028,14 @@ function ChatView({
   const handleSelectConv = useCallback(async (id: string) => {
     setActiveConvId(id);
     setMessages([]);
+    setMessagesLoading(true);
     try {
       const msgs = await getLifeConversationMessages(id);
       setMessages(msgs);
     } catch {
       // failed to load — leave empty
+    } finally {
+      setMessagesLoading(false);
     }
     textareaRef.current?.focus();
   }, []);
@@ -1257,8 +1271,25 @@ function ChatView({
         )}
 
         {/* Messages */}
-        <div className={cn("flex-1 px-5 py-2", messages.length > 0 || sending ? "overflow-y-auto" : "flex flex-col overflow-hidden")}>
-          {messages.length === 0 && !sending && (
+        <div
+          ref={scrollContainerRef}
+          onScroll={() => {
+            const el = scrollContainerRef.current;
+            if (el) {
+              // column-reverse: scrollTop 0 means at bottom, negative means scrolled up
+              wasAtBottomRef.current = el.scrollTop > -50;
+            }
+          }}
+          className={cn("flex-1 px-5 py-2", messages.length > 0 || sending ? "overflow-y-auto flex flex-col-reverse" : "flex flex-col overflow-hidden")}>
+          {messagesLoading && messages.length === 0 && (
+            <div className="flex flex-col gap-3 py-4 animate-pulse">
+              <div className="flex justify-end"><div className="h-4 w-36 rounded bg-muted/60" /></div>
+              <div className="flex flex-col gap-1.5"><div className="h-3 w-48 rounded bg-muted/40" /><div className="h-3 w-64 rounded bg-muted/40" /><div className="h-3 w-40 rounded bg-muted/40" /></div>
+              <div className="flex justify-end"><div className="h-4 w-28 rounded bg-muted/60" /></div>
+              <div className="flex flex-col gap-1.5"><div className="h-3 w-56 rounded bg-muted/40" /><div className="h-3 w-44 rounded bg-muted/40" /></div>
+            </div>
+          )}
+          {messages.length === 0 && !sending && !messagesLoading && (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4">
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <Sparkles className="h-6 w-6 text-primary" />
@@ -1302,6 +1333,7 @@ function ChatView({
               </div>
             </div>
           )}
+          <div>
           {messages.map((msg, idx) => (
             <div key={msg.id}>
               <MessageBubble msg={msg} isLast={idx === messages.length - 1 && !sending} />
@@ -1389,7 +1421,7 @@ function ChatView({
             </motion.div>
           )}
           </AnimatePresence>
-          <div ref={bottomRef} />
+          </div>
         </div>
 
         {/* Slot above input */}
@@ -6030,7 +6062,15 @@ export function LifeTool() {
     chatCounterRef.current = chatNums.length > 0 ? Math.max(...chatNums) : 0;
   }, [lifeState.tabs]);
 
-  const tabs = lifeState.tabs;
+  // Deduplicate tabs by id (stale synced state can have dupes)
+  const tabs = useMemo(() => {
+    const seen = new Set<string>();
+    return lifeState.tabs.filter((t) => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+  }, [lifeState.tabs]);
   const activeTabId = lifeState.activeTabId;
 
   // Update URL when active tab changes
@@ -6168,13 +6208,19 @@ export function LifeTool() {
   // When a chat tab gets a conversation ID, update the tab's convId and URL
   const onChatConvIdChange = useCallback((tabId: string, convId: string | null) => {
     setLifeState((prev) => {
+      const newId = convId ? `tab:chat:${convId}` : null;
+      // If a tab with this convId already exists, just switch to it and remove the old one
+      if (newId && prev.tabs.some((t) => t.id === newId && t.id !== tabId)) {
+        const filtered = prev.tabs.filter((t) => t.id !== tabId);
+        return { ...prev, tabs: filtered, activeTabId: newId };
+      }
       const newTabs = prev.tabs.map((t) =>
         t.id === tabId && t.type === "chat"
-          ? { ...t, convId: convId ?? undefined, id: convId ? `tab:chat:${convId}` : t.id }
+          ? { ...t, convId: convId ?? undefined, id: newId ?? t.id }
           : t
       );
-      const newActiveTabId = prev.activeTabId === tabId && convId
-        ? `tab:chat:${convId}`
+      const newActiveTabId = prev.activeTabId === tabId && newId
+        ? newId
         : prev.activeTabId;
       return { ...prev, tabs: newTabs, activeTabId: newActiveTabId };
     });
