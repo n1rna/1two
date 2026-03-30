@@ -53,6 +53,7 @@ type ToolAgentConfig struct {
 	MaxRounds     int          // max tool-calling iterations (default 5)
 	Temperature   float64      // LLM temperature (default 0.7)
 	MaxTokens     int          // max output tokens per call (default 4096)
+	LLMConfig     *LLMConfig   // needed for direct API calls (thinking models)
 	EffectIDParse func(toolName, result string) string // optional: extract effect ID from result
 }
 
@@ -107,7 +108,13 @@ func (c *ToolAgentConfig) parseEffectID(toolName, result string) string {
 }
 
 // RunToolAgent executes a ReAct-style tool-calling loop (non-streaming).
+// For thinking models (kimi-k2.5, deepseek-reasoner), it uses direct API calls
+// to properly handle reasoning_content in the tool-calling loop.
 func RunToolAgent(ctx context.Context, model llms.Model, cfg ToolAgentConfig) (*ToolAgentResult, error) {
+	if cfg.LLMConfig != nil && IsThinkingModel(cfg.LLMConfig.Model) {
+		return runToolAgentDirect(ctx, cfg)
+	}
+
 	messages := make([]llms.MessageContent, len(cfg.Messages))
 	copy(messages, cfg.Messages)
 
@@ -200,9 +207,188 @@ func RunToolAgent(ctx context.Context, model llms.Model, cfg ToolAgentConfig) (*
 	return &ToolAgentResult{Text: resp.Choices[0].Content, Effects: effects}, nil
 }
 
+// runToolAgentDirect handles tool-calling for thinking models (kimi-k2.5, etc.)
+// by making direct HTTP calls that properly preserve reasoning_content.
+func runToolAgentDirect(ctx context.Context, cfg ToolAgentConfig) (*ToolAgentResult, error) {
+	messages := llmsMessagesToKimi(cfg.Messages)
+	tools := llmsToolsToKimi(cfg.Tools)
+
+	var effects []ToolEffect
+
+	for round := 0; round < cfg.maxRounds(); round++ {
+		resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, tools, cfg.temperature(), cfg.maxTokens())
+		if err != nil {
+			return nil, fmt.Errorf("tool agent direct: round %d: %w", round, err)
+		}
+		if len(resp.Choices) == 0 {
+			return nil, fmt.Errorf("tool agent direct: no choices (round %d)", round)
+		}
+
+		choice := resp.Choices[0]
+
+		// No tool calls → done.
+		if len(choice.Message.ToolCalls) == 0 {
+			return &ToolAgentResult{Text: choice.Message.Content, Effects: effects}, nil
+		}
+
+		// Append assistant message with reasoning_content preserved.
+		messages = append(messages, kimiMessage{
+			Role:             "assistant",
+			Content:          choice.Message.Content,
+			ReasoningContent: choice.Message.ReasoningContent,
+			ToolCalls:        choice.Message.ToolCalls,
+		})
+
+		// Execute tools.
+		for _, tc := range choice.Message.ToolCalls {
+			log.Printf("tool agent direct: executing %q (id=%s)", tc.Function.Name, tc.ID)
+
+			// Convert to llms.ToolCall for the executor
+			llmTC := llms.ToolCall{
+				ID:   tc.ID,
+				Type: tc.Type,
+				FunctionCall: &llms.FunctionCall{
+					Name:      tc.Function.Name,
+					Arguments: tc.Function.Arguments,
+				},
+			}
+			result := cfg.Execute(ctx, llmTC)
+
+			isErr, errMsg := isToolError(result)
+			if isErr {
+				log.Printf("tool agent direct: %q FAILED: %s", tc.Function.Name, errMsg)
+			} else {
+				log.Printf("tool agent direct: %q OK: %s", tc.Function.Name, result)
+			}
+
+			effects = append(effects, ToolEffect{
+				Tool:    tc.Function.Name,
+				ID:      cfg.parseEffectID(tc.Function.Name, result),
+				Result:  result,
+				Success: !isErr,
+				Error:   errMsg,
+			})
+
+			messages = append(messages, kimiMessage{
+				Role:       "tool",
+				Content:    result,
+				ToolCallID: tc.ID,
+			})
+		}
+	}
+
+	// Exhausted tool rounds — final call without tools.
+	resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, nil, cfg.temperature(), cfg.maxTokens())
+	if err != nil {
+		return nil, fmt.Errorf("tool agent direct: final: %w", err)
+	}
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("tool agent direct: no choices in final")
+	}
+	return &ToolAgentResult{Text: resp.Choices[0].Message.Content, Effects: effects}, nil
+}
+
+// runToolAgentDirectWithEvents is like runToolAgentDirect but emits StreamEvents
+// for frontend consumption (tool_call, tool_result, token, done).
+func runToolAgentDirectWithEvents(ctx context.Context, cfg ToolAgentConfig, onEvent func(StreamEvent)) (*ToolAgentResult, error) {
+	messages := llmsMessagesToKimi(cfg.Messages)
+	tools := llmsToolsToKimi(cfg.Tools)
+
+	var effects []ToolEffect
+
+	for round := 0; round < cfg.maxRounds(); round++ {
+		resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, tools, cfg.temperature(), cfg.maxTokens())
+		if err != nil {
+			return nil, fmt.Errorf("tool agent direct stream: round %d: %w", round, err)
+		}
+		if len(resp.Choices) == 0 {
+			return nil, fmt.Errorf("tool agent direct stream: no choices (round %d)", round)
+		}
+
+		choice := resp.Choices[0]
+
+		if len(choice.Message.ToolCalls) == 0 {
+			// Emit the full text as a single token event
+			if choice.Message.Content != "" {
+				onEvent(StreamEvent{Type: "token", Data: choice.Message.Content})
+			}
+			result := &ToolAgentResult{Text: choice.Message.Content, Effects: effects}
+			resultJSON, _ := json.Marshal(result)
+			onEvent(StreamEvent{Type: "done", Data: string(resultJSON)})
+			return result, nil
+		}
+
+		messages = append(messages, kimiMessage{
+			Role:             "assistant",
+			Content:          choice.Message.Content,
+			ReasoningContent: choice.Message.ReasoningContent,
+			ToolCalls:        choice.Message.ToolCalls,
+		})
+
+		for _, tc := range choice.Message.ToolCalls {
+			log.Printf("tool agent direct stream: executing %q (id=%s)", tc.Function.Name, tc.ID)
+			onEvent(StreamEvent{Type: "tool_call", Data: tc.Function.Name})
+
+			llmTC := llms.ToolCall{
+				ID:   tc.ID,
+				Type: tc.Type,
+				FunctionCall: &llms.FunctionCall{
+					Name:      tc.Function.Name,
+					Arguments: tc.Function.Arguments,
+				},
+			}
+			result := cfg.Execute(ctx, llmTC)
+
+			isErr, errMsg := isToolError(result)
+			if isErr {
+				log.Printf("tool agent direct stream: %q FAILED: %s", tc.Function.Name, errMsg)
+			} else {
+				log.Printf("tool agent direct stream: %q OK: %s", tc.Function.Name, result)
+			}
+			onEvent(StreamEvent{Type: "tool_result", Data: result})
+
+			effects = append(effects, ToolEffect{
+				Tool:    tc.Function.Name,
+				ID:      cfg.parseEffectID(tc.Function.Name, result),
+				Result:  result,
+				Success: !isErr,
+				Error:   errMsg,
+			})
+
+			messages = append(messages, kimiMessage{
+				Role:       "tool",
+				Content:    result,
+				ToolCallID: tc.ID,
+			})
+		}
+	}
+
+	// Final call without tools
+	resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, nil, cfg.temperature(), cfg.maxTokens())
+	if err != nil {
+		return nil, fmt.Errorf("tool agent direct stream: final: %w", err)
+	}
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("tool agent direct stream: no choices in final")
+	}
+	text := resp.Choices[0].Message.Content
+	if text != "" {
+		onEvent(StreamEvent{Type: "token", Data: text})
+	}
+	result := &ToolAgentResult{Text: text, Effects: effects}
+	resultJSON, _ := json.Marshal(result)
+	onEvent(StreamEvent{Type: "done", Data: string(resultJSON)})
+	return result, nil
+}
+
 // RunToolAgentStream executes a streaming ReAct-style tool-calling loop.
 // The onEvent callback is called for each token, tool call, tool result, and done event.
+// For thinking models, falls back to non-streaming direct API calls with event simulation.
 func RunToolAgentStream(ctx context.Context, model llms.Model, cfg ToolAgentConfig, onEvent func(StreamEvent)) (*ToolAgentResult, error) {
+	if cfg.LLMConfig != nil && IsThinkingModel(cfg.LLMConfig.Model) {
+		return runToolAgentDirectWithEvents(ctx, cfg, onEvent)
+	}
+
 	messages := make([]llms.MessageContent, len(cfg.Messages))
 	copy(messages, cfg.Messages)
 

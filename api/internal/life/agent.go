@@ -113,8 +113,9 @@ func (a *Agent) buildToolAgentConfig(req ChatRequest) ai.ToolAgentConfig {
 			return executeTool(ctx, a.db, a.gcalClient, req.UserID, req.AutoApprove, call)
 		},
 		MaxRounds:   5,
-		Temperature: 0.7,
+		Temperature: 1.0,
 		MaxTokens:   4096,
+		LLMConfig:   &a.llmCfg,
 	}
 }
 
