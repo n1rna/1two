@@ -160,58 +160,66 @@ export default {
       console.log(`Cleanup: ${res.status} ${await res.text()}`);
     }
 
-    // Life scheduler every 15 minutes — check which cycles are due and enqueue them
+    // Life scheduler every 15 minutes — check which cycles are due and enqueue them.
+    // We run BOTH the scheduler check and the summary check on every tick,
+    // and we never early-return between them. Each is wrapped in its own
+    // try/catch so a failure in one doesn't suppress the other.
     if (event.cron === "*/15 * * * *") {
-      const res = await sendMessage(stub, secret, {
-        type: "life_scheduler_check",
-      });
-
-      if (!res.ok) {
-        console.error(`Scheduler check failed: ${res.status} ${await res.text()}`);
-        return;
-      }
-
-      const body = (await res.json()) as {
-        cycles: { user_id: string; cycle: string }[];
-      };
-      const cycles = body.cycles ?? [];
-
-      if (cycles.length === 0) {
-        console.log("Scheduler: no cycles due");
-        return;
-      }
-
-      // Enqueue each user/cycle as a separate queue message
-      for (const cycle of cycles) {
-        await env.SCHEDULER_QUEUE.send({
-          type: "life_scheduler_run",
-          data: { user_id: cycle.user_id, cycle: cycle.cycle },
+      // ── Scheduler cycles ──
+      try {
+        const res = await sendMessage(stub, secret, {
+          type: "life_scheduler_check",
         });
+
+        if (!res.ok) {
+          console.error(`Scheduler check failed: ${res.status} ${await res.text()}`);
+        } else {
+          const body = (await res.json()) as {
+            cycles: { user_id: string; cycle: string }[];
+          };
+          const cycles = body.cycles ?? [];
+
+          if (cycles.length === 0) {
+            console.log("Scheduler: no cycles due");
+          } else {
+            for (const cycle of cycles) {
+              await env.SCHEDULER_QUEUE.send({
+                type: "life_scheduler_run",
+                data: { user_id: cycle.user_id, cycle: cycle.cycle },
+              });
+            }
+            console.log(`Scheduler: enqueued ${cycles.length} cycle(s)`);
+          }
+        }
+      } catch (e) {
+        console.error("Scheduler check threw:", e);
       }
 
-      console.log(`Scheduler: enqueued ${cycles.length} cycle(s)`);
+      // ── Day summaries ── (always runs, independent of scheduler outcome)
+      try {
+        const summaryRes = await sendMessage(stub, secret, {
+          type: "life_summary_check",
+        });
 
-      // Also check for stale day summaries and enqueue regeneration
-      const summaryRes = await sendMessage(stub, secret, {
-        type: "life_summary_check",
-      });
+        if (!summaryRes.ok) {
+          console.error(`Summary check failed: ${summaryRes.status} ${await summaryRes.text()}`);
+        } else {
+          const summaryBody = (await summaryRes.json()) as {
+            stale: { user_id: string; date: string }[];
+          };
+          const stale = summaryBody.stale ?? [];
 
-      if (summaryRes.ok) {
-        const summaryBody = (await summaryRes.json()) as {
-          stale: { user_id: string; date: string }[];
-        };
-        const stale = summaryBody.stale ?? [];
+          for (const item of stale) {
+            await env.SCHEDULER_QUEUE.send({
+              type: "life_summary_generate",
+              data: { user_id: item.user_id, date: item.date },
+            });
+          }
 
-        for (const item of stale) {
-          await env.SCHEDULER_QUEUE.send({
-            type: "life_summary_generate",
-            data: { user_id: item.user_id, date: item.date },
-          });
+          console.log(`Summaries: checked, enqueued ${stale.length} regeneration(s)`);
         }
-
-        if (stale.length > 0) {
-          console.log(`Summaries: enqueued ${stale.length} regeneration(s)`);
-        }
+      } catch (e) {
+        console.error("Summary check threw:", e);
       }
     }
   },
