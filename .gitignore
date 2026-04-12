@@ -59,3 +59,7 @@ api/server
 
 # planning docs
 TOOL_IDEAS.md
+
+# wrangler tail debug captures
+workers/api-container/tail.out
+workers/api-container/tail.err
