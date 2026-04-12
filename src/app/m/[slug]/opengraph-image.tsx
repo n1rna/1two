@@ -2,7 +2,9 @@ import { ImageResponse } from "next/og";
 import { apiFetch } from "@/lib/api-fetch";
 import type { MarketplaceItem, MarketplaceKind } from "@/lib/marketplace";
 
-export const runtime = "edge";
+// Note: do NOT set `runtime = "edge"` — OpenNext/Cloudflare requires edge
+// runtime functions to be bundled separately, which breaks the monolithic
+// build. ImageResponse works fine under the default runtime.
 export const alt = "Life Marketplace item";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
