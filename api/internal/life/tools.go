@@ -1801,9 +1801,9 @@ func toolHealthGenerateMealPlan(ctx context.Context, db *sql.DB, userID, args st
 
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO health_meal_plans (id,user_id,title,plan_type,diet_type,target_calories,content) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-		id, userID, params.Title, params.PlanType, dietType, tc, content); err != nil {
+		id, userID, params.Title, params.PlanType, dietType, tc, string(content)); err != nil {
 		log.Printf("life agent: save meal plan for %s: %v", userID, err)
-		return jsonError("failed to save meal plan")
+		return jsonError("failed to save meal plan: " + err.Error())
 	}
 	return fmt.Sprintf(`{"success":true,"id":"%s","title":"%s"}`, id, params.Title)
 }
