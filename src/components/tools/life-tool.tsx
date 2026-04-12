@@ -61,12 +61,17 @@ import {
   Archive,
   RotateCcw,
   ArrowRight,
+  Store,
+  Upload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PublishDialog } from "@/components/life/marketplace/PublishDialog";
+import { ForkedFromBadge } from "@/components/life/marketplace/ForkedFromBadge";
 import { ToolTabBar } from "@/components/layout/tool-tab-bar";
 import { SlashCommandMenu, useSlashCommands, type SlashCommand } from "@/components/ui/slash-commands";
 import { ServiceError } from "@/components/ui/service-error";
@@ -137,6 +142,8 @@ import {
   deleteWeightEntry,
   listMealPlans,
   deleteMealPlan,
+  getMealPlan,
+  updateMealPlan,
   listHealthSessions,
   getHealthSession,
   deleteHealthSession,
@@ -151,6 +158,7 @@ import {
   type HealthSession,
   type HealthSessionExercise,
   type HealthMealPlan,
+  type MealItem,
   type WeightEntry,
   type ChatEffect as HealthChatEffect,
 } from "@/lib/health";
@@ -180,6 +188,7 @@ type LifeTabType =
   | "weight"
   | "macros"
   | "meal-plans"
+  | "meal-plan-detail"
   | "sessions"
   | "session-detail";
 
@@ -191,6 +200,7 @@ interface LifeTab {
   chatNum?: number; // display number for chat tabs (#1, #2, etc.)
   routineId?: string; // for routine-detail tabs
   sessionId?: string; // for session-detail tabs
+  mealPlanId?: string; // for meal-plan-detail tabs
   pinned?: boolean;
 }
 
@@ -221,6 +231,7 @@ const TAB_LABELS: Record<LifeTabType, string> = {
   weight: "Weight",
   macros: "Macros",
   "meal-plans": "Meal Plans",
+  "meal-plan-detail": "Meal Plan",
   sessions: "Sessions",
   "session-detail": "Session",
 };
@@ -241,6 +252,7 @@ const TAB_ICONS: Record<LifeTabType, React.ReactNode> = {
   weight: <Weight className="h-3 w-3" />,
   macros: <PieChart className="h-3 w-3" />,
   "meal-plans": <UtensilsCrossed className="h-3 w-3" />,
+  "meal-plan-detail": <UtensilsCrossed className="h-3 w-3" />,
   sessions: <Dumbbell className="h-3 w-3" />,
   "session-detail": <Dumbbell className="h-3 w-3" />,
 };
@@ -261,6 +273,7 @@ const TAB_COLORS: Record<LifeTabType, string> = {
   weight: "text-teal-500",
   macros: "text-teal-500",
   "meal-plans": "text-teal-500",
+  "meal-plan-detail": "text-teal-500",
   sessions: "text-blue-500",
   "session-detail": "text-blue-500",
 };
@@ -486,8 +499,15 @@ function LifeSidebar({
           </div>
         ))}
       </div>
-      {/* Settings at bottom */}
-      <div className="shrink-0 border-t px-1.5 py-2">
+      {/* Marketplace + Settings at bottom */}
+      <div className="shrink-0 border-t px-1.5 py-2 space-y-0.5">
+        <Link
+          href="/tools/life/marketplace"
+          className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/50"
+        >
+          <Store className="h-3.5 w-3.5" />
+          Marketplace
+        </Link>
         <button
           onClick={() => onOpenTab("settings")}
           className={cn(
@@ -3507,6 +3527,7 @@ function RoutineDetailView({ routineId }: { routineId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   // Editable fields
   const [name, setName] = useState("");
@@ -3686,13 +3707,24 @@ function RoutineDetailView({ routineId }: { routineId: string }) {
                   </Button>
                 </>
               ) : (
-                <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setEditing(true)}>
-                  <Edit2 className="h-3 w-3" />
-                  Edit
-                </Button>
+                <>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setEditing(true)}>
+                    <Edit2 className="h-3 w-3" />
+                    Edit
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setPublishOpen(true)}>
+                    <Upload className="h-3 w-3" />
+                    Publish
+                  </Button>
+                </>
               )}
             </div>
           </div>
+
+          {/* Forked-from badge */}
+          {routine.forkedFromMpId && (
+            <ForkedFromBadge mpId={routine.forkedFromMpId} />
+          )}
 
           {/* Description */}
           <div className="space-y-1">
@@ -3756,6 +3788,17 @@ function RoutineDetailView({ routineId }: { routineId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Publish to marketplace */}
+      {routine && (
+        <PublishDialog
+          open={publishOpen}
+          onOpenChange={setPublishOpen}
+          kind="routine"
+          sourceId={routine.id}
+          defaultTitle={routine.name}
+        />
+      )}
     </div>
   );
 }
@@ -5521,6 +5564,11 @@ function PlaceholderView({
       title: "Meal Plans",
       description: "",
     },
+    "meal-plan-detail": {
+      icon: <UtensilsCrossed className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Meal Plan",
+      description: "",
+    },
     sessions: {
       icon: <Dumbbell className="h-10 w-10 text-muted-foreground/30" />,
       title: "Workout Sessions",
@@ -7032,9 +7080,17 @@ function HealthMacrosTab({ profile }: { profile: HealthProfile }) {
 
 // ─── Health: Meal Plans Tab ────────────────────────────────────────────────────
 
-function HealthMealPlansTab({ plans, onRefresh }: { plans: HealthMealPlan[]; onRefresh: () => void }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+function HealthMealPlansTab({
+  plans,
+  onRefresh,
+  onOpenPlan,
+}: {
+  plans: HealthMealPlan[];
+  onRefresh: () => void;
+  onOpenPlan: (plan: HealthMealPlan) => void;
+}) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [publishPlan, setPublishPlan] = useState<HealthMealPlan | null>(null);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -7054,85 +7110,414 @@ function HealthMealPlansTab({ plans, onRefresh }: { plans: HealthMealPlan[]; onR
           <p className="text-xs text-muted-foreground">Chat with Health AI via the Life chat to generate one.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {plans.map((plan) => {
-            const isExpanded = expandedId === plan.id;
-            return (
-              <div key={plan.id} className="rounded-lg border bg-muted/20 overflow-hidden">
-                <button onClick={() => setExpandedId(isExpanded ? null : plan.id)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/30 transition-colors text-left">
-                  <div>
-                    <p className="text-sm font-medium">{plan.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[11px] text-muted-foreground capitalize">{plan.planType}</span>
+        <div className="rounded-lg border bg-muted/20 divide-y overflow-hidden">
+          {plans.map((plan) => (
+            <div key={plan.id} className="group flex items-center gap-2 px-3 py-2.5 hover:bg-muted/30 transition-colors">
+              <button
+                onClick={() => onOpenPlan(plan)}
+                className="flex-1 text-left min-w-0"
+              >
+                <p className="text-sm font-medium truncate">{plan.title}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <span className="text-[11px] text-muted-foreground capitalize">{plan.planType}</span>
+                  <span className="text-[11px] text-muted-foreground">·</span>
+                  <span className="text-[11px] text-muted-foreground capitalize">{plan.dietType.replace(/_/g, " ")}</span>
+                  {plan.targetCalories != null && (
+                    <>
                       <span className="text-[11px] text-muted-foreground">·</span>
-                      <span className="text-[11px] text-muted-foreground capitalize">{plan.dietType.replace(/_/g, " ")}</span>
-                      {plan.targetCalories && <><span className="text-[11px] text-muted-foreground">·</span><span className="text-[11px] text-muted-foreground">{Math.round(plan.targetCalories)} kcal</span></>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground">{new Date(plan.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
-                    <button onClick={(e) => { e.stopPropagation(); handleDelete(plan.id); }} disabled={deletingId === plan.id}
-                      className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors">
-                      {deletingId === plan.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                    </button>
-                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                  </div>
-                </button>
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden border-t">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="bg-muted/30 border-b">
-                              {plan.planType === "weekly" && <th className="text-left px-3 py-2 font-medium text-muted-foreground">Day</th>}
-                              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Meal</th>
-                              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Name</th>
-                              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Cal</th>
-                              <th className="text-right px-3 py-2 font-medium text-teal-600 dark:text-teal-400">P</th>
-                              <th className="text-right px-3 py-2 font-medium text-blue-600 dark:text-blue-400">C</th>
-                              <th className="text-right px-3 py-2 font-medium text-amber-600 dark:text-amber-400">F</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {plan.content.meals.map((meal, i) => (
-                              <tr key={i} className="hover:bg-muted/20">
-                                {plan.planType === "weekly" && <td className="px-3 py-2 text-muted-foreground capitalize">{meal.day ?? ""}</td>}
-                                <td className="px-3 py-2 text-muted-foreground capitalize">{meal.meal_type.replace(/_/g, " ")}</td>
-                                <td className="px-3 py-2 font-medium">{meal.name}</td>
-                                <td className="px-3 py-2 text-right tabular-nums">{meal.calories}</td>
-                                <td className="px-3 py-2 text-right tabular-nums text-teal-600 dark:text-teal-400">{meal.protein_g != null ? `${meal.protein_g}g` : "—"}</td>
-                                <td className="px-3 py-2 text-right tabular-nums text-blue-600 dark:text-blue-400">{meal.carbs_g != null ? `${meal.carbs_g}g` : "—"}</td>
-                                <td className="px-3 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400">{meal.fat_g != null ? `${meal.fat_g}g` : "—"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </motion.div>
+                      <span className="text-[11px] text-muted-foreground">{Math.round(plan.targetCalories)} kcal</span>
+                    </>
                   )}
-                </AnimatePresence>
+                  <span className="text-[11px] text-muted-foreground">·</span>
+                  <span className="text-[11px] text-muted-foreground">{plan.content?.meals?.length ?? 0} meals</span>
+                </div>
+              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  {new Date(plan.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+                </span>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => setPublishPlan(plan)}
+                    title="Publish to Marketplace"
+                    className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Upload className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(plan.id)}
+                    disabled={deletingId === plan.id}
+                    className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                  >
+                    {deletingId === plan.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                  </button>
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
+
+      {publishPlan && (
+        <PublishDialog
+          open={!!publishPlan}
+          onOpenChange={(open) => { if (!open) setPublishPlan(null); }}
+          kind="meal_plan"
+          sourceId={publishPlan.id}
+          defaultTitle={publishPlan.title}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Health: Meal Plan Detail Tab ──────────────────────────────────────────────
+
+const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
+
+function HealthMealPlanDetailTab({ mealPlanId, onChanged }: { mealPlanId: string; onChanged?: () => void }) {
+  const [plan, setPlan] = useState<HealthMealPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    getMealPlan(mealPlanId)
+      .then((p) => {
+        // Normalize in case meals is missing
+        if (!p.content) p.content = { meals: [] };
+        if (!p.content.meals) p.content.meals = [];
+        setPlan(p);
+        setDirty(false);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load meal plan"))
+      .finally(() => setLoading(false));
+  }, [mealPlanId]);
+
+  const mutatePlan = (fn: (prev: HealthMealPlan) => HealthMealPlan) => {
+    setPlan((prev) => (prev ? fn(prev) : prev));
+    setDirty(true);
+  };
+
+  const handleTitleChange = (title: string) =>
+    mutatePlan((p) => ({ ...p, title }));
+  const handleTargetCaloriesChange = (v: string) =>
+    mutatePlan((p) => ({ ...p, targetCalories: v === "" ? null : Number(v) }));
+  const handleDietTypeChange = (dietType: string) =>
+    mutatePlan((p) => ({ ...p, dietType }));
+  const handlePlanTypeChange = (planType: string) =>
+    mutatePlan((p) => ({ ...p, planType }));
+
+  const handleMealChange = (index: number, field: keyof MealItem, value: string) => {
+    mutatePlan((p) => {
+      const meals = [...p.content.meals];
+      const current = { ...meals[index] };
+      if (field === "calories" || field === "protein_g" || field === "carbs_g" || field === "fat_g") {
+        const n = value === "" ? undefined : Number(value);
+        (current as Record<string, unknown>)[field] = field === "calories" ? (n ?? 0) : n;
+      } else {
+        (current as Record<string, unknown>)[field] = value;
+      }
+      meals[index] = current;
+      return { ...p, content: { meals } };
+    });
+  };
+
+  const handleAddMeal = () => {
+    mutatePlan((p) => ({
+      ...p,
+      content: {
+        meals: [
+          ...p.content.meals,
+          { meal_type: "snack", name: "", calories: 0 } as MealItem,
+        ],
+      },
+    }));
+  };
+
+  const handleRemoveMeal = (index: number) => {
+    mutatePlan((p) => ({
+      ...p,
+      content: { meals: p.content.meals.filter((_, i) => i !== index) },
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!plan) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateMealPlan(plan.id, {
+        title: plan.title,
+        planType: plan.planType,
+        dietType: plan.dietType,
+        targetCalories: plan.targetCalories,
+        content: plan.content,
+      });
+      if (!updated.content) updated.content = { meals: [] };
+      if (!updated.content.meals) updated.content.meals = [];
+      setPlan(updated);
+      setDirty(false);
+      onChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (!plan) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">{error ?? "Meal plan not found."}</p>
+      </div>
+    );
+  }
+
+  const totals = plan.content.meals.reduce(
+    (acc, m) => ({
+      cal: acc.cal + (m.calories ?? 0),
+      p: acc.p + (m.protein_g ?? 0),
+      c: acc.c + (m.carbs_g ?? 0),
+      f: acc.f + (m.fat_g ?? 0),
+    }),
+    { cal: 0, p: 0, c: 0, f: 0 }
+  );
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Header card */}
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <input
+              value={plan.title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              placeholder="Untitled meal plan"
+              className="w-full bg-transparent text-base font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500 rounded px-1 -mx-1"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+              <label className="flex items-center gap-1">
+                <span className="text-muted-foreground">Type</span>
+                <select
+                  value={plan.planType}
+                  onChange={(e) => handlePlanTypeChange(e.target.value)}
+                  className="bg-background border rounded px-1.5 py-0.5 text-xs capitalize"
+                >
+                  <option value="daily">daily</option>
+                  <option value="weekly">weekly</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-muted-foreground">Diet</span>
+                <input
+                  value={plan.dietType}
+                  onChange={(e) => handleDietTypeChange(e.target.value)}
+                  className="bg-background border rounded px-1.5 py-0.5 text-xs w-28"
+                  placeholder="balanced"
+                />
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-muted-foreground">Target</span>
+                <input
+                  type="number"
+                  value={plan.targetCalories ?? ""}
+                  onChange={(e) => handleTargetCaloriesChange(e.target.value)}
+                  className="bg-background border rounded px-1.5 py-0.5 text-xs w-20 tabular-nums"
+                  placeholder="kcal"
+                />
+                <span className="text-muted-foreground">kcal</span>
+              </label>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={!dirty || saving}
+              className="text-xs h-7"
+            >
+              {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+              {dirty ? "Save changes" : "Saved"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Totals strip */}
+        <div className="mt-3 grid grid-cols-4 gap-2 rounded-md border bg-background/60 px-3 py-2 text-[11px]">
+          <div>
+            <div className="text-muted-foreground">Total kcal</div>
+            <div className="font-semibold tabular-nums">{totals.cal}</div>
+          </div>
+          <div>
+            <div className="text-teal-600 dark:text-teal-400">Protein</div>
+            <div className="font-semibold tabular-nums">{totals.p}g</div>
+          </div>
+          <div>
+            <div className="text-blue-600 dark:text-blue-400">Carbs</div>
+            <div className="font-semibold tabular-nums">{totals.c}g</div>
+          </div>
+          <div>
+            <div className="text-amber-600 dark:text-amber-400">Fat</div>
+            <div className="font-semibold tabular-nums">{totals.f}g</div>
+          </div>
+        </div>
+
+        {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      </div>
+
+      {/* Meals table */}
+      <div className="rounded-lg border bg-muted/20 overflow-hidden">
+        <div className="px-3 py-2 border-b flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Meals</h3>
+          <span className="text-xs text-muted-foreground">{plan.content.meals.length} items</span>
+        </div>
+        {plan.content.meals.length === 0 ? (
+          <p className="text-sm text-muted-foreground p-4">No meals yet. Add one below.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/30 border-b">
+                  {plan.planType === "weekly" && (
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Day</th>
+                  )}
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Meal</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Name</th>
+                  <th className="text-right px-2 py-2 font-medium text-muted-foreground">Cal</th>
+                  <th className="text-right px-2 py-2 font-medium text-teal-600 dark:text-teal-400">P</th>
+                  <th className="text-right px-2 py-2 font-medium text-blue-600 dark:text-blue-400">C</th>
+                  <th className="text-right px-2 py-2 font-medium text-amber-600 dark:text-amber-400">F</th>
+                  <th className="px-2 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {plan.content.meals.map((meal, i) => (
+                  <tr key={i} className="hover:bg-muted/20 group/row">
+                    {plan.planType === "weekly" && (
+                      <td className="px-3 py-1.5">
+                        <input
+                          value={meal.day ?? ""}
+                          onChange={(e) => handleMealChange(i, "day", e.target.value)}
+                          placeholder="mon"
+                          className="w-20 bg-transparent text-xs px-1 py-0.5 rounded hover:bg-muted focus:bg-background focus:outline-none focus:ring-1 focus:ring-teal-500 capitalize"
+                        />
+                      </td>
+                    )}
+                    <td className="px-3 py-1.5">
+                      <select
+                        value={meal.meal_type}
+                        onChange={(e) => handleMealChange(i, "meal_type", e.target.value)}
+                        className="bg-transparent text-xs px-1 py-0.5 rounded hover:bg-muted focus:bg-background focus:outline-none focus:ring-1 focus:ring-teal-500 capitalize"
+                      >
+                        {MEAL_TYPES.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <input
+                        value={meal.name}
+                        onChange={(e) => handleMealChange(i, "name", e.target.value)}
+                        placeholder="Meal name"
+                        className="w-full bg-transparent text-xs px-1 py-0.5 rounded hover:bg-muted focus:bg-background focus:outline-none focus:ring-1 focus:ring-teal-500 font-medium"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      <input
+                        type="number"
+                        value={meal.calories}
+                        onChange={(e) => handleMealChange(i, "calories", e.target.value)}
+                        className="w-16 bg-transparent text-xs px-1 py-0.5 rounded hover:bg-muted focus:bg-background focus:outline-none focus:ring-1 focus:ring-teal-500 text-right tabular-nums"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      <input
+                        type="number"
+                        value={meal.protein_g ?? ""}
+                        onChange={(e) => handleMealChange(i, "protein_g", e.target.value)}
+                        placeholder="—"
+                        className="w-14 bg-transparent text-xs px-1 py-0.5 rounded hover:bg-muted focus:bg-background focus:outline-none focus:ring-1 focus:ring-teal-500 text-right tabular-nums text-teal-600 dark:text-teal-400"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      <input
+                        type="number"
+                        value={meal.carbs_g ?? ""}
+                        onChange={(e) => handleMealChange(i, "carbs_g", e.target.value)}
+                        placeholder="—"
+                        className="w-14 bg-transparent text-xs px-1 py-0.5 rounded hover:bg-muted focus:bg-background focus:outline-none focus:ring-1 focus:ring-teal-500 text-right tabular-nums text-blue-600 dark:text-blue-400"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      <input
+                        type="number"
+                        value={meal.fat_g ?? ""}
+                        onChange={(e) => handleMealChange(i, "fat_g", e.target.value)}
+                        placeholder="—"
+                        className="w-14 bg-transparent text-xs px-1 py-0.5 rounded hover:bg-muted focus:bg-background focus:outline-none focus:ring-1 focus:ring-teal-500 text-right tabular-nums text-amber-600 dark:text-amber-400"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      <button
+                        onClick={() => handleRemoveMeal(i)}
+                        title="Remove meal"
+                        className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="border-t px-3 py-2 flex justify-center">
+          <Button size="sm" variant="ghost" onClick={handleAddMeal} className="text-xs h-7 gap-1">
+            <Plus className="h-3 w-3" />
+            Add meal
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ─── Health: Sessions Tab ──────────────────────────────────────────────────────
 
+// A session is "active" if status === "active". Anything else (archived,
+// legacy drafts) is treated as inactive.
+function isSessionActive(s: HealthSession) {
+  return s.status === "active";
+}
+
 function HealthSessionsSection({
-  title, sessions, defaultOpen, onOpenSession, onStatusChange, onDelete,
+  title,
+  sessions,
+  emptyLabel,
+  onOpenSession,
+  onStatusChange,
+  onDelete,
 }: {
-  title: string; sessions: HealthSession[]; defaultOpen?: boolean;
+  title: string;
+  sessions: HealthSession[];
+  emptyLabel: string;
   onOpenSession: (s: HealthSession) => void;
   onStatusChange: (id: string, status: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [changingId, setChangingId] = useState<string | null>(null);
 
@@ -7150,58 +7535,50 @@ function HealthSessionsSection({
 
   return (
     <div className="rounded-lg border bg-muted/20 overflow-hidden">
-      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/30 transition-colors">
-        <div className="flex items-center gap-2">
-          {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-          <span className="text-sm font-semibold">{title}</span>
-          <span className="text-xs text-muted-foreground">({sessions.length})</span>
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-muted/30">
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="text-xs text-muted-foreground">({sessions.length})</span>
+      </div>
+      {sessions.length === 0 ? (
+        <div className="px-3 py-4 text-center">
+          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
         </div>
-      </button>
-      {open && (
-        <div className="border-t">
-          {sessions.length === 0 ? (
-            <div className="px-3 py-4 text-center"><p className="text-sm text-muted-foreground">No sessions here.</p></div>
-          ) : (
-            <div className="divide-y">
-              {sessions.map((session) => (
-                <div key={session.id} className="px-3 py-2.5 hover:bg-muted/20 group">
-                  <div className="flex items-start justify-between gap-2">
-                    <button onClick={() => onOpenSession(session)} className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-medium truncate">{session.title}</p>
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        {session.targetMuscleGroups.slice(0, 4).map((mg) => (
-                          <span key={mg} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">{mg.replace(/_/g, " ")}</span>
-                        ))}
-                        {session.exerciseCount != null && <span className="text-[10px] text-muted-foreground">{session.exerciseCount} exercises</span>}
-                        {session.estimatedDuration != null && <span className="text-[10px] text-muted-foreground">{session.estimatedDuration}min</span>}
-                        {session.difficultyLevel && <span className={cn("text-[10px] capitalize", HEALTH_DIFFICULTY_COLORS[session.difficultyLevel] ?? "text-muted-foreground")}>{session.difficultyLevel}</span>}
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {session.status === "draft" && (
-                        <button onClick={() => handleStatus(session.id, "active")} disabled={changingId === session.id} title="Activate" className="p-1 rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-500 transition-colors">
-                          {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                        </button>
-                      )}
-                      {session.status === "active" && (
-                        <button onClick={() => handleStatus(session.id, "archived")} disabled={changingId === session.id} title="Archive" className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                          {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
-                        </button>
-                      )}
-                      {session.status === "archived" && (
-                        <button onClick={() => handleStatus(session.id, "active")} disabled={changingId === session.id} title="Restore" className="p-1 rounded hover:bg-teal-500/10 text-muted-foreground hover:text-teal-500 transition-colors">
-                          {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                        </button>
-                      )}
-                      <button onClick={() => handleDelete(session.id)} disabled={deletingId === session.id} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors">
-                        {deletingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                      </button>
+      ) : (
+        <div className="divide-y">
+          {sessions.map((session) => {
+            const active = isSessionActive(session);
+            return (
+              <div key={session.id} className="px-3 py-2.5 hover:bg-muted/20 group">
+                <div className="flex items-start justify-between gap-2">
+                  <button onClick={() => onOpenSession(session)} className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium truncate">{session.title}</p>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {session.targetMuscleGroups.slice(0, 4).map((mg) => (
+                        <span key={mg} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">{mg.replace(/_/g, " ")}</span>
+                      ))}
+                      {session.exerciseCount != null && <span className="text-[10px] text-muted-foreground">{session.exerciseCount} exercises</span>}
+                      {session.estimatedDuration != null && <span className="text-[10px] text-muted-foreground">{session.estimatedDuration}min</span>}
+                      {session.difficultyLevel && <span className={cn("text-[10px] capitalize", HEALTH_DIFFICULTY_COLORS[session.difficultyLevel] ?? "text-muted-foreground")}>{session.difficultyLevel}</span>}
                     </div>
+                  </button>
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {active ? (
+                      <button onClick={() => handleStatus(session.id, "archived")} disabled={changingId === session.id} title="Deactivate" className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                        {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
+                      </button>
+                    ) : (
+                      <button onClick={() => handleStatus(session.id, "active")} disabled={changingId === session.id} title="Activate" className="p-1 rounded hover:bg-teal-500/10 text-muted-foreground hover:text-teal-500 transition-colors">
+                        {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                      </button>
+                    )}
+                    <button onClick={() => handleDelete(session.id)} disabled={deletingId === session.id} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors">
+                      {deletingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -7212,9 +7589,8 @@ function HealthSessionsTab({ sessions, onRefresh, onOpenSession }: { sessions: H
   const [localSessions, setLocalSessions] = useState(sessions);
   useEffect(() => { setLocalSessions(sessions); }, [sessions]);
 
-  const active = localSessions.filter((s) => s.status === "active");
-  const draft = localSessions.filter((s) => s.status === "draft");
-  const archived = localSessions.filter((s) => s.status === "archived");
+  const active = localSessions.filter(isSessionActive);
+  const inactive = localSessions.filter((s) => !isSessionActive(s));
 
   const handleDelete = (id: string) => { setLocalSessions((prev) => prev.filter((s) => s.id !== id)); onRefresh(); };
   const handleStatusChange = (id: string, status: string) => { setLocalSessions((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s))); onRefresh(); };
@@ -7224,9 +7600,22 @@ function HealthSessionsTab({ sessions, onRefresh, onOpenSession }: { sessions: H
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Training Sessions</h3>
       </div>
-      <HealthSessionsSection title="Active" sessions={active} defaultOpen onOpenSession={onOpenSession} onStatusChange={handleStatusChange} onDelete={handleDelete} />
-      <HealthSessionsSection title="Drafts" sessions={draft} onOpenSession={onOpenSession} onStatusChange={handleStatusChange} onDelete={handleDelete} />
-      <HealthSessionsSection title="Archived" sessions={archived} onOpenSession={onOpenSession} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+      <HealthSessionsSection
+        title="Active"
+        sessions={active}
+        emptyLabel="No active sessions."
+        onOpenSession={onOpenSession}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
+      />
+      <HealthSessionsSection
+        title="Inactive"
+        sessions={inactive}
+        emptyLabel="No inactive sessions."
+        onOpenSession={onOpenSession}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
@@ -7248,6 +7637,7 @@ function HealthSessionDetailTab({ sessionId, onStatusChanged }: { sessionId: str
   const [changingStatus, setChangingStatus] = useState(false);
   const [addForm, setAddForm] = useState({ exerciseName: "", sets: "3", reps: "10", weight: "", restSeconds: "60", notes: "" });
   const [addingExercise, setAddingExercise] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -7329,7 +7719,7 @@ function HealthSessionDetailTab({ sessionId, onStatusChanged }: { sessionId: str
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-semibold truncate">{session.title}</h2>
-              <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium capitalize", HEALTH_STATUS_COLORS[session.status] ?? "bg-muted text-muted-foreground")}>{session.status}</span>
+              <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium capitalize", isSessionActive(session) ? HEALTH_STATUS_COLORS.active : "bg-muted text-muted-foreground")}>{isSessionActive(session) ? "active" : "inactive"}</span>
               {session.difficultyLevel && <span className={cn("text-[11px] capitalize font-medium", HEALTH_DIFFICULTY_COLORS[session.difficultyLevel] ?? "")}>{session.difficultyLevel}</span>}
             </div>
             {session.description && <p className="text-xs text-muted-foreground mt-1">{session.description}</p>}
@@ -7339,23 +7729,26 @@ function HealthSessionDetailTab({ sessionId, onStatusChanged }: { sessionId: str
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {session.status === "draft" && (
-              <Button size="sm" variant="outline" onClick={() => handleStatusChange("active")} disabled={changingStatus} className="text-xs h-7 text-green-600 border-green-600/40 hover:bg-green-500/10">
-                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}Activate
-              </Button>
-            )}
-            {session.status === "active" && (
+            {session.status === "active" ? (
               <Button size="sm" variant="outline" onClick={() => handleStatusChange("archived")} disabled={changingStatus} className="text-xs h-7">
-                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3 mr-1" />}Archive
+                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3 mr-1" />}Deactivate
               </Button>
-            )}
-            {session.status === "archived" && (
+            ) : (
               <Button size="sm" variant="outline" onClick={() => handleStatusChange("active")} disabled={changingStatus} className="text-xs h-7 text-teal-600 border-teal-600/40 hover:bg-teal-500/10">
-                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}Restore
+                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}Activate
               </Button>
             )}
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => setPublishOpen(true)}>
+              <Upload className="h-3 w-3" />
+              Publish
+            </Button>
           </div>
         </div>
+        {session.forkedFromMpId && (
+          <div className="px-4 pt-2">
+            <ForkedFromBadge mpId={session.forkedFromMpId} />
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border bg-muted/20 overflow-hidden">
@@ -7447,6 +7840,16 @@ function HealthSessionDetailTab({ sessionId, onStatusChanged }: { sessionId: str
           </Button>
         </form>
       </div>
+
+      {session && (
+        <PublishDialog
+          open={publishOpen}
+          onOpenChange={setPublishOpen}
+          kind="gym_session"
+          sourceId={session.id}
+          defaultTitle={session.title}
+        />
+      )}
     </div>
   );
 }
@@ -7714,6 +8117,20 @@ export function LifeTool() {
         tabs: existing
           ? prev.tabs
           : [...prev.tabs, { id, type: "session-detail" as LifeTabType, sessionId: s.id, title: s.title }],
+        activeTabId: id,
+      };
+    });
+  }, [setLifeState]);
+
+  const openMealPlan = useCallback((p: HealthMealPlan) => {
+    const id = `tab:meal-plan:${p.id}`;
+    setLifeState((prev) => {
+      const existing = prev.tabs.find((t) => t.id === id);
+      return {
+        ...prev,
+        tabs: existing
+          ? prev.tabs
+          : [...prev.tabs, { id, type: "meal-plan-detail" as LifeTabType, mealPlanId: p.id, title: p.title }],
         activeTabId: id,
       };
     });
@@ -8023,6 +8440,7 @@ export function LifeTool() {
                 activeTab.type === "weight" ||
                 activeTab.type === "macros" ||
                 activeTab.type === "meal-plans" ||
+                activeTab.type === "meal-plan-detail" ||
                 activeTab.type === "sessions" ||
                 activeTab.type === "session-detail" ? (
                 healthProfile?.onboarded === false ? (
@@ -8061,6 +8479,12 @@ export function LifeTool() {
                   <HealthMealPlansTab
                     plans={mealPlans}
                     onRefresh={refreshHealthMealPlans}
+                    onOpenPlan={openMealPlan}
+                  />
+                ) : activeTab.type === "meal-plan-detail" && activeTab.mealPlanId ? (
+                  <HealthMealPlanDetailTab
+                    mealPlanId={activeTab.mealPlanId}
+                    onChanged={refreshHealthMealPlans}
                   />
                 ) : activeTab.type === "sessions" ? (
                   <HealthSessionsTab

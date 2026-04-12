@@ -274,6 +274,7 @@ export interface LifeRoutine {
   lastTriggered: string | null;
   createdAt: string;
   updatedAt: string;
+  forkedFromMpId?: string | null;
 }
 
 export async function listLifeRoutines(): Promise<LifeRoutine[]> {

@@ -1,28 +1,34 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, useInView } from "motion/react";
+import { motion, useInView, useScroll, useTransform } from "motion/react";
 import {
-  Brain,
-  CheckSquare,
-  Repeat2,
-  Lightbulb,
-  Calendar,
-  Radio,
   ArrowRight,
-  MessageSquare,
+  ArrowUpRight,
   Sparkles,
-  BellRing,
-  Zap,
-  Shield,
+  Dumbbell,
+  Apple,
+  PieChart,
+  Weight,
+  CalendarDays,
+  ListTodo,
+  Repeat,
+  Bell,
   Clock,
-  ChevronRight,
-  Star,
+  Heart,
+  Flame,
+  Brain,
+  MessageSquare,
   Check,
-  Link2,
-  FileText,
-  Eye,
+  Moon,
+  Coffee,
+  BookOpen,
+  Target,
+  Phone,
+  Send,
+  Sun,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -32,7 +38,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-// ─── Section wrapper ─────────────────────────────────────────────────────────
+// ─── Section primitives ──────────────────────────────────────────────────────
 
 function Section({
   children,
@@ -44,49 +50,223 @@ function Section({
   id?: string;
 }) {
   return (
-    <section id={id} className={cn("px-6 py-24 sm:py-32", className)}>
-      <div className="mx-auto max-w-6xl">{children}</div>
+    <section id={id} className={cn("relative px-6 py-24 sm:py-32", className)}>
+      <div className="mx-auto w-full max-w-6xl">{children}</div>
     </section>
   );
 }
 
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
+      {children}
+    </span>
+  );
+}
+
 function SectionHeader({
-  label,
+  eyebrow,
   title,
-  titleMuted,
+  italic,
   description,
 }: {
-  label: string;
-  title: string;
-  titleMuted?: string;
+  eyebrow: string;
+  title: React.ReactNode;
+  italic?: string;
   description?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
-
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 24 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="mb-16 max-w-2xl"
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="mb-14 max-w-2xl"
     >
-      <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">
-        {label}
-      </p>
-      <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-        {title}{" "}
-        {titleMuted && (
-          <span className="text-muted-foreground">{titleMuted}</span>
+      <Eyebrow>
+        <span className="h-1 w-1 rounded-full bg-primary" />
+        {eyebrow}
+      </Eyebrow>
+      <h2 className="mt-5 font-[family-name:var(--font-display)] text-4xl leading-[1.02] tracking-tight sm:text-5xl md:text-[56px]">
+        {title}
+        {italic && (
+          <>
+            {" "}
+            <span className="italic text-primary/90">{italic}</span>
+          </>
         )}
       </h2>
       {description && (
-        <p className="mt-4 text-muted-foreground text-lg leading-relaxed">
+        <p className="mt-5 max-w-xl text-base text-muted-foreground leading-relaxed sm:text-lg">
           {description}
         </p>
       )}
     </motion.div>
+  );
+}
+
+// ─── Concentric arc rings for hero background ───────────────────────────────
+
+function ArcRings() {
+  const ref = useRef<SVGSVGElement>(null);
+  const { scrollY } = useScroll();
+  const rotate = useTransform(scrollY, [0, 800], [0, 18]);
+
+  return (
+    <motion.svg
+      ref={ref}
+      aria-hidden
+      viewBox="0 0 1200 1200"
+      className="pointer-events-none absolute left-1/2 top-[38%] h-[140%] w-[140%] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_75%)]"
+      style={{ rotate }}
+    >
+      <defs>
+        <radialGradient id="ring-stroke" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.55" />
+          <stop offset="55%" stopColor="var(--primary)" stopOpacity="0.16" />
+          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      {Array.from({ length: 9 }).map((_, i) => {
+        const r = 80 + i * 62;
+        return (
+          <circle
+            key={i}
+            cx="600"
+            cy="600"
+            r={r}
+            fill="none"
+            stroke="url(#ring-stroke)"
+            strokeWidth={1 + (8 - i) * 0.12}
+          />
+        );
+      })}
+      <path
+        d="M 180 600 A 420 420 0 0 1 1020 600"
+        fill="none"
+        stroke="var(--primary)"
+        strokeOpacity="0.35"
+        strokeWidth="1.4"
+        strokeDasharray="2 6"
+      />
+    </motion.svg>
+  );
+}
+
+// Grain texture overlay
+function GrainOverlay() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-0 opacity-[0.035] mix-blend-multiply dark:opacity-[0.06] dark:mix-blend-overlay"
+      style={{
+        backgroundImage:
+          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.9'/></svg>\")",
+      }}
+    />
+  );
+}
+
+// ─── Hero chat mockup ────────────────────────────────────────────────────────
+
+type ChatMsg = {
+  role: "user" | "assistant";
+  content: string;
+  tool?: { icon: LucideIcon; label: string };
+};
+
+const HERO_CONVO: ChatMsg[] = [
+  { role: "user", content: "I weigh 76.2 kg now. Plan a leg day for tomorrow 7am and remind me to call mom." },
+  { role: "assistant", content: "Got it — here's what I did:", tool: { icon: Weight, label: "Logged weight · 76.2 kg" } },
+  { role: "assistant", content: "", tool: { icon: Dumbbell, label: "Built leg day · squats, lunges, RDLs" } },
+  { role: "assistant", content: "", tool: { icon: CalendarDays, label: "Scheduled workout · Tue 7:00 AM" } },
+  { role: "assistant", content: "", tool: { icon: Phone, label: "Task · Call mom (due today)" } },
+];
+
+function HeroChatMockup() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (step >= HERO_CONVO.length) return;
+    const t = setTimeout(() => setStep((s) => s + 1), step === 0 ? 700 : 520);
+    return () => clearTimeout(t);
+  }, [step]);
+
+  return (
+    <div className="relative">
+      <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/20 via-primary/0 to-primary/10 blur-2xl" />
+
+      <div className="rounded-[22px] border border-border/70 bg-card/90 shadow-[0_24px_80px_-20px_rgba(179,62,93,0.25)] backdrop-blur-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60 bg-muted/40">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
+              <div className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
+              <div className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
+            </div>
+            <span className="ml-3 text-[11px] font-mono text-muted-foreground/80">life · chat</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/80">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            live
+          </div>
+        </div>
+
+        <div className="max-h-[420px] min-h-[420px] space-y-3 overflow-hidden px-5 py-5">
+          {HERO_CONVO.slice(0, step).map((msg, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className={cn(
+                "flex",
+                msg.role === "user" ? "justify-end" : "justify-start"
+              )}
+            >
+              {msg.tool ? (
+                <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-background/80 px-3 py-2 text-[13px] text-foreground shadow-sm">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <msg.tool.icon className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="font-medium">{msg.tool.label}</span>
+                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                </div>
+              ) : msg.role === "user" ? (
+                <div className="max-w-[82%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[13.5px] leading-relaxed text-primary-foreground shadow-sm">
+                  {msg.content}
+                </div>
+              ) : (
+                <div className="max-w-[82%] rounded-2xl rounded-bl-md border border-border/60 bg-background/70 px-4 py-2.5 text-[13.5px] leading-relaxed text-foreground">
+                  {msg.content}
+                </div>
+              )}
+            </motion.div>
+          ))}
+
+          {step < HERO_CONVO.length && step > 0 && (
+            <div className="flex items-center gap-1.5 pl-1">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.2s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.1s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-border/60 bg-muted/30 px-4 py-3">
+          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-background/80 px-3.5 py-2.5">
+            <span className="text-[11px] font-mono text-muted-foreground/80">/</span>
+            <span className="flex-1 text-[13px] text-muted-foreground/60">
+              Type <span className="font-mono text-foreground/70">/summary</span> or ask anything…
+            </span>
+            <button className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+              <Send className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -95,732 +275,540 @@ function SectionHeader({
 function Hero() {
   return (
     <section className="relative overflow-hidden">
-      {/* Subtle radial gradient background */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--color-primary)/0.08,transparent_70%)]" />
-
-      <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-28 text-center sm:pb-32 sm:pt-36">
+      <ArcRings />
+      <div className="relative mx-auto w-full max-w-6xl px-6 pb-24 pt-20 sm:pt-28 lg:pb-32">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary"
+          transition={{ duration: 0.6 }}
+          className="mb-7"
         >
-          <Sparkles className="h-3 w-3" />
-          AI-powered life planning
+          <Eyebrow>
+            <Sparkles className="h-3 w-3 text-primary" />
+            One assistant for your entire personal operating system
+          </Eyebrow>
         </motion.div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.6,
-            delay: 0.1,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
-        >
-          Your AI agent that handles
-          <br />
-          <span className="text-primary">daily life operations</span>
-        </motion.h1>
+        <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="max-w-xl">
+            <motion.h1
+              initial={{ opacity: 0, y: 26 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              className="font-[family-name:var(--font-display)] text-[56px] leading-[0.95] tracking-[-0.02em] sm:text-[76px] lg:text-[84px]"
+            >
+              Live{" "}
+              <span className="italic text-primary">intentionally,</span>
+              <br />
+              not reactively.
+            </motion.h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.6,
-            delay: 0.25,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed sm:text-xl"
-        >
-          Automate your tasks, build habits, sync your calendar, and get
-          reminders through channels you already use — all from a single
-          conversation.
-        </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-7 max-w-lg text-[17px] leading-relaxed text-muted-foreground"
+            >
+              Your routines, calendar, tasks, weight, meals, and workouts — in one conversation.
+              Talk to your life the way you&apos;d talk to a thoughtful friend. The boring stuff gets handled.
+            </motion.p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.6,
-            delay: 0.4,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
-        >
-          <Link
-            href="/tools/life"
-            className="group inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground transition-all hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            Get Started
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-          <a
-            href="#features"
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-8 py-3.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-foreground/20"
-          >
-            View Features
-          </a>
-        </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center"
+            >
+              <Link
+                href="/tools/life"
+                className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[15px] font-medium text-primary-foreground shadow-[0_8px_24px_-8px_rgba(255,126,165,0.7)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-8px_rgba(255,126,165,0.8)]"
+              >
+                Start for free
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                href="#how"
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-6 py-3 text-[15px] font-medium text-foreground backdrop-blur transition-colors hover:border-border hover:bg-background"
+              >
+                See how it works
+              </Link>
+            </motion.div>
 
-        {/* Social proof */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="mt-12 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground"
-        >
-          <div className="flex items-center gap-1">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500"
-              />
-            ))}
-            <span className="ml-1.5">5.0</span>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.5 }}
+              className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-muted-foreground"
+            >
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-primary" /> No credit card
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-primary" /> Google Calendar + Tasks
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-primary" /> Your data, your device
+              </span>
+            </motion.div>
           </div>
-          <span className="h-4 w-px bg-border" />
-          <span>Works instantly</span>
-          <span className="h-4 w-px bg-border" />
-          <span>No setup required</span>
-        </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="lg:translate-y-2"
+          >
+            <HeroChatMockup />
+          </motion.div>
+        </div>
       </div>
     </section>
   );
 }
 
-// ─── Workflow demo ───────────────────────────────────────────────────────────
+// ─── Stats strip ─────────────────────────────────────────────────────────────
 
-const workflows = [
-  {
-    tab: "Morning Routine",
-    steps: [
-      {
-        label: "input",
-        title: "Good morning check-in",
-        description:
-          'You say "Good morning" and the agent reviews your calendar, pending tasks, and routine schedule.',
-      },
-      {
-        label: "action",
-        title: "Planning & prioritization",
-        description:
-          "The agent builds your daily plan — what to tackle first, which routines are due, and any calendar conflicts.",
-      },
-      {
-        label: "output",
-        title: "Your daily briefing",
-        description:
-          "A clear summary of your day: top priorities, scheduled events, and habit reminders. Ready in seconds.",
-      },
-    ],
-  },
-  {
-    tab: "Task Capture",
-    steps: [
-      {
-        label: "input",
-        title: "Mention a task in chat",
-        description:
-          '"I need to call the dentist this week" — just say it naturally in conversation.',
-      },
-      {
-        label: "action",
-        title: "Extraction & scheduling",
-        description:
-          "The agent extracts the actionable, sets a deadline, and adds it to your task list automatically.",
-      },
-      {
-        label: "output",
-        title: "Task created & tracked",
-        description:
-          "The task appears in your actionables with a due date. You'll get a reminder when it's time.",
-      },
-    ],
-  },
-  {
-    tab: "Habit Building",
-    steps: [
-      {
-        label: "input",
-        title: "Describe your goal",
-        description:
-          '"I want to meditate every morning and read for 30 min before bed."',
-      },
-      {
-        label: "action",
-        title: "Routine creation",
-        description:
-          "The agent creates two routines with your preferred schedule, sets up tracking, and configures reminders.",
-      },
-      {
-        label: "output",
-        title: "Habits on autopilot",
-        description:
-          "You get daily nudges through Telegram or WhatsApp. The agent tracks streaks and adjusts timing based on your patterns.",
-      },
-    ],
-  },
-  {
-    tab: "Calendar Sync",
-    steps: [
-      {
-        label: "input",
-        title: "Connect Google Calendar",
-        description:
-          "Link your calendar in one click. The agent immediately sees your schedule.",
-      },
-      {
-        label: "action",
-        title: "Conflict detection",
-        description:
-          "When creating tasks or routines, the agent checks for conflicts and suggests optimal time slots.",
-      },
-      {
-        label: "output",
-        title: "Perfectly scheduled",
-        description:
-          "Your tasks, routines, and events coexist without overlap. The agent adapts when your schedule changes.",
-      },
-    ],
-  },
-];
-
-function WorkflowDemo() {
-  const [active, setActive] = useState(0);
+function StatsStrip() {
+  const stats = [
+    { k: "28+", v: "Tools in one chat" },
+    { k: "1", v: "Place for everything" },
+    { k: "24/7", v: "Always thinking ahead" },
+    { k: "0", v: "Forms to fill out" },
+  ];
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
-
   return (
-    <Section className="bg-muted/20 border-y border-border/50">
-      <motion.div
-        ref={ref}
-        initial={{ opacity: 0, y: 24 }}
-        animate={inView ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {/* Tabs */}
-        <div className="mb-10 flex flex-wrap gap-2">
-          {workflows.map((w, i) => (
-            <button
-              key={w.tab}
-              onClick={() => setActive(i)}
-              className={cn(
-                "rounded-full px-5 py-2 text-sm font-medium transition-all",
-                i === active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {w.tab}
-            </button>
-          ))}
-        </div>
+    <div ref={ref} className="border-y border-border/50 bg-muted/30">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-y-8 px-6 py-10 sm:grid-cols-4 sm:gap-0">
+        {stats.map((s, i) => (
+          <motion.div
+            key={s.v}
+            initial={{ opacity: 0, y: 16 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            transition={{ duration: 0.5, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+            className="text-center sm:border-l sm:border-border/60 sm:first:border-l-0"
+          >
+            <div className="font-[family-name:var(--font-display)] text-4xl text-foreground sm:text-5xl">
+              {s.k}
+            </div>
+            <div className="mt-1.5 text-[12px] uppercase tracking-widest text-muted-foreground">
+              {s.v}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        {/* Steps */}
-        <div className="grid gap-4 sm:grid-cols-3">
-          {workflows[active].steps.map((step, i) => (
-            <motion.div
-              key={`${active}-${i}`}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.4,
-                delay: i * 0.1,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="rounded-2xl border border-border/50 bg-card p-6"
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <span
-                  className={cn(
-                    "inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold",
-                    step.label === "input"
-                      ? "bg-blue-500/10 text-blue-500"
-                      : step.label === "action"
-                        ? "bg-amber-500/10 text-amber-500"
-                        : "bg-green-500/10 text-green-500"
-                  )}
-                >
-                  {i + 1}
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {step.label}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-foreground mb-2">
-                {step.title}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {step.description}
-              </p>
-            </motion.div>
-          ))}
+// ─── Bento feature grid ──────────────────────────────────────────────────────
+
+function BentoCard({
+  className,
+  icon: Icon,
+  title,
+  description,
+  children,
+  delay = 0,
+}: {
+  className?: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  children?: React.ReactNode;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 24 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={cn(
+        "group relative overflow-hidden rounded-[20px] border border-border/60 bg-card/90 p-6 backdrop-blur-sm transition-all duration-500 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_20px_50px_-15px_rgba(179,62,93,0.25)]",
+        className
+      )}
+    >
+      <div className="pointer-events-none absolute -inset-px rounded-[20px] opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+        <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-primary/15 blur-3xl" />
+      </div>
+      <div className="relative flex h-full flex-col">
+        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
+          <Icon className="h-[18px] w-[18px]" />
         </div>
-      </motion.div>
+        <h3 className="font-[family-name:var(--font-display)] text-2xl leading-tight tracking-tight">
+          {title}
+        </h3>
+        <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+        {children && <div className="mt-auto pt-5">{children}</div>}
+      </div>
+    </motion.div>
+  );
+}
+
+function BentoGrid() {
+  return (
+    <Section id="features">
+      <SectionHeader
+        eyebrow="One assistant, every domain"
+        title="Everything in your life,"
+        italic="talking to each other."
+        description="Most apps make you manage them. This one manages itself. Your routines know about your calendar. Your meals know about your macros. Your workouts know about your schedule. Ask in plain language, get action."
+      />
+
+      <div className="grid gap-5 md:grid-cols-3 md:grid-rows-[auto_auto]">
+        <BentoCard
+          className="md:col-span-2 md:row-span-2"
+          icon={Brain}
+          title="An agent that actually does things"
+          description="Not a notetaker. Not a calendar. A model with 28+ tools that can log your weight, update your diet, create a workout, reschedule a meeting, save a memory, and summarize your day — in one turn."
+          delay={0}
+        >
+          <div className="grid grid-cols-2 gap-2.5">
+            {[
+              { icon: Weight, label: "Log weight" },
+              { icon: Dumbbell, label: "Build workout" },
+              { icon: Apple, label: "Plan meals" },
+              { icon: CalendarDays, label: "Move events" },
+              { icon: ListTodo, label: "Manage tasks" },
+              { icon: Repeat, label: "Track routines" },
+              { icon: Heart, label: "Health profile" },
+              { icon: Bell, label: "Remember facts" },
+            ].map((t) => (
+              <div
+                key={t.label}
+                className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/60 px-3 py-2 text-[12.5px]"
+              >
+                <t.icon className="h-3.5 w-3.5 text-primary" />
+                <span className="font-medium">{t.label}</span>
+              </div>
+            ))}
+          </div>
+        </BentoCard>
+
+        <BentoCard
+          icon={CalendarDays}
+          title="Calendar that thinks"
+          description="Google Calendar + Google Tasks, with a model that understands context. Move events, reschedule workouts, cancel meetings — by chat."
+          delay={0.05}
+        />
+
+        <BentoCard
+          icon={Flame}
+          title="Macros without spreadsheets"
+          description="Diet, nutrition targets, calorie budget, and meal plans. Ask for a plan that fits, log what you ate, done."
+          delay={0.1}
+        />
+
+        <BentoCard
+          className="md:col-span-2"
+          icon={Sparkles}
+          title="A morning summary, every morning"
+          description="Your day, automatically generated each night. Sleep, work block, meals, gym, wind-down — one glance, no clicking around."
+          delay={0.15}
+        >
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-background/70 p-3 font-mono text-[11.5px] text-muted-foreground">
+            <span className="flex items-center gap-1"><Moon className="h-3.5 w-3.5" /> 00:00–07:00 Sleep</span>
+            <span className="text-border">·</span>
+            <span className="flex items-center gap-1"><Coffee className="h-3.5 w-3.5" /> 07:00–09:00 Morning</span>
+            <span className="text-border">·</span>
+            <span className="flex items-center gap-1"><Dumbbell className="h-3.5 w-3.5" /> 09:00–10:00 Gym</span>
+            <span className="text-border">·</span>
+            <span className="flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" /> 10:00–17:00 Work</span>
+          </div>
+        </BentoCard>
+      </div>
     </Section>
   );
 }
 
-// ─── Features ────────────────────────────────────────────────────────────────
+// ─── Capabilities marquee ────────────────────────────────────────────────────
 
-const featureList = [
-  {
-    icon: Brain,
-    title: "AI Agent",
-    description:
-      "Chat naturally. Your agent understands context, remembers preferences, and proactively helps you plan.",
-    color: "#6366f1",
-  },
-  {
-    icon: CheckSquare,
-    title: "Actionables",
-    description:
-      "Tasks and to-dos captured from conversations. Your agent creates and tracks them automatically.",
-    color: "#10b981",
-  },
-  {
-    icon: Repeat2,
-    title: "Routines",
-    description:
-      "Build habits with custom schedules. Daily, weekly, or custom — the agent keeps you accountable.",
-    color: "#8b5cf6",
-  },
-  {
-    icon: Lightbulb,
-    title: "Memory",
-    description:
-      "Your agent remembers what matters. Context and preferences persist across every conversation.",
-    color: "#f59e0b",
-  },
-  {
-    icon: Calendar,
-    title: "Calendar Sync",
-    description:
-      "Connect Google Calendar. Your agent sees your schedule, avoids conflicts, and helps you time-block.",
-    color: "#ec4899",
-  },
-  {
-    icon: Radio,
-    title: "Channels",
-    description:
-      "Nudges and reminders through Telegram or WhatsApp. Stay on track without opening another app.",
-    color: "#06b6d4",
-  },
-];
-
-function Features() {
+function CapabilityChip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
-    <Section id="features">
-      <SectionHeader
-        label="Features"
-        title="Six features,"
-        titleMuted="one conversation."
-        description="Everything you need to organise your life, accessible through a single chat interface."
-      />
+    <div className="mx-3 inline-flex items-center gap-2.5 whitespace-nowrap rounded-full border border-border/60 bg-background/80 px-4 py-2 text-[13px] text-foreground shadow-sm backdrop-blur">
+      <Icon className="h-3.5 w-3.5 text-primary" />
+      <span className="font-medium">{label}</span>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {featureList.map((feature, i) => {
-          const Icon = feature.icon;
-          return (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{
-                duration: 0.5,
-                delay: i * 0.08,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="group relative"
-            >
-              <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-card p-6 h-full transition-all duration-300 hover:border-border hover:shadow-lg hover:shadow-primary/5">
-                <div
-                  className="pointer-events-none absolute -top-20 -right-20 h-40 w-40 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
-                  style={{ background: feature.color }}
-                />
-                <div className="relative">
-                  <div
-                    className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl"
-                    style={{ background: `${feature.color}15` }}
-                  >
-                    <Icon className="h-5 w-5" style={{ color: feature.color }} />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground mb-2">
-                    {feature.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
+function CapabilitiesMarquee() {
+  const row = [
+    { icon: Weight, label: "Log weight" },
+    { icon: Dumbbell, label: "Leg day in 7 min" },
+    { icon: Apple, label: "Keto dinner plan" },
+    { icon: PieChart, label: "Macros today" },
+    { icon: CalendarDays, label: "Reschedule dentist" },
+    { icon: ListTodo, label: "Add to Google Tasks" },
+    { icon: Repeat, label: "Mon/Wed/Fri 7am" },
+    { icon: Heart, label: "Update diet goal" },
+    { icon: Target, label: "New fitness goal" },
+    { icon: Bell, label: "Remind me tomorrow" },
+    { icon: MessageSquare, label: "Review my week" },
+    { icon: Clock, label: "What's next today" },
+  ];
+  const doubled = [...row, ...row];
+
+  return (
+    <div className="relative overflow-hidden border-y border-border/50 bg-gradient-to-b from-background to-muted/20 py-10">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-32 bg-gradient-to-r from-background to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-32 bg-gradient-to-l from-background to-transparent" />
+
+      <div className="mb-5 text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          Things people actually say to it
+        </p>
       </div>
-    </Section>
+
+      <div className="marquee-track flex min-w-max">
+        {doubled.map((c, i) => (
+          <CapabilityChip key={`${c.label}-${i}`} {...c} />
+        ))}
+      </div>
+
+      <style jsx>{`
+        .marquee-track {
+          animation: marquee 46s linear infinite;
+        }
+        @keyframes marquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+      `}</style>
+    </div>
   );
 }
 
 // ─── How it works ────────────────────────────────────────────────────────────
 
-const steps = [
-  {
-    icon: MessageSquare,
-    title: "Describe what you need",
-    description:
-      'Tell the agent what you want in plain language — "I want to exercise 3 times a week" or "remind me to call mom every Sunday."',
-  },
-  {
-    icon: Link2,
-    title: "Connect your tools",
-    description:
-      "Link Google Calendar, Telegram, or WhatsApp. The agent syncs your schedule and delivers reminders where you already are.",
-  },
-  {
-    icon: Eye,
-    title: "Review and refine",
-    description:
-      "Every action is transparent. Approve, edit, or adjust anytime — the agent learns from your feedback to get better.",
-  },
-];
-
 function HowItWorks() {
-  return (
-    <Section id="how-it-works" className="bg-muted/20 border-y border-border/50">
-      <SectionHeader
-        label="How it works"
-        title="Talk naturally,"
-        titleMuted="get things done."
-        description="Think of it as YNAB for your life — every hour gets a purpose. Three steps to put your day on autopilot."
-      />
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        {steps.map((step, i) => {
-          const Icon = step.icon;
-          return (
-            <motion.div
-              key={step.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{
-                duration: 0.5,
-                delay: i * 0.12,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              className="relative rounded-2xl border border-border/50 bg-card p-6"
-            >
-              <div className="mb-4 flex items-center gap-3">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                  {i + 1}
-                </span>
-                <Icon className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground mb-2">
-                {step.title}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {step.description}
-              </p>
-            </motion.div>
-          );
-        })}
-      </div>
-    </Section>
-  );
-}
-
-// ─── Use cases ───────────────────────────────────────────────────────────────
-
-const useCases = [
-  {
-    tab: "Busy Professionals",
-    title: "Busy professionals use Life to stay on top of competing priorities",
-    description:
-      "When your calendar is packed and tasks pile up, the agent triages your day — surfacing what's urgent, scheduling focused blocks, and nudging you through the right channel at the right time.",
-    quote:
-      "I used to lose track of tasks between meetings. Now my agent sends me a Telegram message before each focus block with exactly what to work on.",
-    author: "Operations Manager",
-  },
-  {
-    tab: "Students",
-    title: "Students use Life to build study habits and track deadlines",
-    description:
-      "The agent creates study routines, tracks assignment deadlines, and sends reminders before things are due. No more all-nighters from forgotten homework.",
-    quote:
-      "It's like having a personal study coach that actually knows my schedule and doesn't let me procrastinate.",
-    author: "University Student",
-  },
-  {
-    tab: "Health & Wellness",
-    title: "Health-focused users build sustainable routines with Life",
-    description:
-      "From gym schedules to meditation streaks to meal planning — the agent builds routines around your real calendar and sends gentle nudges when it's time.",
-    quote:
-      "I've maintained a 60-day meditation streak because the agent reminds me at the exact right moment every morning.",
-    author: "Wellness Enthusiast",
-  },
-];
-
-function UseCases() {
-  const [active, setActive] = useState(0);
-  const current = useCases[active];
-
-  return (
-    <Section id="use-cases">
-      <SectionHeader
-        label="Use cases"
-        title="Practical ways"
-        titleMuted="people use Life daily."
-        description="Real workflows for real people."
-      />
-
-      <div className="flex flex-wrap gap-2 mb-10">
-        {useCases.map((uc, i) => (
-          <button
-            key={uc.tab}
-            onClick={() => setActive(i)}
-            className={cn(
-              "rounded-full px-5 py-2 text-sm font-medium transition-all",
-              i === active
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {uc.tab}
-          </button>
-        ))}
-      </div>
-
-      <motion.div
-        key={active}
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="grid gap-8 lg:grid-cols-2"
-      >
-        <div className="flex flex-col justify-center">
-          <h3 className="text-2xl font-bold tracking-tight sm:text-3xl mb-4">
-            {current.title}
-          </h3>
-          <p className="text-muted-foreground leading-relaxed mb-6">
-            {current.description}
-          </p>
-          <Link
-            href="/tools/life"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-          >
-            Try it yourself
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-
-        <div className="rounded-2xl border border-border/50 bg-card p-8">
-          <div className="mb-4 flex gap-0.5">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className="h-4 w-4 fill-yellow-500 text-yellow-500"
-              />
-            ))}
-          </div>
-          <blockquote className="text-foreground leading-relaxed mb-6">
-            &ldquo;{current.quote}&rdquo;
-          </blockquote>
-          <p className="text-sm text-muted-foreground">
-            — {current.author}
-          </p>
-        </div>
-      </motion.div>
-    </Section>
-  );
-}
-
-// ─── Trust signals ───────────────────────────────────────────────────────────
-
-function TrustSignals() {
-  const items = [
+  const steps = [
     {
-      icon: Zap,
-      title: "Instant",
-      description: "No setup required. Open and start chatting immediately.",
+      n: "01",
+      icon: MessageSquare,
+      title: "Tell it about you",
+      body: "A two-minute conversation sets up your routines, diet, fitness level, and goals. No forms. No dropdowns.",
     },
     {
-      icon: Shield,
-      title: "Private",
-      description:
-        "Your data stays yours. No third-party training, no selling your information.",
+      n: "02",
+      icon: Sparkles,
+      title: "Connect what you use",
+      body: "Link Google Calendar and Google Tasks in one click. The agent takes it from there — create, edit, and delete events and tasks in chat.",
     },
     {
-      icon: Clock,
-      title: "Always on",
-      description:
-        "Your agent is available 24/7 across all your devices and channels.",
+      n: "03",
+      icon: Sun,
+      title: "Let it run your day",
+      body: "Your morning summary is ready before you wake up. Ask for a workout, a meal plan, or a reschedule anytime. Your routines keep themselves honest.",
     },
   ];
 
   return (
-    <Section className="border-b border-border/50">
-      <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-        {items.map((item, i) => {
-          const Icon = item.icon;
+    <Section id="how">
+      <SectionHeader
+        eyebrow="How it works"
+        title="From messy to"
+        italic="meaningful"
+        description="Three steps, under five minutes, and you have a personal assistant that actually takes action."
+      />
+      <div className="grid gap-5 md:grid-cols-3">
+        {steps.map((s, i) => {
+          const Icon = s.icon;
           return (
             <motion.div
-              key={item.title}
-              initial={{ opacity: 0, y: 20 }}
+              key={s.n}
+              initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="text-center"
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.6, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
+              className="relative rounded-[20px] border border-border/60 bg-card/80 p-7 backdrop-blur-sm"
             >
-              <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-                <Icon className="h-5 w-5 text-primary" />
+              <div className="flex items-center justify-between">
+                <div className="font-[family-name:var(--font-display)] text-5xl text-primary/30">
+                  {s.n}
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
+                  <Icon className="h-5 w-5" />
+                </span>
               </div>
-              <h3 className="text-sm font-semibold text-foreground">
-                {item.title}
+              <h3 className="mt-5 font-[family-name:var(--font-display)] text-2xl leading-tight">
+                {s.title}
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {item.description}
+              <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
+                {s.body}
               </p>
             </motion.div>
           );
         })}
       </div>
+    </Section>
+  );
+}
+
+// ─── Pull quote ──────────────────────────────────────────────────────────────
+
+function PullQuote() {
+  return (
+    <Section className="py-20 sm:py-28">
+      <motion.figure
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-80px" }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="relative mx-auto max-w-3xl text-center"
+      >
+        <div className="absolute -top-6 left-1/2 -translate-x-1/2 font-[family-name:var(--font-display)] text-8xl leading-none text-primary/20 select-none">
+          &ldquo;
+        </div>
+        <blockquote className="relative font-[family-name:var(--font-display)] text-3xl leading-tight tracking-tight sm:text-4xl md:text-[44px]">
+          I stopped opening five apps to plan my day. Now I just{" "}
+          <span className="italic text-primary/90">tell one thing</span> what I
+          want, and it&apos;s already done.
+        </blockquote>
+        <figcaption className="mt-8 text-[13px] uppercase tracking-widest text-muted-foreground">
+          — The whole point
+        </figcaption>
+      </motion.figure>
     </Section>
   );
 }
 
 // ─── FAQ ─────────────────────────────────────────────────────────────────────
 
-const faqItems = [
-  {
-    q: "What exactly is the Life tool?",
-    a: "Life is your personal AI agent that automates daily planning through natural conversation. It manages tasks, builds habit routines, syncs your calendar, and sends reminders through Telegram or WhatsApp.",
-  },
-  {
-    q: "How does pricing work?",
-    a: "Life offers both free and premium tiers. Open the app to see current plans and what's included at each level.",
-  },
-  {
-    q: "Do I need to install anything?",
-    a: "No. Life runs entirely in your browser. Just open the app and start chatting. For notifications, connect your Telegram or WhatsApp — no additional app needed.",
-  },
-  {
-    q: "How does the agent remember things about me?",
-    a: "The agent has a memory system that persists across conversations. When you mention preferences, goals, or context, it stores them and uses that knowledge in future interactions to give better, more personalised help.",
-  },
-  {
-    q: "Can I connect my Google Calendar?",
-    a: "Yes. Link your Google Calendar and the agent will see your schedule, avoid conflicts when planning routines or tasks, and help you find optimal time slots.",
-  },
-  {
-    q: "What notification channels are supported?",
-    a: "Currently Telegram and WhatsApp. The agent sends reminders, daily briefings, and nudges through whichever channel you prefer.",
-  },
-  {
-    q: "How is my data kept private?",
-    a: "Your conversations and data are stored securely and never shared with third parties or used for AI training. You can delete your data at any time.",
-  },
-  {
-    q: "What kind of tasks can the agent handle?",
-    a: "Anything you'd normally put on a to-do list or calendar: task management, habit building, schedule planning, reminders, goal tracking, daily briefings, and more — all through natural conversation.",
-  },
-];
-
 function FAQ() {
-  return (
-    <Section id="faq" className="bg-muted/20 border-y border-border/50">
-      <div className="grid gap-16 lg:grid-cols-2">
-        <div>
-          <SectionHeader
-            label="FAQ"
-            title="Need help?"
-            titleMuted="We've got answers."
-          />
-          <p className="text-muted-foreground leading-relaxed">
-            Can&apos;t find what you&apos;re looking for? Open the Life tool and
-            ask the agent directly — it can answer questions about itself too.
-          </p>
-        </div>
+  const items = [
+    {
+      q: "Is this a health app or a life planner?",
+      a: "Both, merged into one. Your routines know about your workouts. Your meals know about your calorie target. Your calendar knows about your gym sessions. One assistant, no switching.",
+    },
+    {
+      q: "What does it actually connect to?",
+      a: "Google Calendar for events and Google Tasks for to-dos. Everything else — routines, memories, weight, meals, workouts — lives here natively. More integrations are on the way.",
+    },
+    {
+      q: "Do I need to fill out long forms?",
+      a: "No. A two-minute chat-based onboarding captures everything needed. You can update your profile anytime — just tell the assistant what changed.",
+    },
+    {
+      q: "What happens to my data?",
+      a: "Your conversations, routines, and health profile are yours. We use them to give the assistant context and generate your morning summary. Nothing is sold or shared.",
+    },
+    {
+      q: "How is this different from a generic chatbot?",
+      a: "The assistant has 28+ real tools wired directly into your calendar, tasks, and health data. It doesn't just describe what to do — it does it. Every request results in a concrete action or a clear answer.",
+    },
+    {
+      q: "Is there a free tier?",
+      a: "Yes — sign up and use the full assistant free. We'll add paid tiers later with higher limits and advanced integrations. Early users get grandfathered.",
+    },
+  ];
 
-        <Accordion type="single" collapsible className="w-full">
-          {faqItems.map((item, i) => (
-            <AccordionItem key={i} value={`faq-${i}`}>
-              <AccordionTrigger className="text-sm text-left">
-                {item.q}
-              </AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
-                {item.a}
-              </AccordionContent>
-            </AccordionItem>
+  return (
+    <Section id="faq" className="pb-24">
+      <SectionHeader
+        eyebrow="Questions"
+        title="Frequently"
+        italic="asked"
+      />
+      <Accordion type="single" collapsible className="w-full">
+        {items.map((item, i) => (
+          <AccordionItem key={i} value={`faq-${i}`} className="border-border/50">
+            <AccordionTrigger className="py-5 text-left text-[17px] font-medium hover:no-underline">
+              {item.q}
+            </AccordionTrigger>
+            <AccordionContent className="pb-5 text-[15px] leading-relaxed text-muted-foreground">
+              {item.a}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </Section>
+  );
+}
+
+// ─── Final CTA ───────────────────────────────────────────────────────────────
+
+function FinalCTA() {
+  return (
+    <Section className="pb-28 sm:pb-36">
+      <div className="relative overflow-hidden rounded-[28px] border border-border/60 bg-gradient-to-br from-primary/10 via-card to-muted/60 px-8 py-16 text-center sm:px-12 sm:py-20">
+        <svg
+          aria-hidden
+          viewBox="0 0 800 400"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[140%] w-[140%] -translate-x-1/2 -translate-y-1/2 opacity-40 [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_75%)]"
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <circle
+              key={i}
+              cx="400"
+              cy="200"
+              r={60 + i * 42}
+              fill="none"
+              stroke="var(--primary)"
+              strokeOpacity={0.15 - i * 0.02}
+              strokeWidth="1"
+            />
           ))}
-        </Accordion>
+        </svg>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="relative mx-auto max-w-2xl"
+        >
+          <Eyebrow>
+            <Heart className="h-3 w-3 text-primary" />
+            Built for people who want less friction
+          </Eyebrow>
+          <h2 className="mt-5 font-[family-name:var(--font-display)] text-5xl leading-[1.02] tracking-tight sm:text-6xl">
+            Start living{" "}
+            <span className="italic text-primary/90">intentionally.</span>
+          </h2>
+          <p className="mt-5 text-[16px] text-muted-foreground">
+            Your first conversation is free. Your morning summary tomorrow is on us.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/tools/life"
+              className="group inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 text-[15px] font-medium text-primary-foreground shadow-[0_8px_24px_-8px_rgba(255,126,165,0.7)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_36px_-8px_rgba(255,126,165,0.85)]"
+            >
+              Open your life assistant
+              <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </Link>
+            <Link
+              href="#features"
+              className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-6 py-3 text-[14px] font-medium text-foreground backdrop-blur transition-colors hover:border-border hover:bg-background"
+            >
+              Scroll back
+            </Link>
+          </div>
+        </motion.div>
       </div>
     </Section>
   );
 }
 
-// ─── Bottom CTA ──────────────────────────────────────────────────────────────
-
-function BottomCTA() {
-  return (
-    <Section>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
-        whileInView={{ opacity: 1, scale: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5 }}
-        className="relative overflow-hidden rounded-3xl border border-border/50 bg-card"
-      >
-        {/* Subtle radial background */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--color-primary)/0.06,transparent_70%)]" />
-
-        <div className="relative flex flex-col items-center gap-6 px-8 py-20 text-center sm:px-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            Start planning smarter today
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-lg leading-relaxed">
-            Open the Life tool and have your first conversation. Your AI agent
-            is ready to help you take control of your day.
-          </p>
-          <div className="flex flex-col items-center gap-4 sm:flex-row">
-            <Link
-              href="/tools/life"
-              className="group inline-flex items-center gap-2 rounded-full bg-primary px-10 py-4 text-base font-semibold text-primary-foreground transition-all hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Get started
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-            <a
-              href="#features"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-8 py-3.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-foreground/20"
-            >
-              View features
-            </a>
-          </div>
-        </div>
-      </motion.div>
-
-    </Section>
-  );
-}
-
-// ─── Root ────────────────────────────────────────────────────────────────────
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export function LifeLanding() {
   return (
-    <div className="overflow-x-hidden">
+    <div className="relative bg-background text-foreground">
+      <GrainOverlay />
       <Hero />
-      <WorkflowDemo />
-      <Features />
+      <StatsStrip />
+      <BentoGrid />
+      <CapabilitiesMarquee />
       <HowItWorks />
-      <UseCases />
-      <TrustSignals />
+      <PullQuote />
       <FAQ />
-      <BottomCTA />
+      <FinalCTA />
     </div>
   );
 }

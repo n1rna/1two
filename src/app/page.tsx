@@ -1,4 +1,4 @@
-import { ToolGrid } from "@/components/layout/tool-grid";
+import { HomeLanding } from "@/components/home-landing";
 import { homepageJsonLd } from "@/lib/tools/seo";
 
 export default function Home() {
@@ -12,9 +12,7 @@ export default function Home() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(item) }}
         />
       ))}
-      <div className="p-6 max-w-6xl mx-auto">
-        <ToolGrid />
-      </div>
+      <HomeLanding />
     </>
   );
 }

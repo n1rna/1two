@@ -174,6 +174,11 @@ func main() {
 			r.Post("/life/webhooks/email", handler.EmailWebhook(cfg, db, lifeAgent))
 		}
 
+		// Marketplace — public item view (no auth required)
+		if db != nil {
+			r.Get("/public/marketplace/{slug}", handler.GetPublicMarketplaceItem(db))
+		}
+
 		// Internal message endpoint (protected by secret, dispatches by type)
 		r.Post("/internal/message", handler.HandleInternalMessage(cfg, db, r2, lifeAgent))
 
@@ -308,6 +313,8 @@ func main() {
 				r.Post("/health/weight", handler.CreateHealthWeightEntry(db))
 				r.Delete("/health/weight/{id}", handler.DeleteHealthWeightEntry(db))
 				r.Get("/health/meal-plans", handler.ListHealthMealPlans(db))
+				r.Get("/health/meal-plans/{id}", handler.GetHealthMealPlan(db))
+				r.Put("/health/meal-plans/{id}", handler.UpdateHealthMealPlan(db))
 				r.Delete("/health/meal-plans/{id}", handler.DeleteHealthMealPlan(db))
 				r.Get("/health/sessions", handler.ListHealthSessions(db))
 				r.Get("/health/sessions/{id}", handler.GetHealthSession(db))
@@ -346,6 +353,14 @@ func main() {
 				r.Post("/life/routines", handler.CreateLifeRoutine(db))
 				r.Put("/life/routines/{id}", handler.UpdateLifeRoutine(db))
 				r.Delete("/life/routines/{id}", handler.DeleteLifeRoutine(db))
+				// Marketplace
+				r.Post("/life/marketplace/publish", handler.PublishMarketplaceItem(db))
+				r.Get("/life/marketplace", handler.ListMarketplace(db))
+				r.Get("/life/marketplace/mine", handler.ListMyMarketplace(db))
+				r.Get("/life/marketplace/items/{id}", handler.GetMarketplaceItem(db))
+				r.Post("/life/marketplace/items/{id}/versions", handler.RepublishMarketplaceItem(db))
+				r.Delete("/life/marketplace/items/{id}", handler.UnpublishMarketplaceItem(db))
+				r.Post("/life/marketplace/items/{id}/fork", handler.ForkMarketplaceItem(db))
 				// Google Calendar integration (all routes registered; handlers check nil).
 				r.Get("/life/gcal/status", handler.GetGCalStatus(db))
 				r.Get("/life/gcal/auth-url", handler.GetGCalAuthURL(gcalClient))

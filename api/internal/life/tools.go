@@ -533,7 +533,7 @@ func toolDefs() []llms.Tool {
 				"properties": map[string]any{
 					"title":                map[string]any{"type": "string"},
 					"description":          map[string]any{"type": "string"},
-					"status":               map[string]any{"type": "string", "enum": []string{"draft", "active"}},
+					"status":               map[string]any{"type": "string", "enum": []string{"active", "archived"}, "description": "Defaults to 'active'. Use 'archived' only if the user explicitly asks for an inactive template."},
 					"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 					"estimated_duration":   map[string]any{"type": "integer"},
 					"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
@@ -569,7 +569,7 @@ func toolDefs() []llms.Tool {
 					"session_id":           map[string]any{"type": "string"},
 					"title":                map[string]any{"type": "string"},
 					"description":          map[string]any{"type": "string"},
-					"status":               map[string]any{"type": "string", "enum": []string{"draft", "active", "archived"}},
+					"status":               map[string]any{"type": "string", "enum": []string{"active", "archived"}, "description": "'active' or 'archived' (inactive). Drafts are no longer supported."},
 					"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 					"estimated_duration":   map[string]any{"type": "integer"},
 					"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
@@ -654,6 +654,54 @@ func toolDefs() []llms.Tool {
 			Parameters: map[string]any{
 				"type":       "object",
 				"properties": map[string]any{},
+			},
+		},
+	},
+	// ── Marketplace tools ─────────────────────────────────────────────────
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "search_marketplace",
+			Description: "Search the marketplace for published routines, gym sessions, or meal plans shared by the community.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"kind": map[string]any{
+						"type":        "string",
+						"enum":        []string{"routine", "gym_session", "meal_plan", "any"},
+						"description": "Type of item to search for. Use 'any' to search all kinds.",
+					},
+					"query": map[string]any{
+						"type":        "string",
+						"description": "Full-text search query (keywords, goals, muscle groups, etc.)",
+					},
+					"limit": map[string]any{
+						"type":        "integer",
+						"description": "Maximum number of results to return (default 5, max 20)",
+					},
+				},
+				"required": []string{"kind", "query"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "fork_marketplace_item",
+			Description: "Fork a marketplace item, creating a personal copy of the routine, gym session, or meal plan under the user's account.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"item_id": map[string]any{
+						"type":        "string",
+						"description": "The marketplace item ID to fork",
+					},
+					"version": map[string]any{
+						"type":        "integer",
+						"description": "Optional specific version number to fork. Defaults to the current version.",
+					},
+				},
+				"required": []string{"item_id"},
 			},
 		},
 	},
@@ -804,6 +852,11 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolGetHealthSummary(ctx, db, userID)
 	case "get_life_summary":
 		return toolGetLifeSummary(ctx, db, gcalClient, userID)
+	// ── Marketplace tools ──
+	case "search_marketplace":
+		return toolSearchMarketplace(ctx, db, args)
+	case "fork_marketplace_item":
+		return toolForkMarketplaceItem(ctx, db, userID, args)
 	default:
 		return jsonError("unknown tool: " + call.FunctionCall.Name)
 	}
@@ -1865,7 +1918,7 @@ func toolHealthCreateSession(ctx context.Context, db *sql.DB, userID, args strin
 		return jsonError("title is required")
 	}
 	if params.Status == "" {
-		params.Status = "draft"
+		params.Status = "active"
 	}
 	if params.Difficulty == "" {
 		params.Difficulty = "intermediate"
@@ -2181,6 +2234,77 @@ func toolGetLifeSummary(ctx context.Context, db *sql.DB, gcalClient *GCalClient,
 	}
 
 	return jsonOK(result)
+}
+
+func toolSearchMarketplace(ctx context.Context, db *sql.DB, args map[string]any) string {
+	kind, _ := args["kind"].(string)
+	query, _ := args["query"].(string)
+	limitF, _ := args["limit"].(float64)
+	limit := int(limitF)
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 20 {
+		limit = 20
+	}
+	if kind == "any" {
+		kind = ""
+	}
+
+	items, err := ListMarketplace(ctx, db, MarketplaceFilter{
+		Kind:  kind,
+		Query: query,
+		Limit: limit,
+	})
+	if err != nil {
+		return jsonError("failed to search marketplace: " + err.Error())
+	}
+
+	type compact struct {
+		ID          string   `json:"id"`
+		Slug        string   `json:"slug"`
+		Title       string   `json:"title"`
+		Description string   `json:"description"`
+		AuthorName  string   `json:"author_name"`
+		Kind        string   `json:"kind"`
+		Tags        []string `json:"tags"`
+		ForkCount   int      `json:"fork_count"`
+	}
+	out := make([]compact, 0, len(items))
+	for _, it := range items {
+		out = append(out, compact{
+			ID:          it.ID,
+			Slug:        it.Slug,
+			Title:       it.Title,
+			Description: it.Description,
+			AuthorName:  it.Author.Name,
+			Kind:        it.Kind,
+			Tags:        it.Tags,
+			ForkCount:   it.ForkCount,
+		})
+	}
+	return jsonOK(out)
+}
+
+func toolForkMarketplaceItem(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	itemID, _ := args["item_id"].(string)
+	if itemID == "" {
+		return jsonError("item_id is required")
+	}
+	var versionNum *int
+	if v, ok := args["version"].(float64); ok {
+		n := int(v)
+		versionNum = &n
+	}
+
+	newSourceID, kind, err := ForkItem(ctx, db, userID, itemID, versionNum)
+	if err != nil {
+		return jsonError("failed to fork: " + err.Error())
+	}
+	return jsonOK(map[string]any{
+		"new_source_id": newSourceID,
+		"kind":          kind,
+	})
 }
 
 // ----- helpers -----

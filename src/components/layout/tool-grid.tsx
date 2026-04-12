@@ -106,7 +106,7 @@ function SortableBookmarkCard({
           }}
         >
           <div className="h-full rounded-[11px] bg-card p-5">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-3 pr-8">
               <div className="p-2.5 rounded-lg bg-primary/10 ring-1 ring-primary/20">
                 <Icon className="h-5 w-5 text-primary" />
               </div>
@@ -169,7 +169,7 @@ function FeaturedCard({
       <Link href={`/tools/${tool.slug}`} className="block h-full">
         <div className="relative h-full rounded-xl border bg-card p-5 transition-all duration-200 hover:border-foreground/25 hover:-translate-y-0.5 hover:shadow-md hover:shadow-black/5 dark:hover:shadow-black/20">
           {/* Subtle icon glow behind the icon container */}
-          <div className="flex items-start gap-4 mb-3">
+          <div className="flex items-start gap-4 mb-3 pr-8">
             <div className="relative shrink-0">
               <div className="absolute inset-0 rounded-lg blur-md bg-primary/20 scale-125" aria-hidden />
               <div className="relative p-2.5 rounded-lg bg-primary/10 ring-1 ring-primary/15">

@@ -92,17 +92,18 @@ type healthMealPlanRecord struct {
 }
 
 type healthSessionRecord struct {
-	ID                 string   `json:"id"`
-	UserID             string   `json:"userId"`
-	Title              string   `json:"title"`
-	Description        string   `json:"description"`
-	Status             string   `json:"status"`
-	TargetMuscleGroups []string `json:"targetMuscleGroups"`
-	EstimatedDuration  *int     `json:"estimatedDuration"`
-	DifficultyLevel    string   `json:"difficultyLevel"`
-	ExerciseCount      int      `json:"exerciseCount,omitempty"`
-	CreatedAt          string   `json:"createdAt"`
-	UpdatedAt          string   `json:"updatedAt"`
+	ID                 string                        `json:"id"`
+	UserID             string                        `json:"userId"`
+	Title              string                        `json:"title"`
+	Description        string                        `json:"description"`
+	Status             string                        `json:"status"`
+	TargetMuscleGroups []string                      `json:"targetMuscleGroups"`
+	EstimatedDuration  *int                          `json:"estimatedDuration"`
+	DifficultyLevel    string                        `json:"difficultyLevel"`
+	ExerciseCount      int                           `json:"exerciseCount,omitempty"`
+	Exercises          []healthSessionExerciseRecord `json:"exercises,omitempty"`
+	CreatedAt          string                        `json:"createdAt"`
+	UpdatedAt          string                        `json:"updatedAt"`
 }
 
 type healthSessionExerciseRecord struct {
@@ -680,6 +681,137 @@ func ListHealthMealPlans(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func GetHealthMealPlan(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		planID := chi.URLParam(r, "id")
+		var p healthMealPlanRecord
+		var targetCals sql.NullInt64
+		var content string
+		var createdAt, updatedAt time.Time
+		err := db.QueryRowContext(r.Context(), `
+			SELECT id, user_id, title, plan_type, diet_type, target_calories, content, active, created_at, updated_at
+			FROM health_meal_plans WHERE id = $1 AND user_id = $2`, planID, userID,
+		).Scan(&p.ID, &p.UserID, &p.Title, &p.PlanType, &p.DietType, &targetCals, &content, &p.Active, &createdAt, &updatedAt)
+		if err == sql.ErrNoRows {
+			http.Error(w, `{"error":"meal plan not found"}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			log.Printf("health: get meal plan %s: %v", planID, err)
+			http.Error(w, `{"error":"failed to load meal plan"}`, http.StatusInternalServerError)
+			return
+		}
+		if targetCals.Valid {
+			v := int(targetCals.Int64)
+			p.TargetCalories = &v
+		}
+		p.Content = json.RawMessage(content)
+		p.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		p.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		json.NewEncoder(w).Encode(map[string]any{"plan": p})
+	}
+}
+
+func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		planID := chi.URLParam(r, "id")
+
+		var req struct {
+			Title          *string          `json:"title"`
+			PlanType       *string          `json:"planType"`
+			DietType       *string          `json:"dietType"`
+			TargetCalories *int             `json:"targetCalories"`
+			Content        *json.RawMessage `json:"content"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+			return
+		}
+
+		// Verify ownership first
+		var ownerID string
+		if err := db.QueryRowContext(r.Context(),
+			`SELECT user_id FROM health_meal_plans WHERE id = $1`, planID,
+		).Scan(&ownerID); err != nil {
+			http.Error(w, `{"error":"meal plan not found"}`, http.StatusNotFound)
+			return
+		}
+		if ownerID != userID {
+			http.Error(w, `{"error":"meal plan not found"}`, http.StatusNotFound)
+			return
+		}
+
+		sets := []string{"updated_at = NOW()"}
+		vals := []any{}
+		idx := 1
+		add := func(col string, val any) {
+			sets = append(sets, fmt.Sprintf("%s = $%d", col, idx))
+			vals = append(vals, val)
+			idx++
+		}
+		if req.Title != nil {
+			add("title", *req.Title)
+		}
+		if req.PlanType != nil {
+			add("plan_type", *req.PlanType)
+		}
+		if req.DietType != nil {
+			add("diet_type", *req.DietType)
+		}
+		if req.TargetCalories != nil {
+			add("target_calories", *req.TargetCalories)
+		}
+		if req.Content != nil {
+			add("content", string(*req.Content))
+		}
+
+		vals = append(vals, planID)
+		query := fmt.Sprintf(`UPDATE health_meal_plans SET %s WHERE id = $%d`, strings.Join(sets, ", "), idx)
+		if _, err := db.ExecContext(r.Context(), query, vals...); err != nil {
+			log.Printf("health: update meal plan %s: %v", planID, err)
+			http.Error(w, `{"error":"failed to update meal plan"}`, http.StatusInternalServerError)
+			return
+		}
+
+		// Return the updated record
+		var p healthMealPlanRecord
+		var targetCals sql.NullInt64
+		var content string
+		var createdAt, updatedAt time.Time
+		if err := db.QueryRowContext(r.Context(), `
+			SELECT id, user_id, title, plan_type, diet_type, target_calories, content, active, created_at, updated_at
+			FROM health_meal_plans WHERE id = $1`, planID,
+		).Scan(&p.ID, &p.UserID, &p.Title, &p.PlanType, &p.DietType, &targetCals, &content, &p.Active, &createdAt, &updatedAt); err != nil {
+			http.Error(w, `{"error":"failed to reload meal plan"}`, http.StatusInternalServerError)
+			return
+		}
+		if targetCals.Valid {
+			v := int(targetCals.Int64)
+			p.TargetCalories = &v
+		}
+		p.Content = json.RawMessage(content)
+		p.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+		p.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		json.NewEncoder(w).Encode(map[string]any{"plan": p})
+	}
+}
+
 func DeleteHealthMealPlan(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -849,8 +981,9 @@ func GetHealthSession(db *sql.DB) http.HandlerFunc {
 			}
 			exercises = append(exercises, ex)
 		}
+		s.Exercises = exercises
 
-		json.NewEncoder(w).Encode(map[string]any{"session": s, "exercises": exercises})
+		json.NewEncoder(w).Encode(map[string]any{"session": s})
 	}
 }
 

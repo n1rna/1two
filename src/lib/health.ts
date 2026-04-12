@@ -68,6 +68,7 @@ export interface HealthMealPlan {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  forkedFromMpId?: string | null;
 }
 
 export interface MealItem {
@@ -94,6 +95,7 @@ export interface HealthSession {
   exercises?: HealthSessionExercise[];
   createdAt: string;
   updatedAt: string;
+  forkedFromMpId?: string | null;
 }
 
 export interface HealthSessionExercise {
@@ -264,6 +266,22 @@ export async function listMealPlans(): Promise<HealthMealPlan[]> {
 
 export async function deleteMealPlan(id: string): Promise<void> {
   return healthApiFetch<void>(`/meal-plans/${id}`, { method: "DELETE" });
+}
+
+export async function getMealPlan(id: string): Promise<HealthMealPlan> {
+  const res = await healthApiFetch<{ plan: HealthMealPlan }>(`/meal-plans/${id}`);
+  return res.plan;
+}
+
+export async function updateMealPlan(
+  id: string,
+  data: Partial<Pick<HealthMealPlan, "title" | "planType" | "dietType" | "targetCalories" | "content">>
+): Promise<HealthMealPlan> {
+  const res = await healthApiFetch<{ plan: HealthMealPlan }>(`/meal-plans/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  return res.plan;
 }
 
 // ─── Sessions ─────────────────────────────────────────────────────────────────
