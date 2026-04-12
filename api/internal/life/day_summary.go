@@ -83,6 +83,49 @@ Input events:
 Output:
 [{"type":"sleep","label":"Sleep","description":"","start":"00:00","end":"07:00","eventIds":[]},{"type":"morning_routine","label":"Morning routine","description":"Wake up, breakfast","start":"07:00","end":"08:00","eventIds":[]},{"type":"commute","label":"Commute","description":"","start":"08:00","end":"08:30","eventIds":[]},{"type":"work","label":"Work","description":"Standup, design review, lunch break","start":"08:30","end":"17:00","eventIds":["ev1","ev2","ev3"]},{"type":"personal","label":"Personal time","description":"","start":"17:00","end":"17:30","eventIds":[]},{"type":"exercise","label":"Gym","description":"Workout","start":"17:30","end":"18:30","eventIds":["ev4"]},{"type":"personal","label":"Personal time","description":"","start":"18:30","end":"19:00","eventIds":[]},{"type":"meal","label":"Dinner","description":"","start":"19:00","end":"20:00","eventIds":["ev5"]},{"type":"rest","label":"Evening","description":"Relax, reading","start":"20:00","end":"23:00","eventIds":[]},{"type":"sleep","label":"Sleep","description":"","start":"23:00","end":"23:59","eventIds":[]}]`
 
+// loadUserLocation loads the user's IANA timezone from life_profiles and
+// returns the matching *time.Location. Falls back to UTC on any error.
+func loadUserLocation(ctx context.Context, db *sql.DB, userID string) *time.Location {
+	var tz string
+	err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(timezone, '') FROM life_profiles WHERE user_id = $1`,
+		userID,
+	).Scan(&tz)
+	if err != nil || tz == "" {
+		return time.UTC
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		log.Printf("day summaries: bad timezone %q for user %s: %v", tz, userID, err)
+		return time.UTC
+	}
+	return loc
+}
+
+// localDayBounds returns the UTC half-open interval [start, end) covering the
+// given user-local date. dateStr is "YYYY-MM-DD" interpreted in loc.
+func localDayBounds(dateStr string, loc *time.Location) (time.Time, time.Time, error) {
+	t, err := time.ParseInLocation("2006-01-02", dateStr, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	start := t.UTC()
+	end := t.AddDate(0, 0, 1).UTC()
+	return start, end, nil
+}
+
+// localDateRange returns the user-local date strings for [today, today+days)
+// in the given location. Always includes today first.
+func localDateRange(now time.Time, loc *time.Location, days int) []string {
+	local := now.In(loc)
+	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	out := make([]string, 0, days)
+	for i := range days {
+		out = append(out, today.AddDate(0, 0, i).Format("2006-01-02"))
+	}
+	return out
+}
+
 // computeEventsHash produces a stable SHA-256 hash over the given events.
 func computeEventsHash(events []GCalEvent) string {
 	sorted := make([]GCalEvent, len(events))
@@ -106,7 +149,11 @@ func computeEventsHash(events []GCalEvent) string {
 
 // GetCachedDaySummaries returns cached summaries for the date range.
 // Days without a cached summary are returned with Pending=true.
+// from/to are inclusive/exclusive day boundaries; the dates returned are
+// "YYYY-MM-DD" strings interpreted in the user's local timezone.
 func GetCachedDaySummaries(ctx context.Context, db *sql.DB, userID string, from, to time.Time) ([]DaySummary, error) {
+	loc := loadUserLocation(ctx, db, userID)
+
 	// Load all cached summaries in the range
 	rows, err := db.QueryContext(ctx, `
 		SELECT date, events_hash, blocks, generated_at
@@ -142,15 +189,20 @@ func GetCachedDaySummaries(ctx context.Context, db *sql.DB, userID string, from,
 		cachedHashes[dateStr] = hash
 	}
 
-	// Check if cached summaries are still valid (events haven't changed)
+	// Check if cached summaries are still valid (events haven't changed).
+	// Iteration over dates uses the user's local timezone so today's summary
+	// is always evaluated against today's local-day event window.
 	var summaries []DaySummary
 	for d := from; d.Before(to); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
 
 		if summary, ok := cached[dateStr]; ok {
-			// Verify hash is still valid
-			dayStart := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
-			dayEnd := dayStart.AddDate(0, 0, 1)
+			// Revalidate against the event window for this user-local day.
+			dayStart, dayEnd, err := localDayBounds(dateStr, loc)
+			if err != nil {
+				summaries = append(summaries, DaySummary{Date: dateStr, Pending: true})
+				continue
+			}
 			events, err := QueryLocalEvents(ctx, db, userID, dayStart, dayEnd)
 			if err != nil {
 				events = nil
@@ -173,69 +225,109 @@ func GetCachedDaySummaries(ctx context.Context, db *sql.DB, userID string, from,
 
 // ─── Check which summaries are stale (used by queue producer) ────────────────
 
-// CheckStaleSummaries finds all user+date pairs in the next 7 days that need
-// summary (re)generation. Returns one StaleSummary per stale day.
+// CheckStaleSummaries finds all user+date pairs in the next 7 days (in each
+// user's local timezone, always including today) that need summary
+// (re)generation. Returns one StaleSummary per stale day.
 func CheckStaleSummaries(ctx context.Context, db *sql.DB) ([]StaleSummary, error) {
-	// Get all users with agent enabled
+	// Get all users with agent enabled, plus their timezone in one query so we
+	// don't make N round-trips.
 	userRows, err := db.QueryContext(ctx,
-		`SELECT user_id FROM life_profiles WHERE agent_enabled = TRUE`)
+		`SELECT user_id, COALESCE(timezone, '') FROM life_profiles WHERE agent_enabled = TRUE`)
 	if err != nil {
 		return nil, fmt.Errorf("check stale summaries: load users: %w", err)
 	}
 	defer userRows.Close()
 
-	var users []string
+	type userInfo struct {
+		ID  string
+		Loc *time.Location
+	}
+	var users []userInfo
 	for userRows.Next() {
-		var uid string
-		if err := userRows.Scan(&uid); err == nil {
-			users = append(users, uid)
+		var uid, tz string
+		if err := userRows.Scan(&uid, &tz); err != nil {
+			continue
 		}
+		loc := time.UTC
+		if tz != "" {
+			if l, err := time.LoadLocation(tz); err == nil {
+				loc = l
+			} else {
+				log.Printf("day summaries: bad timezone %q for user %s: %v", tz, uid, err)
+			}
+		}
+		users = append(users, userInfo{ID: uid, Loc: loc})
 	}
 
-	now := time.Now().UTC()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	endDate := today.AddDate(0, 0, 7)
-
+	now := time.Now()
 	var stale []StaleSummary
-	for _, userID := range users {
-		for d := today; d.Before(endDate); d = d.AddDate(0, 0, 1) {
-			dateStr := d.Format("2006-01-02")
-			dayEnd := d.AddDate(0, 0, 1)
-
-			events, err := QueryLocalEvents(ctx, db, userID, d, dayEnd)
+	for _, u := range users {
+		dates := localDateRange(now, u.Loc, 7) // [today, today+1, ..., today+6] in user-local TZ
+		for _, dateStr := range dates {
+			dayStart, dayEnd, err := localDayBounds(dateStr, u.Loc)
 			if err != nil {
+				log.Printf("day summaries: bad date %q for user %s: %v", dateStr, u.ID, err)
+				continue
+			}
+
+			events, err := QueryLocalEvents(ctx, db, u.ID, dayStart, dayEnd)
+			if err != nil {
+				log.Printf("day summaries: query events failed for user %s date %s: %v", u.ID, dateStr, err)
 				continue
 			}
 			currentHash := computeEventsHash(events)
 
-			// Check if we have a cached summary with this hash
 			var cachedHash string
 			err = db.QueryRowContext(ctx,
 				`SELECT events_hash FROM life_day_summaries WHERE user_id = $1 AND date = $2`,
-				userID, dateStr,
+				u.ID, dateStr,
 			).Scan(&cachedHash)
 
 			if err != nil || cachedHash != currentHash {
-				stale = append(stale, StaleSummary{UserID: userID, Date: dateStr})
+				stale = append(stale, StaleSummary{UserID: u.ID, Date: dateStr})
 			}
 		}
 	}
 
-	log.Printf("day summaries: checked %d users, %d stale summaries", len(users), len(stale))
+	log.Printf("day summaries: checked %d users, %d stale (next 7 days incl. today, per-user TZ)", len(users), len(stale))
 	return stale, nil
 }
 
 // ─── Generate a single day summary (used by queue consumer) ──────────────────
 
 // GenerateAndCacheDaySummary generates a summary for a single user+date and caches it.
+// dateStr is "YYYY-MM-DD" interpreted in the user's local timezone.
 func GenerateAndCacheDaySummary(ctx context.Context, db *sql.DB, agent *Agent, userID, dateStr string) error {
-	date, err := time.Parse("2006-01-02", dateStr)
+	// Load profile + tz first so the events query is in the user's local day.
+	var profile Profile
+	var wakeTime, sleepTime sql.NullString
+	_ = db.QueryRowContext(ctx,
+		`SELECT COALESCE(timezone, ''), wake_time, sleep_time FROM life_profiles WHERE user_id = $1`,
+		userID,
+	).Scan(&profile.Timezone, &wakeTime, &sleepTime)
+	if wakeTime.Valid {
+		profile.WakeTime = wakeTime.String
+	}
+	if sleepTime.Valid {
+		profile.SleepTime = sleepTime.String
+	}
+
+	loc := time.UTC
+	if profile.Timezone != "" {
+		if l, err := time.LoadLocation(profile.Timezone); err == nil {
+			loc = l
+		}
+	}
+
+	dayStart, dayEnd, err := localDayBounds(dateStr, loc)
 	if err != nil {
 		return fmt.Errorf("parse date %q: %w", dateStr, err)
 	}
+	// `date` is the user-local midnight expressed in `loc` — used for the LLM
+	// prompt's "day of week" rendering.
+	date := dayStart.In(loc)
 
-	dayEnd := date.AddDate(0, 0, 1)
-	events, err := QueryLocalEvents(ctx, db, userID, date, dayEnd)
+	events, err := QueryLocalEvents(ctx, db, userID, dayStart, dayEnd)
 	if err != nil {
 		return fmt.Errorf("query events: %w", err)
 	}
@@ -249,20 +341,6 @@ func GenerateAndCacheDaySummary(ctx context.Context, db *sql.DB, agent *Agent, u
 		userID, dateStr,
 	).Scan(&cachedHash); err == nil && cachedHash == hash {
 		return nil // already up to date
-	}
-
-	// Load profile + routines
-	var profile Profile
-	var wakeTime, sleepTime sql.NullString
-	_ = db.QueryRowContext(ctx,
-		`SELECT timezone, wake_time, sleep_time FROM life_profiles WHERE user_id = $1`,
-		userID,
-	).Scan(&profile.Timezone, &wakeTime, &sleepTime)
-	if wakeTime.Valid {
-		profile.WakeTime = wakeTime.String
-	}
-	if sleepTime.Valid {
-		profile.SleepTime = sleepTime.String
 	}
 
 	routineRows, _ := db.QueryContext(ctx,

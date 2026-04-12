@@ -1037,6 +1037,41 @@ const LIFE_COMMANDS: SlashCommand[] = [
     icon: <CalendarDays className="h-3.5 w-3.5" />,
   },
   {
+    name: "summary",
+    label: "Life summary",
+    description: "Quick aggregated view of routines, calendar, and pending actionables",
+    prompt: "Give me a quick aggregated summary of my life right now — active routines, upcoming calendar events, and any pending actionables I need to respond to.",
+    icon: <LayoutDashboard className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "calendar",
+    label: "Calendar review",
+    description: "Show upcoming calendar events",
+    prompt: "Show me my upcoming calendar events for the next few days.",
+    icon: <Calendar className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "schedule",
+    label: "Schedule something",
+    description: "Add a new event to your calendar",
+    prompt: "I want to schedule something on my calendar: ",
+    icon: <CalendarDays className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "reschedule",
+    label: "Move an event",
+    description: "Reschedule an existing calendar event",
+    prompt: "I need to reschedule a calendar event: ",
+    icon: <RefreshCw className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "cancel",
+    label: "Cancel an event",
+    description: "Delete a calendar event",
+    prompt: "Please cancel this calendar event: ",
+    icon: <X className="h-3.5 w-3.5" />,
+  },
+  {
     name: "routines",
     label: "Review routines",
     description: "Check in on your active routines and habits",
@@ -1044,32 +1079,53 @@ const LIFE_COMMANDS: SlashCommand[] = [
     icon: <Repeat className="h-3.5 w-3.5" />,
   },
   {
+    name: "habit",
+    label: "New routine",
+    description: "Start tracking a new recurring routine or habit",
+    prompt: "I want to start a new routine: ",
+    icon: <Target className="h-3.5 w-3.5" />,
+  },
+  {
     name: "tasks",
     label: "Review tasks",
-    description: "Go through your pending tasks and prioritize",
+    description: "Go through your pending Google Tasks and prioritize",
     prompt: "What tasks do I have pending? Help me prioritize them and suggest what to tackle first.",
     icon: <ListTodo className="h-3.5 w-3.5" />,
   },
   {
+    name: "task",
+    label: "New task",
+    description: "Add a task to your Google Tasks list",
+    prompt: "Add this task: ",
+    icon: <Plus className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "done",
+    label: "Mark task done",
+    description: "Mark a Google Task as completed",
+    prompt: "I just finished this task — mark it complete: ",
+    icon: <CheckSquare className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "actionables",
+    label: "Pending actionables",
+    description: "Show items waiting on your response",
+    prompt: "What actionables are pending and waiting for me to respond?",
+    icon: <AlertCircle className="h-3.5 w-3.5" />,
+  },
+  {
     name: "remember",
-    label: "Save a note",
+    label: "Remember a fact",
     description: "Tell the agent something to remember about you",
-    prompt: "I want to tell you something to remember: ",
+    prompt: "I want you to remember this: ",
     icon: <Lightbulb className="h-3.5 w-3.5" />,
   },
   {
-    name: "schedule",
-    label: "Schedule something",
-    description: "Add an event to your calendar",
-    prompt: "I want to schedule something on my calendar: ",
-    icon: <CalendarDays className="h-3.5 w-3.5" />,
-  },
-  {
-    name: "habit",
-    label: "New habit",
-    description: "Start tracking a new habit or routine",
-    prompt: "I want to start a new habit: ",
-    icon: <Target className="h-3.5 w-3.5" />,
+    name: "forget",
+    label: "Forget a fact",
+    description: "Remove an outdated memory",
+    prompt: "Please forget this about me: ",
+    icon: <Trash2 className="h-3.5 w-3.5" />,
   },
   {
     name: "review",
@@ -1079,6 +1135,117 @@ const LIFE_COMMANDS: SlashCommand[] = [
     icon: <Sparkles className="h-3.5 w-3.5" />,
   },
 ];
+
+const HEALTH_COMMANDS: SlashCommand[] = [
+  {
+    name: "summary",
+    label: "Health summary",
+    description: "Profile, recent weight, nutrition stats, and active sessions",
+    prompt: "Give me a summary of my health right now — current weight vs goal, calories and macros today, and any active workout sessions.",
+    icon: <Heart className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "weight",
+    label: "Log weight",
+    description: "Record today's weight measurement",
+    prompt: "Log my weight: ",
+    icon: <Weight className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "progress",
+    label: "Weight progress",
+    description: "Trend versus your goal weight",
+    prompt: "How is my weight trending compared to my goal? Show me recent entries and what direction I'm moving.",
+    icon: <TrendingDown className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "macros",
+    label: "Macros today",
+    description: "Calories and protein/carbs/fat breakdown",
+    prompt: "How am I doing on calories and macros today versus my targets?",
+    icon: <PieChart className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "meal",
+    label: "Generate meal plan",
+    description: "Create a daily meal plan matching your targets",
+    prompt: "Generate a daily meal plan for today that matches my calorie target, macros, and dietary preferences.",
+    icon: <UtensilsCrossed className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "weekmeals",
+    label: "Weekly meal plan",
+    description: "Plan meals for the whole week",
+    prompt: "Generate a weekly meal plan with breakfast, lunch, and dinner for each day, matching my targets and preferences.",
+    icon: <UtensilsCrossed className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "workout",
+    label: "New workout",
+    description: "Build a new workout session with exercises",
+    prompt: "Create a new workout session for me. What I want: ",
+    icon: <Dumbbell className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "exercise",
+    label: "Add exercise",
+    description: "Add an exercise to your current workout",
+    prompt: "Add this exercise to my current workout: ",
+    icon: <Plus className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "session",
+    label: "Update session",
+    description: "Change details of your current workout session",
+    prompt: "Update my current workout session: ",
+    icon: <Edit2 className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "profile",
+    label: "Update health profile",
+    description: "Adjust body stats, diet, fitness level, equipment, etc.",
+    prompt: "I want to update my health profile: ",
+    icon: <UserIcon className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "diet",
+    label: "Change diet",
+    description: "Set or change your diet type and goal",
+    prompt: "I want to change my diet — type and/or goal: ",
+    icon: <Flame className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "goal",
+    label: "Set fitness goal",
+    description: "Update fitness goal (strength, hypertrophy, endurance, etc.)",
+    prompt: "I want to set my fitness goal to: ",
+    icon: <Target className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "schedule",
+    label: "Schedule workout",
+    description: "Add a workout to your calendar",
+    prompt: "Schedule a workout on my calendar: ",
+    icon: <CalendarDays className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "remember",
+    label: "Remember a fact",
+    description: "Save a health-related fact, allergy, or injury",
+    prompt: "Remember this about my health: ",
+    icon: <Lightbulb className="h-3.5 w-3.5" />,
+  },
+];
+
+// commandsForCategory returns the slash command set for the given chat category.
+// "auto" merges life + health, dropping duplicate names (life wins).
+function commandsForCategory(category: string): SlashCommand[] {
+  if (category === "health") return HEALTH_COMMANDS;
+  if (category === "life") return LIFE_COMMANDS;
+  // auto: union, life entries take precedence on name collision
+  const seen = new Set(LIFE_COMMANDS.map((c) => c.name));
+  return [...LIFE_COMMANDS, ...HEALTH_COMMANDS.filter((c) => !seen.has(c.name))];
+}
 
 // ─── Chat View ────────────────────────────────────────────────────────────────
 
@@ -1123,7 +1290,8 @@ function ChatView({
       : []
   );
   const [input, setInput] = useState("");
-  const slash = useSlashCommands(LIFE_COMMANDS);
+  const activeCommands = useMemo(() => commandsForCategory(chatCategory), [chatCategory]);
+  const slash = useSlashCommands(activeCommands);
   const [sending, setSending] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
@@ -1675,7 +1843,7 @@ function ChatView({
         {/* Input area */}
         <div className="shrink-0 border-t px-4 py-3 relative">
           <SlashCommandMenu
-            commands={LIFE_COMMANDS}
+            commands={activeCommands}
             input={input}
             onSelect={handleSlashCommand}
             onClose={slash.close}
