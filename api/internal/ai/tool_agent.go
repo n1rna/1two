@@ -97,7 +97,7 @@ func (c *ToolAgentConfig) maxTokens() int {
 	if c.MaxTokens > 0 {
 		return c.MaxTokens
 	}
-	return 4096
+	return 16384
 }
 
 func (c *ToolAgentConfig) parseEffectID(toolName, result string) string {
@@ -216,7 +216,7 @@ func runToolAgentDirect(ctx context.Context, cfg ToolAgentConfig) (*ToolAgentRes
 	var effects []ToolEffect
 
 	for round := 0; round < cfg.maxRounds(); round++ {
-		resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, tools, cfg.temperature(), cfg.maxTokens())
+		resp, err := KimiChatCompletion(ctx, cfg.LLMConfig, messages, tools, cfg.temperature(), cfg.maxTokens())
 		if err != nil {
 			return nil, fmt.Errorf("tool agent direct: round %d: %w", round, err)
 		}
@@ -232,7 +232,7 @@ func runToolAgentDirect(ctx context.Context, cfg ToolAgentConfig) (*ToolAgentRes
 		}
 
 		// Append assistant message with reasoning_content preserved.
-		messages = append(messages, kimiMessage{
+		messages = append(messages, KimiMessage{
 			Role:             "assistant",
 			Content:          choice.Message.Content,
 			ReasoningContent: choice.Message.ReasoningContent,
@@ -269,7 +269,7 @@ func runToolAgentDirect(ctx context.Context, cfg ToolAgentConfig) (*ToolAgentRes
 				Error:   errMsg,
 			})
 
-			messages = append(messages, kimiMessage{
+			messages = append(messages, KimiMessage{
 				Role:       "tool",
 				Content:    result,
 				ToolCallID: tc.ID,
@@ -278,7 +278,7 @@ func runToolAgentDirect(ctx context.Context, cfg ToolAgentConfig) (*ToolAgentRes
 	}
 
 	// Exhausted tool rounds — final call without tools.
-	resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, nil, cfg.temperature(), cfg.maxTokens())
+	resp, err := KimiChatCompletion(ctx, cfg.LLMConfig, messages, nil, cfg.temperature(), cfg.maxTokens())
 	if err != nil {
 		return nil, fmt.Errorf("tool agent direct: final: %w", err)
 	}
@@ -297,7 +297,7 @@ func runToolAgentDirectWithEvents(ctx context.Context, cfg ToolAgentConfig, onEv
 	var effects []ToolEffect
 
 	for round := 0; round < cfg.maxRounds(); round++ {
-		resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, tools, cfg.temperature(), cfg.maxTokens())
+		resp, err := KimiChatCompletion(ctx, cfg.LLMConfig, messages, tools, cfg.temperature(), cfg.maxTokens())
 		if err != nil {
 			return nil, fmt.Errorf("tool agent direct stream: round %d: %w", round, err)
 		}
@@ -318,7 +318,7 @@ func runToolAgentDirectWithEvents(ctx context.Context, cfg ToolAgentConfig, onEv
 			return result, nil
 		}
 
-		messages = append(messages, kimiMessage{
+		messages = append(messages, KimiMessage{
 			Role:             "assistant",
 			Content:          choice.Message.Content,
 			ReasoningContent: choice.Message.ReasoningContent,
@@ -355,7 +355,7 @@ func runToolAgentDirectWithEvents(ctx context.Context, cfg ToolAgentConfig, onEv
 				Error:   errMsg,
 			})
 
-			messages = append(messages, kimiMessage{
+			messages = append(messages, KimiMessage{
 				Role:       "tool",
 				Content:    result,
 				ToolCallID: tc.ID,
@@ -364,7 +364,7 @@ func runToolAgentDirectWithEvents(ctx context.Context, cfg ToolAgentConfig, onEv
 	}
 
 	// Final call without tools
-	resp, err := kimiChatCompletion(ctx, cfg.LLMConfig, messages, nil, cfg.temperature(), cfg.maxTokens())
+	resp, err := KimiChatCompletion(ctx, cfg.LLMConfig, messages, nil, cfg.temperature(), cfg.maxTokens())
 	if err != nil {
 		return nil, fmt.Errorf("tool agent direct stream: final: %w", err)
 	}

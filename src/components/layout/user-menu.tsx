@@ -43,7 +43,7 @@ export function UserMenu({ variant = "icon", onNavigate }: UserMenuProps) {
         <>
           <button
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-md hover:bg-accent transition-colors"
-            onClick={() => { setSignInOpen(true); onNavigate?.(); }}
+            onClick={() => setSignInOpen(true)}
           >
             <User className="h-4 w-4 text-muted-foreground" />
             Sign in

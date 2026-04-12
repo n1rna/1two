@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/n1rna/1tt/api/internal/health"
 	"github.com/tmc/langchaingo/llms"
 )
 
@@ -81,7 +82,7 @@ func toolDefs() []llms.Tool {
 			Type: "function",
 			Function: &llms.FunctionDefinition{
 				Name:        "remember",
-				Description: "Store a new fact, preference, instruction, or habit about the user for future context.",
+				Description: "Store a new fact, preference, instruction, habit, allergy, or injury about the user for future context.",
 				Parameters: map[string]any{
 					"type": "object",
 					"properties": map[string]any{
@@ -91,7 +92,7 @@ func toolDefs() []llms.Tool {
 						},
 						"category": map[string]any{
 							"type":        "string",
-							"enum":        []string{"preference", "instruction", "fact", "habit"},
+							"enum":        []string{"preference", "instruction", "fact", "habit", "allergy", "injury"},
 							"description": "Category for organising the memory",
 						},
 					},
@@ -445,6 +446,217 @@ func toolDefs() []llms.Tool {
 			},
 		},
 	},
+	// ── Health tools ──────────────────────────────────────────────────────
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "update_health_profile",
+			Description: "Update user's health profile — body stats, diet, fitness level, equipment, limitations, preferences.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"weight_kg":              map[string]any{"type": "number"},
+					"height_cm":              map[string]any{"type": "number"},
+					"age":                    map[string]any{"type": "integer"},
+					"gender":                 map[string]any{"type": "string", "enum": []string{"male", "female"}},
+					"activity_level":         map[string]any{"type": "string", "enum": []string{"sedentary", "light", "moderate", "active", "very_active"}},
+					"diet_type":              map[string]any{"type": "string", "enum": []string{"balanced", "keto", "low_carb", "high_protein", "mediterranean", "paleo", "vegan"}},
+					"diet_goal":              map[string]any{"type": "string", "enum": []string{"lose", "maintain", "gain"}},
+					"goal_weight_kg":         map[string]any{"type": "number"},
+					"dietary_restrictions":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"fitness_level":          map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
+					"fitness_goal":           map[string]any{"type": "string", "enum": []string{"strength", "hypertrophy", "endurance", "weight_loss", "general_fitness"}},
+					"available_equipment":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"physical_limitations":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"workout_likes":          map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"workout_dislikes":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"preferred_duration_min": map[string]any{"type": "integer"},
+					"days_per_week":          map[string]any{"type": "integer"},
+				},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "log_weight",
+			Description: "Record a weight measurement. Also updates the profile's current weight.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"weight_kg": map[string]any{"type": "number"},
+					"note":      map[string]any{"type": "string"},
+					"date":      map[string]any{"type": "string", "description": "YYYY-MM-DD, defaults to today"},
+				},
+				"required": []string{"weight_kg"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "generate_meal_plan",
+			Description: "Generate a structured meal plan based on the user's profile and preferences.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"plan_type": map[string]any{"type": "string", "enum": []string{"daily", "weekly"}},
+					"title":     map[string]any{"type": "string"},
+					"meals": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"day":       map[string]any{"type": "string"},
+								"meal_type": map[string]any{"type": "string", "enum": []string{"breakfast", "lunch", "dinner", "snack"}},
+								"name":      map[string]any{"type": "string"},
+								"calories":  map[string]any{"type": "integer"},
+								"protein_g": map[string]any{"type": "integer"},
+								"carbs_g":   map[string]any{"type": "integer"},
+								"fat_g":     map[string]any{"type": "integer"},
+							},
+							"required": []string{"meal_type", "name", "calories"},
+						},
+					},
+				},
+				"required": []string{"plan_type", "title", "meals"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "create_session",
+			Description: "Create a new workout session with exercises.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"title":                map[string]any{"type": "string"},
+					"description":          map[string]any{"type": "string"},
+					"status":               map[string]any{"type": "string", "enum": []string{"draft", "active"}},
+					"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"estimated_duration":   map[string]any{"type": "integer"},
+					"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
+					"exercises": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"exercise_name":  map[string]any{"type": "string"},
+								"sets":           map[string]any{"type": "integer"},
+								"reps":           map[string]any{"type": "string"},
+								"weight":         map[string]any{"type": "string"},
+								"rest_seconds":   map[string]any{"type": "integer"},
+								"notes":          map[string]any{"type": "string"},
+								"superset_group": map[string]any{"type": "string"},
+							},
+							"required": []string{"exercise_name"},
+						},
+					},
+				},
+				"required": []string{"title", "exercises"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "update_session",
+			Description: "Update a workout session's metadata or status.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"session_id":           map[string]any{"type": "string"},
+					"title":                map[string]any{"type": "string"},
+					"description":          map[string]any{"type": "string"},
+					"status":               map[string]any{"type": "string", "enum": []string{"draft", "active", "archived"}},
+					"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"estimated_duration":   map[string]any{"type": "integer"},
+					"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
+				},
+				"required": []string{"session_id"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "add_exercise_to_session",
+			Description: "Add exercises to an existing workout session.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"session_id": map[string]any{"type": "string"},
+					"exercises": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"exercise_name":  map[string]any{"type": "string"},
+								"sets":           map[string]any{"type": "integer"},
+								"reps":           map[string]any{"type": "string"},
+								"weight":         map[string]any{"type": "string"},
+								"rest_seconds":   map[string]any{"type": "integer"},
+								"notes":          map[string]any{"type": "string"},
+								"superset_group": map[string]any{"type": "string"},
+							},
+							"required": []string{"exercise_name"},
+						},
+					},
+				},
+				"required": []string{"session_id", "exercises"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "remove_exercise_from_session",
+			Description: "Remove an exercise from a session by ID.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"session_id":  map[string]any{"type": "string"},
+					"exercise_id": map[string]any{"type": "string"},
+				},
+				"required": []string{"session_id", "exercise_id"},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "complete_onboarding",
+			Description: "Mark the user's health onboarding as complete. Call ONLY after collecting basic profile info AND the user has confirmed they are ready to proceed.",
+			Parameters: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
+	},
+	// ── Cross-domain fetch tools ───────────────────────────────────────────
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "get_health_summary",
+			Description: "Fetch the user's health profile, recent weight entries, nutrition stats, and active workout sessions.",
+			Parameters: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
+	},
+	{
+		Type: "function",
+		Function: &llms.FunctionDefinition{
+			Name:        "get_life_summary",
+			Description: "Fetch the user's upcoming calendar events, active routines, and pending actionables count.",
+			Parameters: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+		},
+	},
 	}
 }
 
@@ -570,6 +782,28 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolDeleteTask(ctx, db, gcalClient, userID, args)
 	case "create_task_list":
 		return toolCreateTaskList(ctx, db, gcalClient, userID, args)
+	// ── Health tools ──
+	case "update_health_profile":
+		return toolHealthUpdateProfile(ctx, db, userID, call.FunctionCall.Arguments)
+	case "log_weight":
+		return toolHealthLogWeight(ctx, db, userID, call.FunctionCall.Arguments)
+	case "generate_meal_plan":
+		return toolHealthGenerateMealPlan(ctx, db, userID, call.FunctionCall.Arguments)
+	case "create_session":
+		return toolHealthCreateSession(ctx, db, userID, call.FunctionCall.Arguments)
+	case "update_session":
+		return toolHealthUpdateSession(ctx, db, userID, call.FunctionCall.Arguments)
+	case "add_exercise_to_session":
+		return toolHealthAddExercise(ctx, db, userID, call.FunctionCall.Arguments)
+	case "remove_exercise_from_session":
+		return toolHealthRemoveExercise(ctx, db, userID, call.FunctionCall.Arguments)
+	case "complete_onboarding":
+		return toolHealthCompleteOnboarding(ctx, db, userID)
+	// ── Cross-domain fetch tools ──
+	case "get_health_summary":
+		return toolGetHealthSummary(ctx, db, userID)
+	case "get_life_summary":
+		return toolGetLifeSummary(ctx, db, gcalClient, userID)
 	default:
 		return jsonError("unknown tool: " + call.FunctionCall.Name)
 	}
@@ -1386,6 +1620,567 @@ func toolCreateTaskList(ctx context.Context, db *sql.DB, gcalClient *GCalClient,
 		return jsonError("failed to create task list: " + err.Error())
 	}
 	return jsonOK(map[string]any{"list_id": list.ID, "title": list.Title, "created": true})
+}
+
+// ----- health tool implementations -----
+// These mirror the health package tool implementations but are called from the
+// unified life agent context. All health data lives in health_* tables.
+
+func toolHealthUpdateProfile(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		WeightKg      *float64  `json:"weight_kg"`
+		HeightCm      *float64  `json:"height_cm"`
+		Age           *int      `json:"age"`
+		Gender        *string   `json:"gender"`
+		ActivityLevel *string   `json:"activity_level"`
+		DietType      *string   `json:"diet_type"`
+		DietGoal      *string   `json:"diet_goal"`
+		GoalWeightKg  *float64  `json:"goal_weight_kg"`
+		Restrictions  *[]string `json:"dietary_restrictions"`
+		FitnessLevel  *string   `json:"fitness_level"`
+		FitnessGoal   *string   `json:"fitness_goal"`
+		Equipment     *[]string `json:"available_equipment"`
+		Limitations   *[]string `json:"physical_limitations"`
+		Likes         *[]string `json:"workout_likes"`
+		Dislikes      *[]string `json:"workout_dislikes"`
+		Duration      *int      `json:"preferred_duration_min"`
+		DaysPerWeek   *int      `json:"days_per_week"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+
+	setClauses := []string{"updated_at = NOW()"}
+	vals := []any{}
+	idx := 1
+	add := func(col string, val any) {
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", col, idx))
+		vals = append(vals, val)
+		idx++
+	}
+
+	if params.WeightKg != nil {
+		add("weight_kg", *params.WeightKg)
+	}
+	if params.HeightCm != nil {
+		add("height_cm", *params.HeightCm)
+	}
+	if params.Age != nil {
+		add("age", *params.Age)
+	}
+	if params.Gender != nil {
+		add("gender", *params.Gender)
+	}
+	if params.ActivityLevel != nil {
+		add("activity_level", *params.ActivityLevel)
+	}
+	if params.DietType != nil {
+		add("diet_type", *params.DietType)
+	}
+	if params.DietGoal != nil {
+		add("diet_goal", *params.DietGoal)
+	}
+	if params.GoalWeightKg != nil {
+		add("goal_weight_kg", *params.GoalWeightKg)
+	}
+	if params.Restrictions != nil {
+		add("dietary_restrictions", health.StringSliceToPgArray(*params.Restrictions))
+	}
+	if params.FitnessLevel != nil {
+		add("fitness_level", *params.FitnessLevel)
+	}
+	if params.FitnessGoal != nil {
+		add("fitness_goal", *params.FitnessGoal)
+	}
+	if params.Equipment != nil {
+		add("available_equipment", health.StringSliceToPgArray(*params.Equipment))
+	}
+	if params.Limitations != nil {
+		add("physical_limitations", health.StringSliceToPgArray(*params.Limitations))
+	}
+	if params.Likes != nil {
+		add("workout_likes", health.StringSliceToPgArray(*params.Likes))
+	}
+	if params.Dislikes != nil {
+		add("workout_dislikes", health.StringSliceToPgArray(*params.Dislikes))
+	}
+	if params.Duration != nil {
+		add("preferred_duration_min", *params.Duration)
+	}
+	if params.DaysPerWeek != nil {
+		add("days_per_week", *params.DaysPerWeek)
+	}
+
+	vals = append(vals, userID)
+	q := fmt.Sprintf(`UPDATE health_profiles SET %s WHERE user_id = $%d`, strings.Join(setClauses, ", "), idx)
+	if _, err := db.ExecContext(ctx, q, vals...); err != nil {
+		log.Printf("life agent: update health profile for %s: %v", userID, err)
+		return jsonError("failed to update health profile")
+	}
+
+	// Recalculate derived stats if sufficient data is available.
+	var weightKg, heightCm sql.NullFloat64
+	var age sql.NullInt64
+	var gender, activityLevel, dietType, dietGoal string
+	err := db.QueryRowContext(ctx,
+		`SELECT weight_kg, height_cm, age, gender, activity_level, diet_type, diet_goal FROM health_profiles WHERE user_id = $1`, userID,
+	).Scan(&weightKg, &heightCm, &age, &gender, &activityLevel, &dietType, &dietGoal)
+	if err == nil && weightKg.Valid && heightCm.Valid && age.Valid {
+		calc := health.RecalculateProfile(weightKg.Float64, heightCm.Float64, int(age.Int64), gender, activityLevel, dietType, dietGoal)
+		db.ExecContext(ctx,
+			`UPDATE health_profiles SET bmi=$1, bmr=$2, tdee=$3, target_calories=$4, protein_g=$5, carbs_g=$6, fat_g=$7, updated_at=NOW() WHERE user_id=$8`,
+			calc["bmi"], calc["bmr"], calc["tdee"], calc["target_calories"], calc["protein_g"], calc["carbs_g"], calc["fat_g"], userID)
+		return fmt.Sprintf(`{"success":true,"bmi":%.1f,"bmr":%.0f,"tdee":%.0f,"target_calories":%d,"protein_g":%d,"carbs_g":%d,"fat_g":%d}`,
+			calc["bmi"], calc["bmr"], calc["tdee"], calc["target_calories"], calc["protein_g"], calc["carbs_g"], calc["fat_g"])
+	}
+
+	return `{"success":true}`
+}
+
+func toolHealthLogWeight(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		WeightKg float64 `json:"weight_kg"`
+		Note     string  `json:"note"`
+		Date     string  `json:"date"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+	if params.WeightKg <= 0 {
+		return jsonError("weight_kg must be positive")
+	}
+	if params.Date == "" {
+		params.Date = time.Now().Format("2006-01-02")
+	}
+
+	id := uuid.NewString()
+	db.ExecContext(ctx,
+		`INSERT INTO health_weight_entries (id,user_id,weight_kg,note,recorded_at) VALUES ($1,$2,$3,$4,$5)
+		 ON CONFLICT (user_id,recorded_at) DO UPDATE SET weight_kg=$3, note=$4`,
+		id, userID, params.WeightKg, params.Note, params.Date)
+
+	db.ExecContext(ctx, `UPDATE health_profiles SET weight_kg=$1, updated_at=NOW() WHERE user_id=$2`, params.WeightKg, userID)
+
+	// Recalculate derived stats.
+	var heightCm sql.NullFloat64
+	var age sql.NullInt64
+	var gender, activityLevel, dietType, dietGoal string
+	if db.QueryRowContext(ctx,
+		`SELECT height_cm, age, gender, activity_level, diet_type, diet_goal FROM health_profiles WHERE user_id=$1`, userID,
+	).Scan(&heightCm, &age, &gender, &activityLevel, &dietType, &dietGoal) == nil && heightCm.Valid && age.Valid {
+		calc := health.RecalculateProfile(params.WeightKg, heightCm.Float64, int(age.Int64), gender, activityLevel, dietType, dietGoal)
+		db.ExecContext(ctx,
+			`UPDATE health_profiles SET bmi=$1,bmr=$2,tdee=$3,target_calories=$4,protein_g=$5,carbs_g=$6,fat_g=$7,updated_at=NOW() WHERE user_id=$8`,
+			calc["bmi"], calc["bmr"], calc["tdee"], calc["target_calories"], calc["protein_g"], calc["carbs_g"], calc["fat_g"], userID)
+	}
+
+	return fmt.Sprintf(`{"success":true,"weight_kg":%.1f,"date":"%s"}`, params.WeightKg, params.Date)
+}
+
+func toolHealthGenerateMealPlan(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		PlanType string          `json:"plan_type"`
+		Title    string          `json:"title"`
+		Meals    json.RawMessage `json:"meals"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+
+	var dietType string
+	var targetCals sql.NullInt64
+	db.QueryRowContext(ctx, `SELECT diet_type, target_calories FROM health_profiles WHERE user_id=$1`, userID).Scan(&dietType, &targetCals)
+
+	id := uuid.NewString()
+	content, _ := json.Marshal(map[string]any{"meals": json.RawMessage(params.Meals)})
+	var tc *int
+	if targetCals.Valid {
+		v := int(targetCals.Int64)
+		tc = &v
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO health_meal_plans (id,user_id,title,plan_type,diet_type,target_calories,content) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		id, userID, params.Title, params.PlanType, dietType, tc, content); err != nil {
+		log.Printf("life agent: save meal plan for %s: %v", userID, err)
+		return jsonError("failed to save meal plan")
+	}
+	return fmt.Sprintf(`{"success":true,"id":"%s","title":"%s"}`, id, params.Title)
+}
+
+type healthExerciseInput struct {
+	ExerciseName  string `json:"exercise_name"`
+	Sets          int    `json:"sets"`
+	Reps          string `json:"reps"`
+	Weight        string `json:"weight"`
+	RestSeconds   int    `json:"rest_seconds"`
+	Notes         string `json:"notes"`
+	SupersetGroup string `json:"superset_group"`
+}
+
+func insertHealthExercises(ctx context.Context, db *sql.DB, sessionID, userID string, exercises []healthExerciseInput, startOrder int) int {
+	count := 0
+	for i, ex := range exercises {
+		id := uuid.NewString()
+		sets := ex.Sets
+		if sets <= 0 {
+			sets = 3
+		}
+		reps := ex.Reps
+		if reps == "" {
+			reps = "10"
+		}
+		rest := ex.RestSeconds
+		if rest <= 0 {
+			rest = 60
+		}
+		var sg *string
+		if ex.SupersetGroup != "" {
+			sg = &ex.SupersetGroup
+		}
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO health_session_exercises (id,session_id,user_id,exercise_name,sets,reps,weight,rest_seconds,sort_order,notes,superset_group)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+			id, sessionID, userID, ex.ExerciseName, sets, reps, ex.Weight, rest, startOrder+i, ex.Notes, sg); err == nil {
+			count++
+		}
+	}
+	return count
+}
+
+func toolHealthCreateSession(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		Title        string               `json:"title"`
+		Description  string               `json:"description"`
+		Status       string               `json:"status"`
+		MuscleGroups []string             `json:"target_muscle_groups"`
+		Duration     int                  `json:"estimated_duration"`
+		Difficulty   string               `json:"difficulty_level"`
+		Exercises    []healthExerciseInput `json:"exercises"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+	if params.Title == "" {
+		return jsonError("title is required")
+	}
+	if params.Status == "" {
+		params.Status = "draft"
+	}
+	if params.Difficulty == "" {
+		params.Difficulty = "intermediate"
+	}
+
+	id := uuid.NewString()
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO health_sessions (id,user_id,title,description,status,target_muscle_groups,estimated_duration,difficulty_level)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		id, userID, params.Title, params.Description, params.Status,
+		health.StringSliceToPgArray(params.MuscleGroups), params.Duration, params.Difficulty); err != nil {
+		log.Printf("life agent: create health session: %v", err)
+		return jsonError("failed to create session")
+	}
+
+	count := insertHealthExercises(ctx, db, id, userID, params.Exercises, 0)
+	return fmt.Sprintf(`{"success":true,"id":"%s","title":"%s","status":"%s","exercise_count":%d}`,
+		id, params.Title, params.Status, count)
+}
+
+func toolHealthUpdateSession(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		SessionID    string   `json:"session_id"`
+		Title        *string  `json:"title"`
+		Description  *string  `json:"description"`
+		Status       *string  `json:"status"`
+		MuscleGroups []string `json:"target_muscle_groups"`
+		Duration     *int     `json:"estimated_duration"`
+		Difficulty   *string  `json:"difficulty_level"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+	if params.SessionID == "" {
+		return jsonError("session_id is required")
+	}
+
+	setClauses := []string{"updated_at = NOW()"}
+	vals := []any{}
+	idx := 1
+	add := func(col string, val any) {
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", col, idx))
+		vals = append(vals, val)
+		idx++
+	}
+
+	if params.Title != nil {
+		add("title", *params.Title)
+	}
+	if params.Description != nil {
+		add("description", *params.Description)
+	}
+	if params.Status != nil {
+		add("status", *params.Status)
+	}
+	if params.MuscleGroups != nil {
+		add("target_muscle_groups", health.StringSliceToPgArray(params.MuscleGroups))
+	}
+	if params.Duration != nil {
+		add("estimated_duration", *params.Duration)
+	}
+	if params.Difficulty != nil {
+		add("difficulty_level", *params.Difficulty)
+	}
+
+	vals = append(vals, params.SessionID, userID)
+	q := fmt.Sprintf(`UPDATE health_sessions SET %s WHERE id=$%d AND user_id=$%d`,
+		strings.Join(setClauses, ", "), idx, idx+1)
+	res, _ := db.ExecContext(ctx, q, vals...)
+	if n, _ := res.RowsAffected(); n == 0 {
+		return jsonError("session not found")
+	}
+	return `{"success":true}`
+}
+
+func toolHealthAddExercise(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		SessionID string               `json:"session_id"`
+		Exercises []healthExerciseInput `json:"exercises"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+
+	var owner string
+	if db.QueryRowContext(ctx, `SELECT user_id FROM health_sessions WHERE id=$1`, params.SessionID).Scan(&owner) != nil || owner != userID {
+		return jsonError("session not found")
+	}
+
+	var maxOrder int
+	db.QueryRowContext(ctx, `SELECT COALESCE(MAX(sort_order),-1) FROM health_session_exercises WHERE session_id=$1`, params.SessionID).Scan(&maxOrder)
+	count := insertHealthExercises(ctx, db, params.SessionID, userID, params.Exercises, maxOrder+1)
+	return fmt.Sprintf(`{"success":true,"added":%d}`, count)
+}
+
+func toolHealthRemoveExercise(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		SessionID  string `json:"session_id"`
+		ExerciseID string `json:"exercise_id"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+	res, _ := db.ExecContext(ctx,
+		`DELETE FROM health_session_exercises WHERE id=$1 AND session_id=$2 AND user_id=$3`,
+		params.ExerciseID, params.SessionID, userID)
+	if n, _ := res.RowsAffected(); n == 0 {
+		return jsonError("exercise not found")
+	}
+	return `{"success":true}`
+}
+
+func toolHealthCompleteOnboarding(ctx context.Context, db *sql.DB, userID string) string {
+	_, err := db.ExecContext(ctx,
+		`UPDATE health_profiles SET onboarded = TRUE, updated_at = NOW() WHERE user_id = $1`, userID)
+	if err != nil {
+		log.Printf("life agent: complete health onboarding for %s: %v", userID, err)
+		return jsonError("failed to complete onboarding")
+	}
+	return `{"success":true,"onboarded":true}`
+}
+
+// ----- cross-domain fetch tools -----
+
+func toolGetHealthSummary(ctx context.Context, db *sql.DB, userID string) string {
+	type weightEntry struct {
+		WeightKg float64 `json:"weight_kg"`
+		Date     string  `json:"date"`
+		Note     string  `json:"note,omitempty"`
+	}
+	type sessionRow struct {
+		ID            string   `json:"id"`
+		Title         string   `json:"title"`
+		Status        string   `json:"status"`
+		Difficulty    string   `json:"difficulty"`
+		MuscleGroups  []string `json:"muscle_groups"`
+		Duration      int      `json:"duration_min"`
+		ExerciseCount int      `json:"exercise_count"`
+	}
+
+	result := map[string]any{}
+
+	// Load health profile.
+	var p HealthProfile
+	var wKg, hCm, gwKg, bmi, bmr, tdee sql.NullFloat64
+	var age, targetCals, proteinG, carbsG, fatG sql.NullInt64
+	var gender, actLevel, dietType, dietGoal, fitLevel, fitGoal sql.NullString
+	err := db.QueryRowContext(ctx, `
+		SELECT weight_kg, height_cm, goal_weight_kg, bmi, bmr, tdee,
+		       age, target_calories, protein_g, carbs_g, fat_g,
+		       gender, activity_level, diet_type, diet_goal, fitness_level, fitness_goal
+		FROM health_profiles WHERE user_id = $1`, userID,
+	).Scan(&wKg, &hCm, &gwKg, &bmi, &bmr, &tdee,
+		&age, &targetCals, &proteinG, &carbsG, &fatG,
+		&gender, &actLevel, &dietType, &dietGoal, &fitLevel, &fitGoal)
+	if err == nil {
+		p.WeightKg = wKg.Float64
+		p.HeightCm = hCm.Float64
+		p.GoalWeightKg = gwKg.Float64
+		p.BMI = bmi.Float64
+		p.BMR = bmr.Float64
+		p.TDEE = tdee.Float64
+		p.Age = int(age.Int64)
+		p.TargetCalories = int(targetCals.Int64)
+		p.ProteinG = int(proteinG.Int64)
+		p.CarbsG = int(carbsG.Int64)
+		p.FatG = int(fatG.Int64)
+		p.Gender = gender.String
+		p.ActivityLevel = actLevel.String
+		p.DietType = dietType.String
+		p.DietGoal = dietGoal.String
+		p.FitnessLevel = fitLevel.String
+		p.FitnessGoal = fitGoal.String
+		profileMap := map[string]any{
+			"weight_kg": p.WeightKg, "height_cm": p.HeightCm, "goal_weight_kg": p.GoalWeightKg,
+			"bmi": p.BMI, "bmr": p.BMR, "tdee": p.TDEE,
+			"age": p.Age, "target_calories": p.TargetCalories,
+			"protein_g": p.ProteinG, "carbs_g": p.CarbsG, "fat_g": p.FatG,
+			"gender": p.Gender, "activity_level": p.ActivityLevel,
+			"diet_type": p.DietType, "diet_goal": p.DietGoal,
+			"fitness_level": p.FitnessLevel, "fitness_goal": p.FitnessGoal,
+		}
+		if p.BMI > 0 {
+			profileMap["bmi_category"] = health.BMICategory(p.BMI)
+		}
+		result["profile"] = profileMap
+	}
+
+	// Load recent weight entries.
+	weightRows, err := db.QueryContext(ctx,
+		`SELECT weight_kg, recorded_at, note FROM health_weight_entries WHERE user_id=$1 ORDER BY recorded_at DESC LIMIT 5`, userID)
+	if err == nil {
+		entries := []weightEntry{}
+		for weightRows.Next() {
+			var e weightEntry
+			var recordedAt time.Time
+			var note sql.NullString
+			if weightRows.Scan(&e.WeightKg, &recordedAt, &note) == nil {
+				e.Date = recordedAt.Format("2006-01-02")
+				if note.Valid {
+					e.Note = note.String
+				}
+				entries = append(entries, e)
+			}
+		}
+		weightRows.Close()
+		result["recent_weight_entries"] = entries
+	}
+
+	// Load active/draft sessions with exercise counts.
+	sessRows, err := db.QueryContext(ctx, `
+		SELECT s.id, s.title, s.status, s.difficulty_level,
+		       s.target_muscle_groups, s.estimated_duration,
+		       COUNT(e.id) AS exercise_count
+		FROM health_sessions s
+		LEFT JOIN health_session_exercises e ON e.session_id = s.id
+		WHERE s.user_id = $1 AND s.status IN ('active', 'draft')
+		GROUP BY s.id, s.title, s.status, s.difficulty_level, s.target_muscle_groups, s.estimated_duration
+		ORDER BY s.updated_at DESC`, userID)
+	if err == nil {
+		sessions := []sessionRow{}
+		for sessRows.Next() {
+			var s sessionRow
+			var mgRaw sql.NullString
+			if sessRows.Scan(&s.ID, &s.Title, &s.Status, &s.Difficulty, &mgRaw, &s.Duration, &s.ExerciseCount) == nil {
+				if mgRaw.Valid && mgRaw.String != "{}" && mgRaw.String != "" {
+					// Parse PostgreSQL array literal like {chest,shoulders}
+					raw := strings.Trim(mgRaw.String, "{}")
+					if raw != "" {
+						s.MuscleGroups = strings.Split(raw, ",")
+					}
+				}
+				if s.MuscleGroups == nil {
+					s.MuscleGroups = []string{}
+				}
+				sessions = append(sessions, s)
+			}
+		}
+		sessRows.Close()
+		result["active_sessions"] = sessions
+	}
+
+	return jsonOK(result)
+}
+
+func toolGetLifeSummary(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string) string {
+	result := map[string]any{}
+
+	// Active routines.
+	routineRows, err := db.QueryContext(ctx,
+		`SELECT id, name, type, description FROM life_routines WHERE user_id=$1 AND active=TRUE ORDER BY created_at DESC`, userID)
+	if err == nil {
+		type routineItem struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			Type        string `json:"type"`
+			Description string `json:"description,omitempty"`
+		}
+		routines := []routineItem{}
+		for routineRows.Next() {
+			var r routineItem
+			if routineRows.Scan(&r.ID, &r.Name, &r.Type, &r.Description) == nil {
+				routines = append(routines, r)
+			}
+		}
+		routineRows.Close()
+		result["routines"] = routines
+	}
+
+	// Pending actionables (with titles so the agent doesn't need to call list_actionables).
+	type actionableItem struct {
+		ID    string `json:"id"`
+		Type  string `json:"type"`
+		Title string `json:"title"`
+	}
+	pending := []actionableItem{}
+	actRows, err := db.QueryContext(ctx,
+		`SELECT id, type, title FROM life_actionables WHERE user_id=$1 AND status='pending' ORDER BY created_at DESC LIMIT 20`, userID)
+	if err == nil {
+		for actRows.Next() {
+			var a actionableItem
+			if actRows.Scan(&a.ID, &a.Type, &a.Title) == nil {
+				pending = append(pending, a)
+			}
+		}
+		actRows.Close()
+	}
+	result["pending_actionables"] = pending
+
+	// Upcoming calendar events (next 7 days) from local cache.
+	now := time.Now()
+	events, err := QueryLocalEvents(ctx, db, userID, now, now.AddDate(0, 0, 7))
+	if err == nil {
+		type eventItem struct {
+			ID      string `json:"id"`
+			Summary string `json:"summary"`
+			Start   string `json:"start"`
+			End     string `json:"end,omitempty"`
+			AllDay  bool   `json:"all_day,omitempty"`
+		}
+		evItems := []eventItem{}
+		for _, ev := range events {
+			item := eventItem{ID: ev.ID, Summary: ev.Summary, AllDay: ev.AllDay}
+			if ev.AllDay {
+				item.Start = ev.Start.Format("2006-01-02")
+			} else {
+				item.Start = ev.Start.Format(time.RFC3339)
+				item.End = ev.End.Format(time.RFC3339)
+			}
+			evItems = append(evItems, item)
+		}
+		result["upcoming_events"] = evItems
+	}
+
+	return jsonOK(result)
 }
 
 // ----- helpers -----

@@ -82,12 +82,13 @@ func main() {
 		log.Printf("WARNING: Google Calendar not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)")
 	}
 
-	// Life tool — AI-powered life planning agent.
+	// Life tool — AI-powered life planning agent (includes health capabilities).
 	lifeAgent := life.NewAgent(ai.LLMConfig{
-		Provider: cfg.LLMProvider,
-		APIKey:   cfg.LLMAPIKey,
-		BaseURL:  cfg.LLMBaseURL,
-		Model:    cfg.LLMModel,
+		Provider:     cfg.LLMProvider,
+		APIKey:       cfg.LLMAPIKey,
+		BaseURL:      cfg.LLMBaseURL,
+		Model:        cfg.LLMModel,
+		SummaryModel: cfg.LLMSummaryModel,
 	}, db, gcalClient)
 
 	var billingClient *billing.Client
@@ -294,6 +295,30 @@ func main() {
 			if db != nil {
 				r.Post("/ai/query", handler.GenerateAiQuery(cfg, db))
 				r.Post("/ai/query/suggestions", handler.GenerateAiQuerySuggestions(db))
+			}
+			// Health tool — unified diet + fitness planning.
+			if db != nil {
+				r.Get("/health/profile", handler.GetHealthProfile(db))
+				r.Put("/health/profile", handler.UpdateHealthProfile(db))
+				r.Post("/health/profile/onboarded", handler.MarkHealthOnboarded(db))
+				r.Get("/health/memories", handler.ListHealthMemories(db))
+				r.Post("/health/memories", handler.CreateHealthMemory(db))
+				r.Delete("/health/memories/{id}", handler.DeleteHealthMemory(db))
+				r.Get("/health/weight", handler.ListHealthWeightEntries(db))
+				r.Post("/health/weight", handler.CreateHealthWeightEntry(db))
+				r.Delete("/health/weight/{id}", handler.DeleteHealthWeightEntry(db))
+				r.Get("/health/meal-plans", handler.ListHealthMealPlans(db))
+				r.Delete("/health/meal-plans/{id}", handler.DeleteHealthMealPlan(db))
+				r.Get("/health/sessions", handler.ListHealthSessions(db))
+				r.Get("/health/sessions/{id}", handler.GetHealthSession(db))
+				r.Put("/health/sessions/{id}", handler.UpdateHealthSession(db))
+				r.Delete("/health/sessions/{id}", handler.DeleteHealthSession(db))
+				r.Put("/health/sessions/{id}/status", handler.UpdateHealthSessionStatus(db))
+				r.Post("/health/sessions/{id}/exercises", handler.AddHealthSessionExercise(db))
+				r.Put("/health/sessions/{sid}/exercises/{eid}", handler.UpdateHealthSessionExercise(db))
+				r.Delete("/health/sessions/{sid}/exercises/{eid}", handler.DeleteHealthSessionExercise(db))
+				r.Put("/health/sessions/{id}/reorder", handler.ReorderHealthSessionExercises(db))
+				r.Post("/health/calculations", handler.GetHealthCalculations(db))
 			}
 			// Life tool — AI-powered life planning.
 			if db != nil {

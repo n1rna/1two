@@ -396,10 +396,10 @@ export const tools: ToolDefinition[] = [
   {
     slug: "life",
     name: "Life Planner",
-    description: "AI-powered life planning — routines, actionables, habits, and schedules",
+    description: "AI-powered life planning — routines, habits, schedules, diet, nutrition, and fitness all in one",
     category: "planning",
     icon: "Brain",
-    keywords: ["life", "planner", "ai", "routine", "habit", "schedule", "reminder", "productivity", "assistant"],
+    keywords: ["life", "planner", "ai", "routine", "habit", "schedule", "reminder", "productivity", "assistant", "health", "diet", "nutrition", "fitness", "gym", "workout", "calories", "macros", "meal plan"],
     requiresAuth: true,
   },
 ];

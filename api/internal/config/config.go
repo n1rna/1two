@@ -29,7 +29,8 @@ type Config struct {
 	LLMProvider string // "openai" (default, OpenAI-compatible) or "anthropic"
 	LLMAPIKey   string
 	LLMBaseURL  string // base URL for OpenAI-compatible providers (e.g. Kimi K2)
-	LLMModel    string // model ID (e.g. "kimi-k2-0711", "claude-sonnet-4-20250514")
+	LLMModel        string // primary model ID (e.g. "kimi-k2.5", "claude-sonnet-4-20250514")
+	LLMSummaryModel string // optional non-thinking model for one-shot summaries (e.g. "kimi-k2-0905-preview")
 
 	// Polar billing
 	PolarAccessToken      string
@@ -78,7 +79,7 @@ func getEnvOrDefault(key, fallback string) string {
 func Load() *Config {
 	origins := os.Getenv("ALLOWED_ORIGINS")
 	if origins == "" {
-		origins = "http://localhost:3000"
+		origins = "http://localhost:3000,http://localhost:3003"
 	}
 
 	uploadDir := os.Getenv("UPLOAD_DIR")
@@ -106,7 +107,8 @@ func Load() *Config {
 		LLMProvider: getEnvOrDefault("LLM_PROVIDER", "openai"),
 		LLMAPIKey:   os.Getenv("LLM_API_KEY"),
 		LLMBaseURL:  getEnvOrDefault("LLM_BASE_URL", "https://api.moonshot.ai/v1"),
-		LLMModel:    getEnvOrDefault("LLM_MODEL", "kimi-k2.5"),
+		LLMModel:        getEnvOrDefault("LLM_MODEL", "kimi-k2.5"),
+		LLMSummaryModel: getEnvOrDefault("LLM_SUMMARY_MODEL", "kimi-k2-0905-preview"),
 
 		PolarAccessToken:       os.Getenv("POLAR_ACCESS_TOKEN"),
 		PolarWebhookSecret:     os.Getenv("POLAR_WEBHOOK_SECRET"),

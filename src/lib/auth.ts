@@ -14,6 +14,7 @@ const db = drizzle({ client: sql, schema });
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
   secret: process.env.BETTER_AUTH_SECRET,
+  trustedOrigins: ["http://localhost:3003"],
   database: drizzleAdapter(db, { provider: "pg", schema }),
   socialProviders: {
     github: {

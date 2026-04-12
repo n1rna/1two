@@ -138,8 +138,8 @@ Be concise but preserve all actionable context. Use bullet points. Max 500 words
 	}
 
 	resp, err := model.GenerateContent(ctx, llmMessages,
-		llms.WithTemperature(0.2),
-		llms.WithMaxTokens(1024),
+		llms.WithTemperature(1.0),
+		llms.WithMaxTokens(8192),
 	)
 	if err != nil {
 		log.Printf("context compaction: summarize LLM call failed: %v", err)

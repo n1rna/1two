@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -495,10 +496,20 @@ func EnsureValidToken(ctx context.Context, db *sql.DB, gcalClient *GCalClient, u
 		return "", fmt.Errorf("gcal: load connection: %w", err)
 	}
 
-	// Refresh if the token expires within the next 60 seconds.
-	if time.Until(tokenExpiry) < 60*time.Second {
+	// Refresh if the token expires within the next 5 minutes.
+	// Using a generous threshold avoids race conditions with slow API calls.
+	if time.Until(tokenExpiry) < 5*time.Minute {
 		newToken, newExpiry, err := gcalClient.RefreshAccessToken(ctx, refreshToken)
 		if err != nil {
+			// If refresh fails due to revoked/invalid token, clean up the connection
+			// so the user gets a clear "not connected" state instead of repeated errors.
+			errStr := err.Error()
+			if strings.Contains(errStr, "400") || strings.Contains(errStr, "401") ||
+				strings.Contains(errStr, "invalid_grant") || strings.Contains(errStr, "Token has been expired or revoked") {
+				log.Printf("gcal: refresh token revoked for user %s, cleaning up connection", userID)
+				db.ExecContext(ctx, `DELETE FROM life_gcal_connections WHERE user_id = $1`, userID)
+				return "", fmt.Errorf("gcal: connection expired, please reconnect Google Calendar in Settings")
+			}
 			return "", fmt.Errorf("gcal: refresh token: %w", err)
 		}
 

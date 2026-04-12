@@ -13,7 +13,13 @@ type LLMConfig struct {
 	Provider string // "openai" or "anthropic"
 	APIKey   string
 	BaseURL  string // base URL for OpenAI-compatible providers (e.g. Kimi K2)
-	Model    string // model ID
+	Model    string // primary model ID (used by chat agents)
+
+	// SummaryModel is an optional non-thinking model used for one-shot
+	// structured generation tasks like day summaries. Thinking models like
+	// kimi-k2.5 over-think these and can take 3–6 minutes per call. If empty,
+	// falls back to Model.
+	SummaryModel string
 }
 
 // NewLLM constructs a langchaingo llms.Model from the given config.

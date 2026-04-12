@@ -92,6 +92,10 @@ test-e2e:
 api-test:
     just with-env-api bash -c '"cd api && go test ./..."'
 
+# Run life agent integration tests (hits real LLM, mocks tools)
+api-test-life:
+    just with-env-api bash -c '"cd api && RUN_LIFE_INTEGRATION=1 go test -tags=integration -v -timeout 30m ./internal/life/..."'
+
 # =========================================
 # Linting & Formatting
 # =========================================

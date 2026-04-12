@@ -43,12 +43,33 @@ import {
   CheckSquare2,
   Pin,
   PinOff,
+  // Health icons
+  Activity,
+  User as UserIcon,
+  Weight,
+  PieChart,
+  UtensilsCrossed,
+  Heart,
+  LayoutDashboard,
+  Zap,
+  Flame,
+  Timer,
+  Calendar,
+  TrendingDown,
+  TrendingUp,
+  Minus,
+  Archive,
+  RotateCcw,
+  ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ToolTabBar } from "@/components/layout/tool-tab-bar";
+import { SlashCommandMenu, useSlashCommands, type SlashCommand } from "@/components/ui/slash-commands";
+import { ServiceError } from "@/components/ui/service-error";
 import { useSession } from "@/lib/auth-client";
 import { AuthGate } from "@/components/layout/auth-gate";
 import { useSyncedState } from "@/lib/sync";
@@ -105,6 +126,35 @@ import {
   type DaySummary,
 } from "@/lib/life";
 import {
+  getHealthProfile,
+  updateHealthProfile,
+  markHealthOnboarded,
+  listHealthMemories,
+  createHealthMemory,
+  deleteHealthMemory,
+  listWeightEntries,
+  createWeightEntry,
+  deleteWeightEntry,
+  listMealPlans,
+  deleteMealPlan,
+  listHealthSessions,
+  getHealthSession,
+  deleteHealthSession,
+  updateHealthSessionStatus,
+  addHealthSessionExercise,
+  updateHealthSessionExercise,
+  deleteHealthSessionExercise,
+  streamHealthChat,
+  type HealthProfile,
+  type HealthMemory,
+  type HealthMessage,
+  type HealthSession,
+  type HealthSessionExercise,
+  type HealthMealPlan,
+  type WeightEntry,
+  type ChatEffect as HealthChatEffect,
+} from "@/lib/health";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -124,7 +174,14 @@ type LifeTabType =
   | "calendar"
   | "channels"
   | "tasks"
-  | "settings";
+  | "settings"
+  | "health-dashboard"
+  | "health-profile"
+  | "weight"
+  | "macros"
+  | "meal-plans"
+  | "sessions"
+  | "session-detail";
 
 interface LifeTab {
   id: string;
@@ -133,6 +190,7 @@ interface LifeTab {
   convId?: string; // for chat tabs — the conversation ID
   chatNum?: number; // display number for chat tabs (#1, #2, etc.)
   routineId?: string; // for routine-detail tabs
+  sessionId?: string; // for session-detail tabs
   pinned?: boolean;
 }
 
@@ -158,6 +216,13 @@ const TAB_LABELS: Record<LifeTabType, string> = {
   channels: "Channels",
   tasks: "Tasks",
   settings: "Settings",
+  "health-dashboard": "Health",
+  "health-profile": "Health Profile",
+  weight: "Weight",
+  macros: "Macros",
+  "meal-plans": "Meal Plans",
+  sessions: "Sessions",
+  "session-detail": "Session",
 };
 
 const TAB_ICONS: Record<LifeTabType, React.ReactNode> = {
@@ -171,6 +236,13 @@ const TAB_ICONS: Record<LifeTabType, React.ReactNode> = {
   channels: <Radio className="h-3 w-3" />,
   tasks: <ListTodo className="h-3 w-3" />,
   settings: <Settings className="h-3 w-3" />,
+  "health-dashboard": <Activity className="h-3 w-3" />,
+  "health-profile": <UserIcon className="h-3 w-3" />,
+  weight: <Weight className="h-3 w-3" />,
+  macros: <PieChart className="h-3 w-3" />,
+  "meal-plans": <UtensilsCrossed className="h-3 w-3" />,
+  sessions: <Dumbbell className="h-3 w-3" />,
+  "session-detail": <Dumbbell className="h-3 w-3" />,
 };
 
 const TAB_COLORS: Record<LifeTabType, string> = {
@@ -184,6 +256,13 @@ const TAB_COLORS: Record<LifeTabType, string> = {
   channels: "text-cyan-500",
   tasks: "text-orange-500",
   settings: "text-neutral-400",
+  "health-dashboard": "text-teal-500",
+  "health-profile": "text-teal-500",
+  weight: "text-teal-500",
+  macros: "text-teal-500",
+  "meal-plans": "text-teal-500",
+  sessions: "text-blue-500",
+  "session-detail": "text-blue-500",
 };
 
 // ─── URL Routing ──────────────────────────────────────────────────────────────
@@ -211,7 +290,7 @@ function urlToTab(pathname: string): { type: LifeTabType; convId?: string; routi
     const routineId = rel.slice(9);
     return routineId ? { type: "routine-detail", routineId } : { type: "routines" };
   }
-  const validTypes: LifeTabType[] = ["today", "actionables", "routines", "chat", "memories", "calendar", "channels", "tasks", "settings"];
+  const validTypes: LifeTabType[] = ["today", "actionables", "routines", "chat", "memories", "calendar", "channels", "tasks", "settings", "health-dashboard", "health-profile", "weight", "macros", "meal-plans", "sessions"];
   if (validTypes.includes(rel as LifeTabType)) return { type: rel as LifeTabType };
   return { type: "chat" };
 }
@@ -238,6 +317,7 @@ interface LifePersistedState {
   activeConvId: string | null;
   settings?: LifeSettings;
   onboarded?: boolean;
+  healthOnboarded?: boolean;
 }
 
 const DEFAULT_LIFE_STATE: LifePersistedState = {
@@ -328,6 +408,41 @@ function LifeSidebar({
           id: "channels",
           label: "Channels",
           icon: <Radio className="h-3.5 w-3.5" />,
+        },
+      ],
+    },
+    {
+      label: "Health",
+      items: [
+        {
+          id: "health-dashboard",
+          label: "Health Dashboard",
+          icon: <Activity className="h-3.5 w-3.5" />,
+        },
+        {
+          id: "health-profile",
+          label: "Health Profile",
+          icon: <UserIcon className="h-3.5 w-3.5" />,
+        },
+        {
+          id: "weight",
+          label: "Weight",
+          icon: <Weight className="h-3.5 w-3.5" />,
+        },
+        {
+          id: "macros",
+          label: "Macros",
+          icon: <PieChart className="h-3.5 w-3.5" />,
+        },
+        {
+          id: "meal-plans",
+          label: "Meal Plans",
+          icon: <UtensilsCrossed className="h-3.5 w-3.5" />,
+        },
+        {
+          id: "sessions",
+          label: "Sessions",
+          icon: <Dumbbell className="h-3.5 w-3.5" />,
         },
       ],
     },
@@ -881,6 +996,11 @@ function ConversationList({
               )}
               onClick={() => onSelect(conv.id)}
             >
+              {conv.category === "health" ? (
+                <Heart className="h-3 w-3 shrink-0 text-teal-500/70" />
+              ) : conv.category === "life" ? (
+                <CalendarDays className="h-3 w-3 shrink-0 text-blue-500/70" />
+              ) : null}
               <span className="flex-1 truncate">{conv.title}</span>
               <button
                 onClick={(e) => {
@@ -899,6 +1019,67 @@ function ConversationList({
   );
 }
 
+// ─── Slash Commands ──────────────────────────────────────────────────────────
+
+const LIFE_COMMANDS: SlashCommand[] = [
+  {
+    name: "today",
+    label: "Plan my day",
+    description: "Get a summary and plan for today based on your calendar, routines, and tasks",
+    prompt: "Give me a summary of today. What's on my calendar, what routines are scheduled, and what tasks need attention? Help me plan my day.",
+    icon: <Sun className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "week",
+    label: "Weekly overview",
+    description: "Review your upcoming week with events, routines, and deadlines",
+    prompt: "Give me an overview of my upcoming week. Show my calendar events, active routines, and any tasks with deadlines this week in a table.",
+    icon: <CalendarDays className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "routines",
+    label: "Review routines",
+    description: "Check in on your active routines and habits",
+    prompt: "List all my active routines and let me know how they're structured. Are there any improvements you'd suggest?",
+    icon: <Repeat className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "tasks",
+    label: "Review tasks",
+    description: "Go through your pending tasks and prioritize",
+    prompt: "What tasks do I have pending? Help me prioritize them and suggest what to tackle first.",
+    icon: <ListTodo className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "remember",
+    label: "Save a note",
+    description: "Tell the agent something to remember about you",
+    prompt: "I want to tell you something to remember: ",
+    icon: <Lightbulb className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "schedule",
+    label: "Schedule something",
+    description: "Add an event to your calendar",
+    prompt: "I want to schedule something on my calendar: ",
+    icon: <CalendarDays className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "habit",
+    label: "New habit",
+    description: "Start tracking a new habit or routine",
+    prompt: "I want to start a new habit: ",
+    icon: <Target className="h-3.5 w-3.5" />,
+  },
+  {
+    name: "review",
+    label: "Weekly review",
+    description: "Reflect on the past week and plan ahead",
+    prompt: "Let's do a weekly review. Summarize what happened this past week based on my routines, completed tasks, and calendar events. Then help me set intentions for next week.",
+    icon: <Sparkles className="h-3.5 w-3.5" />,
+  },
+];
+
 // ─── Chat View ────────────────────────────────────────────────────────────────
 
 function ChatView({
@@ -913,6 +1094,7 @@ function ChatView({
   autoApprove,
   initialAssistantMessage,
   slotAboveInput,
+  defaultCategory,
 }: {
   persistedConvId: string | null;
   onConvIdChange: (id: string | null) => void;
@@ -925,7 +1107,10 @@ function ChatView({
   autoApprove?: boolean;
   initialAssistantMessage?: string;
   slotAboveInput?: React.ReactNode;
+  defaultCategory?: string;
 }) {
+  const [chatCategory, setChatCategory] = useState<string>(defaultCategory ?? "auto");
+
   const [messages, setMessages] = useState<LifeMessage[]>(() =>
     initialAssistantMessage
       ? [{
@@ -938,7 +1123,9 @@ function ChatView({
       : []
   );
   const [input, setInput] = useState("");
+  const slash = useSlashCommands(LIFE_COMMANDS);
   const [sending, setSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState("");
   const [streamingToolCall, setStreamingToolCall] = useState<string | null>(null);
   const [toolCallHistory, setToolCallHistory] = useState<string[]>([]);
@@ -1059,8 +1246,8 @@ function ChatView({
     [activeConvId]
   );
 
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
+  const handleSend = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
 
     const optimisticUserMsg: LifeMessage = {
@@ -1079,6 +1266,7 @@ function ChatView({
     setStreamingText("");
     setStreamingToolCall(null);
     setToolCallHistory([]);
+    setChatError(null);
     setSending(true);
 
     // Reset textarea height
@@ -1160,45 +1348,30 @@ function ChatView({
             }
           },
           onError: (errMsg) => {
-            setMessages((prev) => {
-              const withoutTmp = prev.filter(
-                (m) => m.id !== optimisticUserMsg.id && m.id !== placeholderId
-              );
-              const errBubble: LifeMessage = {
-                id: `err-${Date.now()}`,
-                conversationId: activeConvId ?? "",
-                role: "assistant",
-                content: `Sorry, something went wrong: ${errMsg}`,
-                createdAt: new Date().toISOString(),
-              };
-              return [...withoutTmp, errBubble];
-            });
+            // Remove the optimistic message and placeholder
+            setMessages((prev) => prev.filter(
+              (m) => m.id !== optimisticUserMsg.id && m.id !== placeholderId
+            ));
             setStreamingText("");
             setStreamingToolCall(null);
+            // Show inline error card
+            setChatError(errMsg);
           },
         },
         activeConvId ?? undefined,
         systemContext,
         routineId,
         autoApprove,
+        chatCategory !== "auto" ? chatCategory : undefined,
       );
     } catch (err) {
       // Network-level failure before streaming could start.
-      setMessages((prev) => {
-        const withoutTmp = prev.filter(
-          (m) => m.id !== optimisticUserMsg.id && m.id !== placeholderId
-        );
-        const errBubble: LifeMessage = {
-          id: `err-${Date.now()}`,
-          conversationId: activeConvId ?? "",
-          role: "assistant",
-          content: `Sorry, something went wrong: ${String(err)}`,
-          createdAt: new Date().toISOString(),
-        };
-        return [...withoutTmp, errBubble];
-      });
+      setMessages((prev) => prev.filter(
+        (m) => m.id !== optimisticUserMsg.id && m.id !== placeholderId
+      ));
       setStreamingText("");
       setStreamingToolCall(null);
+      setChatError(err instanceof Error ? err.message : String(err));
     } finally {
       setSending(false);
       textareaRef.current?.focus();
@@ -1207,20 +1380,38 @@ function ChatView({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // When slash menu is visible, let it handle navigation keys
+      if (slash.menuVisible && ["ArrowUp", "ArrowDown", "Tab", "Enter", "Escape"].includes(e.key)) {
+        return; // SlashCommandMenu's global keydown handler will pick this up
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend]
+    [handleSend, slash.menuVisible]
   );
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    slash.checkInput(e.target.value);
     // Auto-resize
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
   };
+
+  const handleSlashCommand = useCallback((cmd: SlashCommand) => {
+    slash.close();
+    // If prompt ends with ": ", show it in input for the user to complete
+    if (cmd.prompt.endsWith(": ")) {
+      setInput(cmd.prompt);
+      textareaRef.current?.focus();
+      return;
+    }
+    // Otherwise, send the command prompt directly
+    setInput("");
+    handleSend(cmd.prompt);
+  }, [slash, handleSend]);
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -1261,6 +1452,29 @@ function ChatView({
                 "Chat")
               : "New conversation"}
           </span>
+          {/* Category selector — only for non-routine chats */}
+          {!routineId && (
+            <div className="flex items-center gap-0.5 rounded-md border bg-muted/30 p-0.5">
+              {[
+                { value: "auto", label: "Auto" },
+                { value: "life", label: "Life" },
+                { value: "health", label: "Health" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setChatCategory(opt.value)}
+                  className={cn(
+                    "rounded px-2 py-0.5 text-[10px] font-medium transition-colors",
+                    chatCategory === opt.value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -1429,15 +1643,51 @@ function ChatView({
 
         {/* Slot above input */}
         {slotAboveInput}
+
+        {/* Chat error */}
+        {chatError && (
+          <div className="shrink-0 border-t px-4 py-4">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-border/50 bg-muted/30 px-6 py-5 text-center">
+              <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {chatError.includes("temporarily unavailable") ? "Can't reach the server" : "Something went wrong"}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-xs">
+                  {chatError.includes("temporarily unavailable")
+                    ? "The service is temporarily unavailable. This usually resolves in a few moments."
+                    : chatError}
+                </p>
+              </div>
+              <button
+                onClick={() => setChatError(null)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Input area */}
-        <div className="shrink-0 border-t px-4 py-3">
+        <div className="shrink-0 border-t px-4 py-3 relative">
+          <SlashCommandMenu
+            commands={LIFE_COMMANDS}
+            input={input}
+            onSelect={handleSlashCommand}
+            onClose={slash.close}
+            visible={slash.menuVisible}
+          />
           <div className="flex items-end gap-2">
             <textarea
               ref={textareaRef}
               value={input}
               onChange={handleTextareaChange}
               onKeyDown={handleKeyDown}
-              placeholder={systemContext ? "Describe changes to this routine..." : "Ask me anything about your plans..."}
+              placeholder={systemContext ? "Describe changes to this routine..." : "Type / for commands or ask anything..."}
               disabled={sending}
               rows={1}
               className={cn(
@@ -1450,7 +1700,7 @@ function ChatView({
             />
             <Button
               size="icon"
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!input.trim() || sending}
               className="h-10 w-10 rounded-xl shrink-0"
             >
@@ -4420,33 +4670,35 @@ function MultiDayView({
 
 // ─── Color map for DayBlock types ─────────────────────────────────────────────
 
-const BLOCK_COLORS: Record<DayBlock["type"], { bg: string; border: string; text: string }> = {
-  sleep:    { bg: "bg-slate-800/70 dark:bg-slate-900/80",    border: "border-slate-600/50",  text: "text-slate-300" },
-  wake:     { bg: "bg-amber-400/20",                          border: "border-amber-400/50",  text: "text-amber-700 dark:text-amber-300" },
-  commute:  { bg: "bg-zinc-500/15",                           border: "border-zinc-400/40",   text: "text-zinc-600 dark:text-zinc-300" },
-  work:     { bg: "bg-blue-500/15",                           border: "border-blue-400/50",   text: "text-blue-700 dark:text-blue-300" },
-  meal:     { bg: "bg-orange-400/20",                         border: "border-orange-400/50", text: "text-orange-700 dark:text-orange-300" },
-  exercise: { bg: "bg-green-500/15",                          border: "border-green-400/50",  text: "text-green-700 dark:text-green-300" },
-  social:   { bg: "bg-purple-500/15",                         border: "border-purple-400/50", text: "text-purple-700 dark:text-purple-300" },
-  personal: { bg: "bg-indigo-500/15",                         border: "border-indigo-400/50", text: "text-indigo-700 dark:text-indigo-300" },
-  project:  { bg: "bg-violet-500/15",                         border: "border-violet-400/50", text: "text-violet-700 dark:text-violet-300" },
-  free:     { bg: "bg-transparent",                           border: "border-dashed border-border/50", text: "text-muted-foreground" },
-  errand:   { bg: "bg-rose-400/15",                           border: "border-rose-400/50",   text: "text-rose-700 dark:text-rose-300" },
+const BLOCK_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  sleep:           { bg: "bg-slate-800/60 dark:bg-slate-900/70", border: "border-slate-600/40",  text: "text-slate-300" },
+  morning_routine: { bg: "bg-amber-400/20",                      border: "border-amber-400/50",  text: "text-amber-700 dark:text-amber-300" },
+  commute:         { bg: "bg-zinc-500/15",                       border: "border-zinc-400/40",   text: "text-zinc-600 dark:text-zinc-300" },
+  work:            { bg: "bg-blue-500/15",                       border: "border-blue-400/50",   text: "text-blue-700 dark:text-blue-300" },
+  tasks:           { bg: "bg-cyan-500/15",                       border: "border-cyan-400/50",   text: "text-cyan-700 dark:text-cyan-300" },
+  meal:            { bg: "bg-orange-400/20",                     border: "border-orange-400/50", text: "text-orange-700 dark:text-orange-300" },
+  exercise:        { bg: "bg-green-500/15",                      border: "border-green-400/50",  text: "text-green-700 dark:text-green-300" },
+  social:          { bg: "bg-purple-500/15",                     border: "border-purple-400/50", text: "text-purple-700 dark:text-purple-300" },
+  personal:        { bg: "bg-indigo-500/15",                     border: "border-indigo-400/50", text: "text-indigo-700 dark:text-indigo-300" },
+  project:         { bg: "bg-violet-500/15",                     border: "border-violet-400/50", text: "text-violet-700 dark:text-violet-300" },
+  rest:            { bg: "bg-stone-500/10",                      border: "border-stone-400/30",  text: "text-stone-500 dark:text-stone-400" },
+  errand:          { bg: "bg-rose-400/15",                       border: "border-rose-400/50",   text: "text-rose-700 dark:text-rose-300" },
 };
 
 // Map block types to Google Calendar colorIds for EventBlock rendering.
 const BLOCK_TYPE_COLOR_ID: Record<string, string> = {
-  sleep: "8",    // graphite
-  wake: "5",     // banana
-  commute: "8",  // graphite
-  work: "9",     // blueberry
-  meal: "6",     // tangerine
-  exercise: "2", // sage
-  social: "3",   // grape
-  personal: "7", // peacock
-  project: "1",  // lavender
-  free: "",
-  errand: "4",   // flamingo
+  sleep: "8",           // graphite
+  morning_routine: "5", // banana
+  commute: "8",         // graphite
+  work: "9",            // blueberry
+  tasks: "7",           // peacock
+  meal: "6",            // tangerine
+  exercise: "2",        // sage
+  social: "3",          // grape
+  personal: "7",        // peacock
+  project: "1",         // lavender
+  rest: "",             // default
+  errand: "4",          // flamingo
 };
 
 /** Convert DaySummary blocks into GCalEvent objects so they render on the same calendar grid. */
@@ -4455,7 +4707,7 @@ function summaryBlocksToEvents(summaries: DaySummary[], viewStartDate: Date): GC
   for (const summary of summaries) {
     if (!summary.blocks || summary.pending) continue;
     for (const block of summary.blocks) {
-      if (block.type === "sleep" || block.type === "free") continue; // skip sleep/free blocks
+      // Show all blocks in summary view — sleep and rest included
       const [sh, sm] = block.start.split(":").map(Number);
       const [eh, em] = block.end.split(":").map(Number);
       const start = new Date(summary.date + "T00:00:00");
@@ -5062,6 +5314,41 @@ function PlaceholderView({
     settings: {
       icon: <Settings className="h-10 w-10 text-muted-foreground/30" />,
       title: "Settings",
+      description: "",
+    },
+    "health-dashboard": {
+      icon: <Activity className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Health Dashboard",
+      description: "",
+    },
+    "health-profile": {
+      icon: <UserIcon className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Health Profile",
+      description: "",
+    },
+    weight: {
+      icon: <Weight className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Weight Tracking",
+      description: "",
+    },
+    macros: {
+      icon: <PieChart className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Macros",
+      description: "",
+    },
+    "meal-plans": {
+      icon: <UtensilsCrossed className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Meal Plans",
+      description: "",
+    },
+    sessions: {
+      icon: <Dumbbell className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Workout Sessions",
+      description: "",
+    },
+    "session-detail": {
+      icon: <Dumbbell className="h-10 w-10 text-muted-foreground/30" />,
+      title: "Session",
       description: "",
     },
   };
@@ -5769,240 +6056,1385 @@ function SettingsView({ settings, onUpdate }: { settings: LifeSettings; onUpdate
   );
 }
 
-// ─── Life Tool (main export) ──────────────────────────────────────────────────
+// ─── Health: Constants ────────────────────────────────────────────────────────
 
-// ─── Tab Bar ─────────────────────────────────────────────────────────────────
+const HEALTH_DIET_TYPES = [
+  { value: "balanced", label: "Balanced", desc: "Well-rounded macros" },
+  { value: "keto", label: "Keto", desc: "High fat, very low carb" },
+  { value: "low_carb", label: "Low Carb", desc: "Reduced carbohydrates" },
+  { value: "high_protein", label: "High Protein", desc: "Muscle building focus" },
+  { value: "mediterranean", label: "Mediterranean", desc: "Heart-healthy fats" },
+  { value: "paleo", label: "Paleo", desc: "Whole, unprocessed foods" },
+  { value: "vegan", label: "Vegan", desc: "100% plant-based" },
+];
 
-function LifeTabBar({
-  tabs,
-  activeTabId,
-  onSwitch,
-  onClose,
-  onNewChat,
-  onReorder,
-  onPin,
+const HEALTH_ACTIVITY_LEVELS = [
+  { value: "sedentary", label: "Sedentary", desc: "Little or no exercise" },
+  { value: "light", label: "Light", desc: "1-3 days/week" },
+  { value: "moderate", label: "Moderate", desc: "3-5 days/week" },
+  { value: "active", label: "Active", desc: "6-7 days/week" },
+  { value: "very_active", label: "Very Active", desc: "Hard daily exercise" },
+];
+
+const HEALTH_DIETARY_RESTRICTIONS = [
+  { value: "gluten_free", label: "Gluten Free" },
+  { value: "dairy_free", label: "Dairy Free" },
+  { value: "nut_free", label: "Nut Free" },
+  { value: "vegetarian", label: "Vegetarian" },
+  { value: "vegan", label: "Vegan" },
+  { value: "halal", label: "Halal" },
+  { value: "kosher", label: "Kosher" },
+  { value: "shellfish_free", label: "Shellfish Free" },
+  { value: "soy_free", label: "Soy Free" },
+  { value: "egg_free", label: "Egg Free" },
+];
+
+const HEALTH_FITNESS_LEVELS = [
+  { value: "beginner", label: "Beginner", desc: "New to training" },
+  { value: "intermediate", label: "Intermediate", desc: "1-3 years experience" },
+  { value: "advanced", label: "Advanced", desc: "3+ years experience" },
+];
+
+const HEALTH_FITNESS_GOALS = [
+  { value: "strength", label: "Strength", desc: "Build raw power and lift heavier", icon: <Dumbbell className="h-4 w-4" /> },
+  { value: "hypertrophy", label: "Hypertrophy", desc: "Maximize muscle size and growth", icon: <Activity className="h-4 w-4" /> },
+  { value: "endurance", label: "Endurance", desc: "Improve stamina and cardiovascular fitness", icon: <Timer className="h-4 w-4" /> },
+  { value: "weight_loss", label: "Weight Loss", desc: "Burn fat through resistance training", icon: <Zap className="h-4 w-4" /> },
+  { value: "general_fitness", label: "General Fitness", desc: "Stay active and healthy overall", icon: <Target className="h-4 w-4" /> },
+];
+
+const HEALTH_EQUIPMENT_OPTIONS = [
+  { value: "barbell", label: "Barbell" },
+  { value: "dumbbells", label: "Dumbbells" },
+  { value: "kettlebell", label: "Kettlebell" },
+  { value: "pull_up_bar", label: "Pull-up Bar" },
+  { value: "resistance_bands", label: "Resistance Bands" },
+  { value: "cable_machine", label: "Cable Machine" },
+  { value: "bench", label: "Bench" },
+  { value: "squat_rack", label: "Squat Rack" },
+  { value: "treadmill", label: "Treadmill" },
+  { value: "rowing_machine", label: "Rowing Machine" },
+  { value: "exercise_ball", label: "Exercise Ball" },
+  { value: "foam_roller", label: "Foam Roller" },
+  { value: "none", label: "Bodyweight Only" },
+];
+
+const HEALTH_DURATION_OPTIONS = [30, 45, 60, 75, 90];
+
+const HEALTH_DIET_MACRO_RATIOS: Record<string, { p: number; c: number; f: number }> = {
+  balanced:      { p: 0.30, c: 0.40, f: 0.30 },
+  keto:          { p: 0.25, c: 0.05, f: 0.70 },
+  low_carb:      { p: 0.35, c: 0.20, f: 0.45 },
+  high_protein:  { p: 0.40, c: 0.35, f: 0.25 },
+  mediterranean: { p: 0.20, c: 0.50, f: 0.30 },
+  paleo:         { p: 0.35, c: 0.25, f: 0.40 },
+  vegan:         { p: 0.20, c: 0.55, f: 0.25 },
+};
+
+const HEALTH_STATUS_COLORS: Record<string, string> = {
+  active: "bg-green-500/15 text-green-600 dark:text-green-400",
+  draft: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  archived: "bg-muted text-muted-foreground",
+};
+
+const HEALTH_DIFFICULTY_COLORS: Record<string, string> = {
+  easy: "text-green-500",
+  moderate: "text-amber-500",
+  hard: "text-orange-500",
+  extreme: "text-red-500",
+};
+
+const HEALTH_BMI_CATEGORIES: { max: number; label: string; color: string }[] = [
+  { max: 18.5, label: "Underweight", color: "text-blue-500" },
+  { max: 25, label: "Normal", color: "text-teal-500" },
+  { max: 30, label: "Overweight", color: "text-amber-500" },
+  { max: Infinity, label: "Obese", color: "text-red-500" },
+];
+
+function getHealthBmiCategory(bmi: number) {
+  return HEALTH_BMI_CATEGORIES.find((c) => bmi < c.max) ?? HEALTH_BMI_CATEGORIES[HEALTH_BMI_CATEGORIES.length - 1];
+}
+
+// ─── Health: Sparkline / Charts ───────────────────────────────────────────────
+
+function HealthWeightSparkline({ entries, width = 200, height = 40 }: { entries: WeightEntry[]; width?: number; height?: number }) {
+  if (entries.length < 2) return null;
+  const weights = entries.map((e) => e.weightKg);
+  const min = Math.min(...weights);
+  const max = Math.max(...weights);
+  const range = max - min || 1;
+  const points = entries.map((e, i) => {
+    const x = (i / (entries.length - 1)) * width;
+    const y = height - ((e.weightKg - min) / range) * (height - 8) - 4;
+    return `${x},${y}`;
+  });
+  const path = `M ${points.join(" L ")}`;
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <path d={path} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal-500" />
+      {entries.map((e, i) => {
+        const x = (i / (entries.length - 1)) * width;
+        const y = height - ((e.weightKg - min) / range) * (height - 8) - 4;
+        return <circle key={e.id} cx={x} cy={y} r="2" className="fill-teal-500" />;
+      })}
+    </svg>
+  );
+}
+
+function HealthWeightLineChart({ entries }: { entries: WeightEntry[] }) {
+  if (entries.length < 2) {
+    return <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">Add at least 2 entries to see the chart</div>;
+  }
+  const W = 520; const H = 160;
+  const PAD = { t: 8, r: 16, b: 28, l: 40 };
+  const innerW = W - PAD.l - PAD.r; const innerH = H - PAD.t - PAD.b;
+  const weights = entries.map((e) => e.weightKg);
+  const min = Math.floor(Math.min(...weights) - 1);
+  const max = Math.ceil(Math.max(...weights) + 1);
+  const range = max - min;
+  const toX = (i: number) => PAD.l + (i / (entries.length - 1)) * innerW;
+  const toY = (w: number) => PAD.t + (1 - (w - min) / range) * innerH;
+  const pts = entries.map((e, i) => `${toX(i)},${toY(e.weightKg)}`);
+  const linePath = `M ${pts.join(" L ")}`;
+  const areaPath = `M ${toX(0)},${PAD.t + innerH} ${pts.join(" L ")} L ${toX(entries.length - 1)},${PAD.t + innerH} Z`;
+  const yTicks = Array.from({ length: 5 }, (_, i) => min + (range * i) / 4);
+  const step = Math.max(1, Math.floor(entries.length / 6));
+  const xLabels = entries.map((e, i) => ({ e, i })).filter(({ i }) => i % step === 0 || i === entries.length - 1);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40">
+      <defs>
+        <linearGradient id="hwg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {yTicks.map((t, i) => (
+        <g key={i}>
+          <line x1={PAD.l} y1={toY(t)} x2={W - PAD.r} y2={toY(t)} stroke="currentColor" strokeWidth="0.5" className="text-border/40" strokeDasharray="3,3" />
+          <text x={PAD.l - 4} y={toY(t)} textAnchor="end" dominantBaseline="middle" className="fill-muted-foreground text-[9px]" fontSize="9">{t.toFixed(1)}</text>
+        </g>
+      ))}
+      <path d={areaPath} fill="url(#hwg)" />
+      <path d={linePath} fill="none" stroke="#14b8a6" strokeWidth="1.5" strokeLinejoin="round" />
+      {entries.map((e, i) => <circle key={e.id} cx={toX(i)} cy={toY(e.weightKg)} r="2.5" fill="#14b8a6" />)}
+      {xLabels.map(({ e, i }) => (
+        <text key={i} x={toX(i)} y={H - 4} textAnchor="middle" className="fill-muted-foreground text-[9px]" fontSize="9">
+          {new Date(e.recordedAt).toLocaleDateString([], { month: "short", day: "numeric" })}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
+function HealthMacroDonut({ protein, carbs, fat, size = 120 }: { protein: number; carbs: number; fat: number; size?: number }) {
+  const total = protein + carbs + fat;
+  if (total === 0) return null;
+  const cx = size / 2; const cy = size / 2; const r = size / 2 - 12;
+  const circumference = 2 * Math.PI * r;
+  const proteinDash = (protein / total) * circumference;
+  const carbsDash = (carbs / total) * circumference;
+  const fatDash = circumference - proteinDash - carbsDash;
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f59e0b" strokeWidth="20" strokeDasharray={`${fatDash} ${circumference - fatDash}`} strokeDashoffset={-(proteinDash + carbsDash)} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#3b82f6" strokeWidth="20" strokeDasharray={`${carbsDash} ${circumference - carbsDash}`} strokeDashoffset={-proteinDash} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#14b8a6" strokeWidth="20" strokeDasharray={`${proteinDash} ${circumference - proteinDash}`} strokeDashoffset={0} />
+    </svg>
+  );
+}
+
+function HealthTagInput({ tags, onChange, placeholder }: { tags: string[]; onChange: (tags: string[]) => void; placeholder?: string }) {
+  const [input, setInput] = useState("");
+  const add = () => { const val = input.trim(); if (val && !tags.includes(val)) onChange([...tags, val]); setInput(""); };
+  const remove = (tag: string) => onChange(tags.filter((t) => t !== tag));
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {tags.map((tag) => (
+          <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 text-xs">
+            {tag}
+            <button type="button" onClick={() => remove(tag)} className="hover:text-red-500 transition-colors"><X className="h-2.5 w-2.5" /></button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } if (e.key === ",") { e.preventDefault(); add(); } }}
+          placeholder={placeholder ?? "Type and press Enter"}
+          className="flex-1 text-sm px-3 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+        <Button type="button" variant="outline" size="sm" onClick={add} className="h-8">Add</Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Health: Dashboard Tab ─────────────────────────────────────────────────────
+
+function HealthDashboardTab({
+  profile,
+  weightEntries,
+  sessions,
+  onWeightAdded,
+  onNavigate,
+  onOpenSession,
 }: {
-  tabs: LifeTab[];
-  activeTabId: string | null;
-  onSwitch: (id: string) => void;
-  onClose: (id: string) => void;
-  onNewChat: () => void;
-  onReorder: (tabs: LifeTab[]) => void;
-  onPin: (id: string) => void;
+  profile: HealthProfile;
+  weightEntries: WeightEntry[];
+  sessions: HealthSession[];
+  onWeightAdded: () => void;
+  onNavigate: (type: LifeTabType) => void;
+  onOpenSession: (s: HealthSession) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
+  const [weightInput, setWeightInput] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // Close context menu on click anywhere
-  useEffect(() => {
-    if (!ctxMenu) return;
-    const close = () => setCtxMenu(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [ctxMenu]);
+  const handleAddWeight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const kg = parseFloat(weightInput);
+    if (!kg || isNaN(kg)) return;
+    setSaving(true);
+    try { await createWeightEntry(kg); setWeightInput(""); onWeightAdded(); }
+    finally { setSaving(false); }
+  };
 
-  // Sort tabs: pinned first, preserve order within groups
-  const sortedTabs = useMemo(() => {
-    const pinned = tabs.filter((t) => t.pinned);
-    const unpinned = tabs.filter((t) => !t.pinned);
-    return [...pinned, ...unpinned];
-  }, [tabs]);
+  const bmiCategory = profile.bmi ? getHealthBmiCategory(profile.bmi) : null;
+  const activeSessions = sessions.filter((s) => s.status === "active");
+  const fitnessGoalMeta = HEALTH_FITNESS_GOALS.find((g) => g.value === profile.fitnessGoal);
+  const lastEntries = weightEntries.slice(0, 30);
+  const currentWeight = weightEntries[0]?.weightKg;
+  const prevWeight = weightEntries[1]?.weightKg;
+  const weightDelta = currentWeight != null && prevWeight != null ? currentWeight - prevWeight : null;
 
-  const checkOverflow = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
+  const statsCards = [
+    { label: "BMI", value: profile.bmi?.toFixed(1) ?? "—", sub: bmiCategory?.label, subColor: bmiCategory?.color, icon: <Heart className="h-4 w-4" />, color: "text-teal-500" },
+    { label: "BMR", value: profile.bmr ? `${Math.round(profile.bmr)}` : "—", sub: "kcal/day base", icon: <Zap className="h-4 w-4" />, color: "text-amber-500" },
+    { label: "TDEE", value: profile.tdee ? `${Math.round(profile.tdee)}` : "—", sub: "kcal/day total", icon: <Flame className="h-4 w-4" />, color: "text-orange-500" },
+    { label: "Target", value: profile.targetCalories ? `${Math.round(profile.targetCalories)}` : "—", sub: "kcal/day goal", icon: <Target className="h-4 w-4" />, color: "text-rose-500" },
+  ];
 
-  // Convert vertical scroll to horizontal when cursor is on the tab bar
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const handleWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        el.scrollLeft += e.deltaY;
-      }
-    };
-    el.addEventListener("wheel", handleWheel, { passive: false });
-    el.addEventListener("scroll", checkOverflow, { passive: true });
-    checkOverflow();
-    const ro = new ResizeObserver(checkOverflow);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener("wheel", handleWheel);
-      el.removeEventListener("scroll", checkOverflow);
-      ro.disconnect();
-    };
-  }, [checkOverflow]);
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {statsCards.map((card) => (
+          <div key={card.label} className="rounded-lg border bg-muted/20 p-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{card.label}</span>
+              <span className={card.color}>{card.icon}</span>
+            </div>
+            <p className="text-xl font-semibold tabular-nums">{card.value}</p>
+            {card.sub && <p className={cn("text-[11px]", (card as { subColor?: string }).subColor ?? "text-muted-foreground")}>{card.sub}</p>}
+          </div>
+        ))}
+      </div>
 
-  // Recheck overflow when tabs change
-  useEffect(() => { checkOverflow(); }, [tabs.length, checkOverflow]);
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-3">Daily Macros</p>
+          {profile.proteinG && profile.carbsG && profile.fatG ? (
+            <div className="flex items-center gap-4">
+              <HealthMacroDonut protein={profile.proteinG} carbs={profile.carbsG} fat={profile.fatG} size={88} />
+              <div className="flex-1 space-y-2">
+                {[
+                  { label: "Protein", value: profile.proteinG, color: "bg-teal-500" },
+                  { label: "Carbs", value: profile.carbsG, color: "bg-blue-500" },
+                  { label: "Fat", value: profile.fatG, color: "bg-amber-500" },
+                ].map((m) => {
+                  const total = profile.proteinG! + profile.carbsG! + profile.fatG!;
+                  const pct = Math.round((m.value / total) * 100);
+                  return (
+                    <div key={m.label}>
+                      <div className="flex justify-between text-xs mb-0.5">
+                        <span className="text-muted-foreground">{m.label}</span>
+                        <span className="font-medium tabular-nums">{Math.round(m.value)}g</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                        <div className={cn("h-full rounded-full", m.color)} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Complete your profile to see macro targets.</p>
+          )}
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="capitalize">{profile.dietType.replace(/_/g, " ")}</span>
+            <span>·</span>
+            <span className="capitalize">{profile.dietGoal}</span>
+          </div>
+        </div>
 
-  // Scroll active tab into view
-  useEffect(() => {
-    if (!activeTabId || !scrollRef.current) return;
-    const el = scrollRef.current.querySelector(`[data-tab-id="${CSS.escape(activeTabId)}"]`) as HTMLElement | null;
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-  }, [activeTabId]);
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-muted-foreground">Weight Trend</p>
+            {weightDelta != null && (
+              <span className={cn("flex items-center gap-0.5 text-xs font-medium", weightDelta < 0 ? "text-teal-500" : weightDelta > 0 ? "text-rose-500" : "text-muted-foreground")}>
+                {weightDelta < 0 ? <TrendingDown className="h-3 w-3" /> : weightDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                {weightDelta > 0 ? "+" : ""}{weightDelta.toFixed(1)}kg
+              </span>
+            )}
+          </div>
+          {lastEntries.length > 1 ? <HealthWeightSparkline entries={[...lastEntries].reverse()} width={220} height={48} /> : <p className="text-xs text-muted-foreground">No weight data yet.</p>}
+          <form onSubmit={handleAddWeight} className="mt-3 flex gap-2">
+            <input type="number" step="0.1" placeholder="Weight (kg)" value={weightInput} onChange={(e) => setWeightInput(e.target.value)}
+              className="flex-1 min-w-0 text-xs px-2 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+            <Button type="submit" size="sm" disabled={saving} className="text-xs h-7 px-2">
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Log"}
+            </Button>
+          </form>
+        </div>
+      </div>
 
-  const scrollRight = () => {
-    scrollRef.current?.scrollBy({ left: 200, behavior: "smooth" });
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-3">Training Profile</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 capitalize font-medium">{profile.fitnessLevel}</span>
+              {fitnessGoalMeta && <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 font-medium">{fitnessGoalMeta.label}</span>}
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{profile.daysPerWeek} days/week</span>
+              <span className="flex items-center gap-1"><Timer className="h-3 w-3" />~{profile.preferredDurationMin}min</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border bg-muted/20 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b">
+            <p className="text-xs font-medium text-muted-foreground">Active Sessions</p>
+            <button onClick={() => onNavigate("sessions")} className="text-[11px] text-teal-500 hover:underline">View all</button>
+          </div>
+          {activeSessions.length === 0 ? (
+            <div className="p-3 text-center"><p className="text-xs text-muted-foreground">No active sessions.</p></div>
+          ) : (
+            <div className="divide-y">
+              {activeSessions.slice(0, 3).map((session) => (
+                <button key={session.id} onClick={() => onOpenSession(session)} className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/30 transition-colors text-left">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate">{session.title}</p>
+                    {session.exerciseCount != null && <p className="text-[10px] text-muted-foreground">{session.exerciseCount} exercises</p>}
+                  </div>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-muted/20 p-3">
+        <p className="text-xs font-medium text-muted-foreground mb-2">Quick Actions</p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: "Edit Profile", type: "health-profile" as LifeTabType },
+            { label: "Log Weight", type: "weight" as LifeTabType },
+            { label: "View Macros", type: "macros" as LifeTabType },
+            { label: "Meal Plans", type: "meal-plans" as LifeTabType },
+            { label: "Sessions", type: "sessions" as LifeTabType },
+          ].map((a) => (
+            <button key={a.type} onClick={() => onNavigate(a.type)} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground">
+              {a.label}
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Health: Profile Tab ───────────────────────────────────────────────────────
+
+function HealthProfileTab({ profile, onProfileUpdated }: { profile: HealthProfile; onProfileUpdated: (p: HealthProfile) => void }) {
+  const [form, setForm] = useState({
+    weightKg: profile.weightKg?.toString() ?? "",
+    heightCm: profile.heightCm?.toString() ?? "",
+    age: profile.age?.toString() ?? "",
+    gender: profile.gender ?? "male",
+    activityLevel: profile.activityLevel ?? "moderate",
+    dietType: profile.dietType ?? "balanced",
+    dietGoal: profile.dietGoal ?? "maintain",
+    goalWeightKg: profile.goalWeightKg?.toString() ?? "",
+    dietaryRestrictions: profile.dietaryRestrictions ?? [],
+    fitnessLevel: profile.fitnessLevel ?? "beginner",
+    fitnessGoal: profile.fitnessGoal ?? "general_fitness",
+    daysPerWeek: profile.daysPerWeek ?? 3,
+    preferredDurationMin: profile.preferredDurationMin ?? 60,
+    availableEquipment: profile.availableEquipment ?? [],
+    physicalLimitations: profile.physicalLimitations ?? [],
+    workoutLikes: profile.workoutLikes ?? [],
+    workoutDislikes: profile.workoutDislikes ?? [],
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const toggleRestriction = (val: string) => setForm((f) => ({ ...f, dietaryRestrictions: f.dietaryRestrictions.includes(val) ? f.dietaryRestrictions.filter((r) => r !== val) : [...f.dietaryRestrictions, val] }));
+  const toggleEquipment = (val: string) => setForm((f) => ({ ...f, availableEquipment: f.availableEquipment.includes(val) ? f.availableEquipment.filter((e) => e !== val) : [...f.availableEquipment, val] }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = await updateHealthProfile({
+        weightKg: form.weightKg ? parseFloat(form.weightKg) : null,
+        heightCm: form.heightCm ? parseFloat(form.heightCm) : null,
+        age: form.age ? parseInt(form.age) : null,
+        gender: form.gender, activityLevel: form.activityLevel, dietType: form.dietType, dietGoal: form.dietGoal,
+        goalWeightKg: form.goalWeightKg ? parseFloat(form.goalWeightKg) : null,
+        dietaryRestrictions: form.dietaryRestrictions,
+        fitnessLevel: form.fitnessLevel, fitnessGoal: form.fitnessGoal,
+        daysPerWeek: form.daysPerWeek, preferredDurationMin: form.preferredDurationMin,
+        availableEquipment: form.availableEquipment, physicalLimitations: form.physicalLimitations,
+        workoutLikes: form.workoutLikes, workoutDislikes: form.workoutDislikes,
+      });
+      onProfileUpdated(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally { setSaving(false); }
+  };
+
+  const field = (label: string, key: keyof typeof form, type = "text", placeholder?: string) => (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      <input type={type} placeholder={placeholder} value={form[key] as string}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+        className="w-full text-sm px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+    </div>
+  );
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4">
+      <div className="max-w-2xl space-y-6">
+        <section>
+          <h3 className="text-sm font-semibold mb-3">Body Stats</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {field("Weight (kg)", "weightKg", "number", "70")}
+            {field("Height (cm)", "heightCm", "number", "175")}
+            {field("Age", "age", "number", "30")}
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Gender</label>
+              <select value={form.gender} onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
+                className="w-full text-sm px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold mb-3">Nutrition</h3>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Activity Level</p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {HEALTH_ACTIVITY_LEVELS.map((a) => (
+                  <button key={a.value} onClick={() => setForm((f) => ({ ...f, activityLevel: a.value }))}
+                    className={cn("flex items-center justify-between px-3 py-2 rounded-md border text-left transition-colors", form.activityLevel === a.value ? "border-teal-500 bg-teal-500/10" : "hover:bg-muted/40")}>
+                    <span className="text-sm font-medium">{a.label}</span>
+                    <span className="text-xs text-muted-foreground">{a.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Diet Type</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {HEALTH_DIET_TYPES.map((d) => (
+                  <button key={d.value} onClick={() => setForm((f) => ({ ...f, dietType: d.value }))}
+                    className={cn("flex flex-col items-start px-3 py-2 rounded-md border text-left transition-colors", form.dietType === d.value ? "border-teal-500 bg-teal-500/10" : "hover:bg-muted/40")}>
+                    <span className="text-sm font-medium">{d.label}</span>
+                    <span className="text-[11px] text-muted-foreground">{d.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Diet Goal</p>
+              <div className="flex gap-2">
+                {[{ value: "lose", label: "Lose Weight" }, { value: "maintain", label: "Maintain" }, { value: "gain", label: "Gain Muscle" }].map((g) => (
+                  <button key={g.value} onClick={() => setForm((f) => ({ ...f, dietGoal: g.value }))}
+                    className={cn("flex-1 py-2 rounded-md border text-sm font-medium transition-colors", form.dietGoal === g.value ? "border-teal-500 bg-teal-500/10 text-foreground" : "text-muted-foreground hover:bg-muted/40")}>
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+              {form.dietGoal !== "maintain" && <div className="mt-2">{field("Goal Weight (kg)", "goalWeightKg", "number", "65")}</div>}
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Dietary Restrictions</p>
+              <div className="flex flex-wrap gap-2">
+                {HEALTH_DIETARY_RESTRICTIONS.map((r) => {
+                  const active = form.dietaryRestrictions.includes(r.value);
+                  return (
+                    <button key={r.value} onClick={() => toggleRestriction(r.value)}
+                      className={cn("px-2.5 py-1 rounded-full border text-xs font-medium transition-colors", active ? "border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300" : "text-muted-foreground hover:bg-muted/40")}>
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold mb-3">Fitness</h3>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Fitness Level</p>
+              <div className="flex gap-2">
+                {HEALTH_FITNESS_LEVELS.map((l) => (
+                  <button key={l.value} onClick={() => setForm((f) => ({ ...f, fitnessLevel: l.value }))}
+                    className={cn("flex-1 flex flex-col items-start px-3 py-2 rounded-md border text-left transition-colors", form.fitnessLevel === l.value ? "border-teal-500 bg-teal-500/10" : "hover:bg-muted/40")}>
+                    <span className="text-sm font-medium">{l.label}</span>
+                    <span className="text-[11px] text-muted-foreground">{l.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Fitness Goal</p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {HEALTH_FITNESS_GOALS.map((g) => (
+                  <button key={g.value} onClick={() => setForm((f) => ({ ...f, fitnessGoal: g.value }))}
+                    className={cn("flex items-center gap-3 px-3 py-2 rounded-md border text-left transition-colors", form.fitnessGoal === g.value ? "border-teal-500 bg-teal-500/10" : "hover:bg-muted/40")}>
+                    <span className={cn("shrink-0", form.fitnessGoal === g.value ? "text-teal-500" : "text-muted-foreground")}>{g.icon}</span>
+                    <div><span className="text-sm font-medium">{g.label}</span><p className="text-[11px] text-muted-foreground">{g.desc}</p></div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Training Days per Week</p>
+              <div className="flex gap-2">
+                {[1,2,3,4,5,6,7].map((d) => (
+                  <button key={d} onClick={() => setForm((f) => ({ ...f, daysPerWeek: d }))}
+                    className={cn("h-9 w-9 rounded-md border text-sm font-medium transition-colors", form.daysPerWeek === d ? "border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300" : "text-muted-foreground hover:bg-muted/40")}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Preferred Session Duration</p>
+              <div className="flex gap-2 flex-wrap">
+                {HEALTH_DURATION_OPTIONS.map((d) => (
+                  <button key={d} onClick={() => setForm((f) => ({ ...f, preferredDurationMin: d }))}
+                    className={cn("px-3 py-2 rounded-md border text-sm font-medium transition-colors", form.preferredDurationMin === d ? "border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300" : "text-muted-foreground hover:bg-muted/40")}>
+                    {d}min
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold mb-3">Equipment &amp; Preferences</h3>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Available Equipment</p>
+              <div className="flex flex-wrap gap-2">
+                {HEALTH_EQUIPMENT_OPTIONS.map((eq) => {
+                  const active = form.availableEquipment.includes(eq.value);
+                  return (
+                    <button key={eq.value} onClick={() => toggleEquipment(eq.value)}
+                      className={cn("px-2.5 py-1 rounded-full border text-xs font-medium transition-colors", active ? "border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300" : "text-muted-foreground hover:bg-muted/40")}>
+                      {eq.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Physical Limitations / Injuries</p>
+              <HealthTagInput tags={form.physicalLimitations} onChange={(tags) => setForm((f) => ({ ...f, physicalLimitations: tags }))} placeholder="e.g. Bad knees, shoulder impingement" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">What You Enjoy</p>
+              <HealthTagInput tags={form.workoutLikes} onChange={(tags) => setForm((f) => ({ ...f, workoutLikes: tags }))} placeholder="e.g. Compound lifts, HIIT" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">What You Dislike</p>
+              <HealthTagInput tags={form.workoutDislikes} onChange={(tags) => setForm((f) => ({ ...f, workoutDislikes: tags }))} placeholder="e.g. Long cardio, machines" />
+            </div>
+          </div>
+        </section>
+
+        <Button onClick={handleSave} disabled={saving} className="w-full">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : saved ? <Check className="h-4 w-4 mr-2 text-green-400" /> : null}
+          {saved ? "Saved!" : "Save Profile"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Health: Weight Tab ────────────────────────────────────────────────────────
+
+function HealthWeightTab({ entries, onRefresh }: { entries: WeightEntry[]; onRefresh: () => void }) {
+  const [weightInput, setWeightInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
+  const [dateInput, setDateInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const kg = parseFloat(weightInput);
+    if (!kg || isNaN(kg)) return;
+    setSaving(true);
+    try { await createWeightEntry(kg, noteInput || undefined, dateInput || undefined); setWeightInput(""); setNoteInput(""); setDateInput(""); onRefresh(); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try { await deleteWeightEntry(id); onRefresh(); }
+    finally { setDeletingId(null); }
   };
 
   return (
-    <div className="relative shrink-0 border-b bg-muted/10">
-      <div
-        ref={scrollRef}
-        className="flex items-end overflow-x-auto min-h-[36px] hide-scrollbar"
-      >
-        {sortedTabs.map((tab) => {
-          const isActive = tab.id === activeTabId;
-          const isDragging = dragId === tab.id;
-          const isDropTarget = dropTarget === tab.id && dragId !== tab.id;
-          const isPinned = !!tab.pinned;
-          const label = tab.type === "chat"
-            ? (tab.title ?? `Chat #${tab.chatNum ?? ""}`)
-            : (tab.title ?? TAB_LABELS[tab.type]);
-          return (
-            <div
-              key={tab.id}
-              data-tab-id={tab.id}
-              draggable
-              onDragStart={(e) => {
-                setDragId(tab.id);
-                e.dataTransfer.effectAllowed = "move";
-                const img = new Image();
-                img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-                e.dataTransfer.setDragImage(img, 0, 0);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                setDropTarget(tab.id);
-              }}
-              onDragLeave={() => {
-                setDropTarget((prev) => prev === tab.id ? null : prev);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragId && dragId !== tab.id) {
-                  const fromIdx = tabs.findIndex((t) => t.id === dragId);
-                  const toIdx = tabs.findIndex((t) => t.id === tab.id);
-                  if (fromIdx !== -1 && toIdx !== -1) {
-                    const reordered = [...tabs];
-                    const [moved] = reordered.splice(fromIdx, 1);
-                    reordered.splice(toIdx, 0, moved);
-                    onReorder(reordered);
-                  }
-                }
-                setDragId(null);
-                setDropTarget(null);
-              }}
-              onDragEnd={() => {
-                setDragId(null);
-                setDropTarget(null);
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setCtxMenu({ tabId: tab.id, x: e.clientX, y: e.clientY });
-              }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-xs cursor-grab select-none",
-                "border-r border-border/50 shrink-0 max-w-[180px] group transition-colors",
-                isActive
-                  ? "bg-background border-b-2 border-b-primary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                isPinned && !isActive && "bg-primary/[0.04] text-foreground/80",
-                isDragging && "opacity-40",
-                isDropTarget && "border-l-2 border-l-primary",
-              )}
-              onClick={() => onSwitch(tab.id)}
-            >
-              <span className={TAB_COLORS[tab.type]}>{TAB_ICONS[tab.type]}</span>
-              <span className="truncate font-medium">{label}</span>
-              {isPinned ? (
-                <Pin className="h-2.5 w-2.5 shrink-0 text-primary/50 -mr-0.5 rotate-45" />
-              ) : (
-                <button
-                  className={cn(
-                    "shrink-0 rounded hover:bg-muted transition-colors p-0.5 -mr-0.5",
-                    isActive
-                      ? "opacity-60 hover:opacity-100"
-                      : "opacity-0 group-hover:opacity-60 hover:!opacity-100"
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClose(tab.id);
-                  }}
-                  aria-label={`Close ${label}`}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {/* Tab context menu */}
-        {ctxMenu && (
-          <div
-            className="fixed z-50 min-w-[140px] rounded-md border bg-popover py-1 shadow-md text-popover-foreground animate-in fade-in-0 zoom-in-95"
-            style={{ left: ctxMenu.x, top: ctxMenu.y }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(() => {
-              const t = tabs.find((t) => t.id === ctxMenu.tabId);
-              const isPinned = !!t?.pinned;
-              return (
-                <>
-                  <button
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent transition-colors"
-                    onClick={() => { onPin(ctxMenu.tabId); setCtxMenu(null); }}
-                  >
-                    {isPinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
-                    {isPinned ? "Unpin tab" : "Pin tab"}
-                  </button>
-                  {!isPinned && (
-                    <button
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-destructive transition-colors"
-                      onClick={() => { onClose(ctxMenu.tabId); setCtxMenu(null); }}
-                    >
-                      <X className="size-3" />
-                      Close tab
-                    </button>
-                  )}
-                </>
-              );
-            })()}
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="rounded-lg border bg-muted/20 p-3">
+        <h3 className="text-sm font-semibold mb-3">Log Weight</h3>
+        <form onSubmit={handleAdd} className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-28">
+            <label className="block text-xs text-muted-foreground mb-1">Weight (kg)</label>
+            <input type="number" step="0.1" placeholder="70.5" value={weightInput} onChange={(e) => setWeightInput(e.target.value)}
+              className="w-full text-sm px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" required />
           </div>
-        )}
-        <button
-          className="flex items-center justify-center h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-sm transition-colors"
-          onClick={onNewChat}
-          aria-label="New chat"
-          title="New Chat"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+          <div className="flex-1 min-w-28">
+            <label className="block text-xs text-muted-foreground mb-1">Note (optional)</label>
+            <input type="text" placeholder="Morning weight" value={noteInput} onChange={(e) => setNoteInput(e.target.value)}
+              className="w-full text-sm px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+          </div>
+          <div className="flex-1 min-w-28">
+            <label className="block text-xs text-muted-foreground mb-1">Date (optional)</label>
+            <input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)}
+              className="w-full text-sm px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+          </div>
+          <Button type="submit" disabled={saving} className="h-9">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Log"}
+          </Button>
+        </form>
       </div>
 
-      {/* Scroll-right fade indicator */}
-      {canScrollRight && (
-        <button
-          onClick={scrollRight}
-          className="absolute right-0 top-0 bottom-0 w-10 flex items-center justify-end pr-1.5 transition-opacity"
-          style={{ background: "linear-gradient(to right, transparent, var(--background) 60%)" }}
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
+      {entries.length >= 2 && (
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <h3 className="text-sm font-semibold mb-3">Weight History</h3>
+          <HealthWeightLineChart entries={[...entries].reverse()} />
+        </div>
+      )}
+
+      <div className="rounded-lg border bg-muted/20 overflow-hidden">
+        <div className="px-3 py-2 border-b"><h3 className="text-sm font-semibold">Entries</h3></div>
+        {entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground p-4">No entries yet. Log your first weight!</p>
+        ) : (
+          <div className="divide-y">
+            {entries.map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-muted/20 group">
+                <div>
+                  <span className="text-sm font-medium tabular-nums">{entry.weightKg.toFixed(1)} kg</span>
+                  {entry.note && <span className="ml-2 text-xs text-muted-foreground">{entry.note}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{new Date(entry.recordedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}</span>
+                  <button onClick={() => handleDelete(entry.id)} disabled={deletingId === entry.id}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all">
+                    {deletingId === entry.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Health: Macros Tab ────────────────────────────────────────────────────────
+
+function HealthMacrosTab({ profile }: { profile: HealthProfile }) {
+  const hasMacros = profile.proteinG != null && profile.carbsG != null && profile.fatG != null;
+  const calTarget = profile.targetCalories ?? 2000;
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {!hasMacros ? (
+        <div className="rounded-lg border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+          Complete your profile with weight, height, age, and goals to calculate your macros.
+        </div>
+      ) : (
+        <>
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <h3 className="text-sm font-semibold mb-4">Your Daily Macro Targets</h3>
+            <div className="flex items-center gap-8">
+              <div className="relative shrink-0">
+                <HealthMacroDonut protein={profile.proteinG!} carbs={profile.carbsG!} fat={profile.fatG!} size={120} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ pointerEvents: "none" }}>
+                  <span className="text-base font-bold tabular-nums">{Math.round(profile.targetCalories ?? 0)}</span>
+                  <span className="text-[10px] text-muted-foreground">kcal</span>
+                </div>
+              </div>
+              <div className="flex-1 space-y-3">
+                {[
+                  { label: "Protein", value: profile.proteinG!, color: "bg-teal-500", textColor: "text-teal-600 dark:text-teal-400", kcal: profile.proteinG! * 4 },
+                  { label: "Carbs", value: profile.carbsG!, color: "bg-blue-500", textColor: "text-blue-600 dark:text-blue-400", kcal: profile.carbsG! * 4 },
+                  { label: "Fat", value: profile.fatG!, color: "bg-amber-500", textColor: "text-amber-600 dark:text-amber-400", kcal: profile.fatG! * 9 },
+                ].map((m) => {
+                  const totalG = profile.proteinG! + profile.carbsG! + profile.fatG!;
+                  const pct = Math.round((m.value / totalG) * 100);
+                  return (
+                    <div key={m.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-2 w-2 rounded-full", m.color)} />
+                          <span className="text-sm font-medium">{m.label}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className={cn("font-semibold tabular-nums", m.textColor)}>{Math.round(m.value)}g</span>
+                          <span className="text-muted-foreground tabular-nums">{Math.round(m.kcal)} kcal</span>
+                          <span className="text-muted-foreground w-7 text-right">{pct}%</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                        <div className={cn("h-full rounded-full", m.color)} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-muted/20 overflow-hidden">
+            <div className="px-3 py-2 border-b"><h3 className="text-sm font-semibold">Diet Comparison at {Math.round(calTarget)} kcal</h3></div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Diet</th>
+                    <th className="text-right px-3 py-2 font-medium text-teal-600 dark:text-teal-400">Protein (g)</th>
+                    <th className="text-right px-3 py-2 font-medium text-blue-600 dark:text-blue-400">Carbs (g)</th>
+                    <th className="text-right px-3 py-2 font-medium text-amber-600 dark:text-amber-400">Fat (g)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {HEALTH_DIET_TYPES.map((d) => {
+                    const r = HEALTH_DIET_MACRO_RATIOS[d.value];
+                    const isCurrent = d.value === profile.dietType;
+                    return (
+                      <tr key={d.value} className={cn("hover:bg-muted/20", isCurrent && "bg-teal-500/5")}>
+                        <td className="px-3 py-2 font-medium">
+                          {d.label}
+                          {isCurrent && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-600 dark:text-teal-400">current</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{Math.round((r.p * calTarget) / 4)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{Math.round((r.c * calTarget) / 4)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{Math.round((r.f * calTarget) / 9)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
+
+// ─── Health: Meal Plans Tab ────────────────────────────────────────────────────
+
+function HealthMealPlansTab({ plans, onRefresh }: { plans: HealthMealPlan[]; onRefresh: () => void }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try { await deleteMealPlan(id); onRefresh(); }
+    finally { setDeletingId(null); }
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Saved Meal Plans</h3>
+      </div>
+      {plans.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
+          <UtensilsCrossed className="h-8 w-8 mx-auto text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">No meal plans yet.</p>
+          <p className="text-xs text-muted-foreground">Chat with Health AI via the Life chat to generate one.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {plans.map((plan) => {
+            const isExpanded = expandedId === plan.id;
+            return (
+              <div key={plan.id} className="rounded-lg border bg-muted/20 overflow-hidden">
+                <button onClick={() => setExpandedId(isExpanded ? null : plan.id)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/30 transition-colors text-left">
+                  <div>
+                    <p className="text-sm font-medium">{plan.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[11px] text-muted-foreground capitalize">{plan.planType}</span>
+                      <span className="text-[11px] text-muted-foreground">·</span>
+                      <span className="text-[11px] text-muted-foreground capitalize">{plan.dietType.replace(/_/g, " ")}</span>
+                      {plan.targetCalories && <><span className="text-[11px] text-muted-foreground">·</span><span className="text-[11px] text-muted-foreground">{Math.round(plan.targetCalories)} kcal</span></>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-muted-foreground">{new Date(plan.createdAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(plan.id); }} disabled={deletingId === plan.id}
+                      className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors">
+                      {deletingId === plan.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                    </button>
+                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                  </div>
+                </button>
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden border-t">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-muted/30 border-b">
+                              {plan.planType === "weekly" && <th className="text-left px-3 py-2 font-medium text-muted-foreground">Day</th>}
+                              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Meal</th>
+                              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Name</th>
+                              <th className="text-right px-3 py-2 font-medium text-muted-foreground">Cal</th>
+                              <th className="text-right px-3 py-2 font-medium text-teal-600 dark:text-teal-400">P</th>
+                              <th className="text-right px-3 py-2 font-medium text-blue-600 dark:text-blue-400">C</th>
+                              <th className="text-right px-3 py-2 font-medium text-amber-600 dark:text-amber-400">F</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {plan.content.meals.map((meal, i) => (
+                              <tr key={i} className="hover:bg-muted/20">
+                                {plan.planType === "weekly" && <td className="px-3 py-2 text-muted-foreground capitalize">{meal.day ?? ""}</td>}
+                                <td className="px-3 py-2 text-muted-foreground capitalize">{meal.meal_type.replace(/_/g, " ")}</td>
+                                <td className="px-3 py-2 font-medium">{meal.name}</td>
+                                <td className="px-3 py-2 text-right tabular-nums">{meal.calories}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-teal-600 dark:text-teal-400">{meal.protein_g != null ? `${meal.protein_g}g` : "—"}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-blue-600 dark:text-blue-400">{meal.carbs_g != null ? `${meal.carbs_g}g` : "—"}</td>
+                                <td className="px-3 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400">{meal.fat_g != null ? `${meal.fat_g}g` : "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Health: Sessions Tab ──────────────────────────────────────────────────────
+
+function HealthSessionsSection({
+  title, sessions, defaultOpen, onOpenSession, onStatusChange, onDelete,
+}: {
+  title: string; sessions: HealthSession[]; defaultOpen?: boolean;
+  onOpenSession: (s: HealthSession) => void;
+  onStatusChange: (id: string, status: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [changingId, setChangingId] = useState<string | null>(null);
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try { await deleteHealthSession(id); onDelete(id); }
+    finally { setDeletingId(null); }
+  };
+
+  const handleStatus = async (id: string, status: string) => {
+    setChangingId(id);
+    try { await updateHealthSessionStatus(id, status); onStatusChange(id, status); }
+    finally { setChangingId(null); }
+  };
+
+  return (
+    <div className="rounded-lg border bg-muted/20 overflow-hidden">
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/30 transition-colors">
+        <div className="flex items-center gap-2">
+          {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+          <span className="text-sm font-semibold">{title}</span>
+          <span className="text-xs text-muted-foreground">({sessions.length})</span>
+        </div>
+      </button>
+      {open && (
+        <div className="border-t">
+          {sessions.length === 0 ? (
+            <div className="px-3 py-4 text-center"><p className="text-sm text-muted-foreground">No sessions here.</p></div>
+          ) : (
+            <div className="divide-y">
+              {sessions.map((session) => (
+                <div key={session.id} className="px-3 py-2.5 hover:bg-muted/20 group">
+                  <div className="flex items-start justify-between gap-2">
+                    <button onClick={() => onOpenSession(session)} className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-medium truncate">{session.title}</p>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {session.targetMuscleGroups.slice(0, 4).map((mg) => (
+                          <span key={mg} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">{mg.replace(/_/g, " ")}</span>
+                        ))}
+                        {session.exerciseCount != null && <span className="text-[10px] text-muted-foreground">{session.exerciseCount} exercises</span>}
+                        {session.estimatedDuration != null && <span className="text-[10px] text-muted-foreground">{session.estimatedDuration}min</span>}
+                        {session.difficultyLevel && <span className={cn("text-[10px] capitalize", HEALTH_DIFFICULTY_COLORS[session.difficultyLevel] ?? "text-muted-foreground")}>{session.difficultyLevel}</span>}
+                      </div>
+                    </button>
+                    <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {session.status === "draft" && (
+                        <button onClick={() => handleStatus(session.id, "active")} disabled={changingId === session.id} title="Activate" className="p-1 rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-500 transition-colors">
+                          {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        </button>
+                      )}
+                      {session.status === "active" && (
+                        <button onClick={() => handleStatus(session.id, "archived")} disabled={changingId === session.id} title="Archive" className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                          {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
+                        </button>
+                      )}
+                      {session.status === "archived" && (
+                        <button onClick={() => handleStatus(session.id, "active")} disabled={changingId === session.id} title="Restore" className="p-1 rounded hover:bg-teal-500/10 text-muted-foreground hover:text-teal-500 transition-colors">
+                          {changingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                        </button>
+                      )}
+                      <button onClick={() => handleDelete(session.id)} disabled={deletingId === session.id} className="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors">
+                        {deletingId === session.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HealthSessionsTab({ sessions, onRefresh, onOpenSession }: { sessions: HealthSession[]; onRefresh: () => void; onOpenSession: (s: HealthSession) => void }) {
+  const [localSessions, setLocalSessions] = useState(sessions);
+  useEffect(() => { setLocalSessions(sessions); }, [sessions]);
+
+  const active = localSessions.filter((s) => s.status === "active");
+  const draft = localSessions.filter((s) => s.status === "draft");
+  const archived = localSessions.filter((s) => s.status === "archived");
+
+  const handleDelete = (id: string) => { setLocalSessions((prev) => prev.filter((s) => s.id !== id)); onRefresh(); };
+  const handleStatusChange = (id: string, status: string) => { setLocalSessions((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s))); onRefresh(); };
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Training Sessions</h3>
+      </div>
+      <HealthSessionsSection title="Active" sessions={active} defaultOpen onOpenSession={onOpenSession} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+      <HealthSessionsSection title="Drafts" sessions={draft} onOpenSession={onOpenSession} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+      <HealthSessionsSection title="Archived" sessions={archived} onOpenSession={onOpenSession} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+    </div>
+  );
+}
+
+// ─── Health: Session Detail Tab ────────────────────────────────────────────────
+
+interface EditableExerciseField {
+  exerciseId: string;
+  field: keyof HealthSessionExercise;
+}
+
+function HealthSessionDetailTab({ sessionId, onStatusChanged }: { sessionId: string; onStatusChanged?: () => void }) {
+  const [session, setSession] = useState<HealthSession | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<EditableExerciseField | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingExercise, setSavingExercise] = useState<string | null>(null);
+  const [deletingExercise, setDeletingExercise] = useState<string | null>(null);
+  const [changingStatus, setChangingStatus] = useState(false);
+  const [addForm, setAddForm] = useState({ exerciseName: "", sets: "3", reps: "10", weight: "", restSeconds: "60", notes: "" });
+  const [addingExercise, setAddingExercise] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    getHealthSession(sessionId).then(setSession).catch(console.error).finally(() => setLoading(false));
+  }, [sessionId]);
+
+  const handleStartEdit = (exerciseId: string, field: keyof HealthSessionExercise, value: string) => { setEditing({ exerciseId, field }); setEditValue(value); };
+  const handleSaveEdit = async () => {
+    if (!editing || !session) return;
+    setSavingExercise(editing.exerciseId);
+    try {
+      const updated = await updateHealthSessionExercise(session.id, editing.exerciseId, {
+        [editing.field]: editing.field === "sets" || editing.field === "restSeconds" ? parseInt(editValue) || 0 : editValue,
+      });
+      setSession((s) => s ? { ...s, exercises: s.exercises?.map((e) => e.id === editing.exerciseId ? updated : e) } : s);
+    } catch (err) { console.error(err); }
+    finally { setSavingExercise(null); setEditing(null); }
+  };
+
+  const handleDeleteExercise = async (exerciseId: string) => {
+    if (!session) return;
+    setDeletingExercise(exerciseId);
+    try { await deleteHealthSessionExercise(session.id, exerciseId); setSession((s) => s ? { ...s, exercises: s.exercises?.filter((e) => e.id !== exerciseId) } : s); }
+    finally { setDeletingExercise(null); }
+  };
+
+  const handleAddExercise = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session || !addForm.exerciseName.trim()) return;
+    setAddingExercise(true);
+    try {
+      const created = await addHealthSessionExercise(session.id, {
+        exerciseName: addForm.exerciseName.trim(), sets: parseInt(addForm.sets) || 3, reps: addForm.reps || "10",
+        weight: addForm.weight || "", restSeconds: parseInt(addForm.restSeconds) || 60, notes: addForm.notes || "",
+      });
+      setSession((s) => s ? { ...s, exercises: [...(s.exercises ?? []), created] } : s);
+      setAddForm({ exerciseName: "", sets: "3", reps: "10", weight: "", restSeconds: "60", notes: "" });
+    } finally { setAddingExercise(false); }
+  };
+
+  const handleStatusChange = async (status: string) => {
+    if (!session) return;
+    setChangingStatus(true);
+    try { await updateHealthSessionStatus(session.id, status); setSession((s) => (s ? { ...s, status } : s)); onStatusChanged?.(); }
+    finally { setChangingStatus(false); }
+  };
+
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  if (!session) return <div className="flex-1 flex items-center justify-center"><p className="text-sm text-muted-foreground">Session not found.</p></div>;
+
+  const exercises = session.exercises ?? [];
+  const supersetColors = ["border-teal-500", "border-violet-500", "border-amber-500", "border-rose-500", "border-green-500"];
+  const supersetGroups: Record<string, string> = {};
+  let colorIdx = 0;
+  exercises.forEach((ex) => { if (ex.supersetGroup && !supersetGroups[ex.supersetGroup]) { supersetGroups[ex.supersetGroup] = supersetColors[colorIdx++ % supersetColors.length]; } });
+
+  const EditableCell = ({ exerciseId, field, value, placeholder, className }: { exerciseId: string; field: keyof HealthSessionExercise; value: string; placeholder?: string; className?: string }) => {
+    const isEditing = editing?.exerciseId === exerciseId && editing.field === field;
+    const isSaving = savingExercise === exerciseId;
+    if (isEditing) {
+      return (
+        <input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={handleSaveEdit}
+          onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(); if (e.key === "Escape") setEditing(null); }}
+          className={cn("w-full text-xs px-1.5 py-0.5 rounded border bg-background focus:outline-none focus:ring-1 focus:ring-teal-500", className)} />
+      );
+    }
+    return (
+      <button onClick={() => handleStartEdit(exerciseId, field, value)} disabled={isSaving}
+        className={cn("text-left text-xs hover:bg-muted/50 px-1.5 py-0.5 rounded transition-colors w-full", !value && "text-muted-foreground/50", className)} title="Click to edit">
+        {value || placeholder || "—"}
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base font-semibold truncate">{session.title}</h2>
+              <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium capitalize", HEALTH_STATUS_COLORS[session.status] ?? "bg-muted text-muted-foreground")}>{session.status}</span>
+              {session.difficultyLevel && <span className={cn("text-[11px] capitalize font-medium", HEALTH_DIFFICULTY_COLORS[session.difficultyLevel] ?? "")}>{session.difficultyLevel}</span>}
+            </div>
+            {session.description && <p className="text-xs text-muted-foreground mt-1">{session.description}</p>}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {session.targetMuscleGroups.map((mg) => <span key={mg} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">{mg.replace(/_/g, " ")}</span>)}
+              {session.estimatedDuration != null && <span className="text-[11px] text-muted-foreground flex items-center gap-1"><Timer className="h-3 w-3" />{session.estimatedDuration}min</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {session.status === "draft" && (
+              <Button size="sm" variant="outline" onClick={() => handleStatusChange("active")} disabled={changingStatus} className="text-xs h-7 text-green-600 border-green-600/40 hover:bg-green-500/10">
+                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}Activate
+              </Button>
+            )}
+            {session.status === "active" && (
+              <Button size="sm" variant="outline" onClick={() => handleStatusChange("archived")} disabled={changingStatus} className="text-xs h-7">
+                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3 mr-1" />}Archive
+              </Button>
+            )}
+            {session.status === "archived" && (
+              <Button size="sm" variant="outline" onClick={() => handleStatusChange("active")} disabled={changingStatus} className="text-xs h-7 text-teal-600 border-teal-600/40 hover:bg-teal-500/10">
+                {changingStatus ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1" />}Restore
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border bg-muted/20 overflow-hidden">
+        <div className="px-3 py-2 border-b flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Exercises</h3>
+          <span className="text-xs text-muted-foreground">{exercises.length} total</span>
+        </div>
+        {exercises.length === 0 ? (
+          <p className="text-sm text-muted-foreground p-4">No exercises yet. Add one below.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/30 border-b">
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Exercise</th>
+                  <th className="text-center px-2 py-2 font-medium text-muted-foreground">Sets</th>
+                  <th className="text-center px-2 py-2 font-medium text-muted-foreground">Reps</th>
+                  <th className="text-center px-2 py-2 font-medium text-muted-foreground">Weight</th>
+                  <th className="text-center px-2 py-2 font-medium text-muted-foreground">Rest</th>
+                  <th className="text-left px-2 py-2 font-medium text-muted-foreground">Notes</th>
+                  <th className="px-2 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {exercises.map((ex) => {
+                  const supersetColor = ex.supersetGroup ? supersetGroups[ex.supersetGroup] : null;
+                  return (
+                    <tr key={ex.id} className={cn("hover:bg-muted/20 group", supersetColor && `border-l-2 ${supersetColor}`)}>
+                      <td className="px-3 py-1.5"><EditableCell exerciseId={ex.id} field="exerciseName" value={ex.exerciseName} className="font-medium" /></td>
+                      <td className="px-2 py-1.5 text-center"><EditableCell exerciseId={ex.id} field="sets" value={String(ex.sets)} className="text-center" /></td>
+                      <td className="px-2 py-1.5 text-center"><EditableCell exerciseId={ex.id} field="reps" value={ex.reps} className="text-center" /></td>
+                      <td className="px-2 py-1.5 text-center"><EditableCell exerciseId={ex.id} field="weight" value={ex.weight} placeholder="—" className="text-center" /></td>
+                      <td className="px-2 py-1.5 text-center"><EditableCell exerciseId={ex.id} field="restSeconds" value={ex.restSeconds ? `${ex.restSeconds}s` : ""} placeholder="—" className="text-center" /></td>
+                      <td className="px-2 py-1.5"><EditableCell exerciseId={ex.id} field="notes" value={ex.notes} placeholder="Add note" className="text-muted-foreground" /></td>
+                      <td className="px-2 py-1.5">
+                        <button onClick={() => handleDeleteExercise(ex.id)} disabled={deletingExercise === ex.id}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-all">
+                          {deletingExercise === ex.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-lg border bg-muted/20 p-3">
+        <h3 className="text-sm font-semibold mb-3">Add Exercise</h3>
+        <form onSubmit={handleAddExercise} className="space-y-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="col-span-2 md:col-span-1">
+              <label className="block text-xs text-muted-foreground mb-1">Exercise Name</label>
+              <input required type="text" placeholder="e.g. Barbell Squat" value={addForm.exerciseName}
+                onChange={(e) => setAddForm((f) => ({ ...f, exerciseName: e.target.value }))}
+                className="w-full text-sm px-2.5 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Sets</label>
+              <input type="number" min="1" value={addForm.sets} onChange={(e) => setAddForm((f) => ({ ...f, sets: e.target.value }))}
+                className="w-full text-sm px-2.5 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Reps</label>
+              <input type="text" placeholder="10 or 8-12" value={addForm.reps} onChange={(e) => setAddForm((f) => ({ ...f, reps: e.target.value }))}
+                className="w-full text-sm px-2.5 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Weight</label>
+              <input type="text" placeholder="e.g. 80kg or BW" value={addForm.weight} onChange={(e) => setAddForm((f) => ({ ...f, weight: e.target.value }))}
+                className="w-full text-sm px-2.5 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Rest (seconds)</label>
+              <input type="number" min="0" value={addForm.restSeconds} onChange={(e) => setAddForm((f) => ({ ...f, restSeconds: e.target.value }))}
+                className="w-full text-sm px-2.5 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Notes</label>
+              <input type="text" placeholder="Optional notes" value={addForm.notes} onChange={(e) => setAddForm((f) => ({ ...f, notes: e.target.value }))}
+                className="w-full text-sm px-2.5 py-1.5 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+          </div>
+          <Button type="submit" disabled={addingExercise || !addForm.exerciseName.trim()} size="sm">
+            {addingExercise ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+            Add Exercise
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Health: Onboarding ────────────────────────────────────────────────────────
+
+interface HealthChatState {
+  messages: (HealthMessage & { streamingContent?: string })[];
+  streaming: boolean;
+  streamingText: string;
+  convId: string | null;
+  error: string | null;
+}
+
+function HealthOnboardingChat({ onComplete }: { onComplete: () => void }) {
+  const [state, setState] = useState<HealthChatState>({ messages: [], streaming: false, streamingText: "", convId: null, error: null });
+  const [input, setInput] = useState("");
+  const [showCelebration, setShowCelebration] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const isOnboardingComplete = state.messages.some((m) => m.toolCalls?.some((tc) => tc.tool === "complete_onboarding" && tc.success));
+
+  useEffect(() => {
+    if (isOnboardingComplete && !showCelebration) {
+      const timer = setTimeout(() => setShowCelebration(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [isOnboardingComplete, showCelebration]);
+
+  const sendMessage = useCallback(async (text: string) => {
+    const userMsg: HealthMessage = { id: `local-${Date.now()}`, conversationId: state.convId ?? "", userId: "", role: "user", content: text, createdAt: new Date().toISOString() };
+    setState((s) => ({ ...s, messages: [...s.messages, userMsg], streaming: true, streamingText: "", error: null }));
+    await streamHealthChat(text, {
+      onToken: (token) => setState((s) => ({ ...s, streamingText: s.streamingText + token })),
+      onToolCall: () => {},
+      onToolResult: () => {},
+      onComplete: (data) => setState((s) => ({ ...s, messages: [...s.messages, data.message], streaming: false, streamingText: "", convId: data.conversationId })),
+      onError: (err) => setState((s) => ({ ...s, streaming: false, streamingText: "", error: err, messages: s.messages.slice(0, -1) })),
+    }, state.convId ?? undefined);
+  }, [state.convId]);
+
+  useEffect(() => {
+    if (state.messages.length > 0 || state.streaming) return;
+    sendMessage("Hi! I'm new here. Help me set up my health profile.");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryCount]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [state.messages, state.streamingText]);
+
+  const handleSend = useCallback(async () => {
+    const text = input.trim();
+    if (!text || state.streaming) return;
+    setInput("");
+    await sendMessage(text);
+  }, [input, state.streaming, sendMessage]);
+
+  const displayMessages = useMemo(() => {
+    if (!state.streaming || !state.streamingText) return state.messages;
+    const streamMsg: HealthMessage & { streamingContent: string } = { id: "streaming", conversationId: state.convId ?? "", userId: "", role: "assistant", content: "", streamingContent: state.streamingText, createdAt: new Date().toISOString() };
+    return [...state.messages, streamMsg];
+  }, [state.messages, state.streaming, state.streamingText, state.convId]);
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="shrink-0 border-b px-4 py-3 flex items-center gap-2">
+        <Heart className="h-4 w-4 text-teal-500" />
+        <span className="text-sm font-semibold">Health Setup</span>
+        <span className="text-xs text-muted-foreground">Chat with the AI to set up your health profile</span>
+      </div>
+
+      {showCelebration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3, type: "spring", bounce: 0.4 }}
+            className="w-full max-w-sm mx-4 rounded-xl border bg-background shadow-2xl p-6 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="h-16 w-16 rounded-full bg-teal-500/10 flex items-center justify-center">
+                <Heart className="h-8 w-8 text-teal-500" />
+              </div>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">You're all set!</h2>
+              <p className="text-sm text-muted-foreground mt-1">Your health profile is ready. Let's start planning your diet and workouts.</p>
+            </div>
+            <Button onClick={onComplete} className="w-full">Get Started <ArrowRight className="h-4 w-4 ml-1.5" /></Button>
+          </motion.div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-4">
+        <div className="max-w-2xl mx-auto">
+          {state.error && state.messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+              <AlertCircle className="h-8 w-8 text-red-500/60" />
+              <p className="text-sm text-muted-foreground">{state.error}</p>
+              <Button variant="outline" size="sm" onClick={() => { setState({ messages: [], streaming: false, streamingText: "", convId: null, error: null }); setRetryCount((c) => c + 1); }}>
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />Try Again
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="divide-y divide-border/30 py-2">
+                {displayMessages.map((msg, i) => {
+                  const isUser = msg.role === "user";
+                  const content = (msg as HealthMessage & { streamingContent?: string }).streamingContent ?? msg.content;
+                  return (
+                    <div key={msg.id} className="group py-3">
+                      {isUser ? (
+                        <div className="flex justify-end">
+                          <p className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words text-right">{content}</p>
+                        </div>
+                      ) : (
+                        <div className="max-w-[90%]">
+                          <span className="text-[10px] font-medium text-teal-600 dark:text-teal-400 block mb-1">Health AI</span>
+                          <div className="text-sm leading-relaxed text-foreground">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p> }}>{content}</ReactMarkdown>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {state.streaming && !state.streamingText && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+                  <span className="h-1 w-1 rounded-full bg-teal-500/70 animate-bounce" style={{ animationDuration: "1s" }} />
+                  <span className="h-1 w-1 rounded-full bg-teal-500/70 animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1s" }} />
+                  <span className="h-1 w-1 rounded-full bg-teal-500/70 animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1s" }} />
+                </div>
+              )}
+              {state.error && (
+                <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-md bg-red-500/10 border border-red-500/20 text-sm text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1">{state.error}</span>
+                  <button onClick={() => setState((s) => ({ ...s, error: null }))} className="text-xs underline hover:no-underline shrink-0">Dismiss</button>
+                </div>
+              )}
+            </>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      </div>
+
+      {!isOnboardingComplete && (
+        <div className="shrink-0 border-t p-3">
+          <div className="max-w-2xl mx-auto flex items-end gap-2">
+            <textarea ref={textareaRef} value={input} onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder="Tell the AI about yourself..."
+              rows={1} style={{ resize: "none" }}
+              className="flex-1 text-sm px-3 py-2 rounded-md border bg-background focus:outline-none focus:ring-1 focus:ring-ring min-h-[38px] max-h-32 overflow-y-auto leading-relaxed"
+              onInput={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = `${t.scrollHeight}px`; }} />
+            <Button size="icon" onClick={handleSend} disabled={state.streaming || !input.trim()} className="h-9 w-9 shrink-0">
+              {state.streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Life Tool (main export) ──────────────────────────────────────────────────
+
+// ─── Tab Bar ─────────────────────────────────────────────────────────────────
+
+// LifeTabBar removed — now uses shared ToolTabBar from @/components/layout/tool-tab-bar
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
@@ -6016,35 +7448,95 @@ export function LifeTool() {
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [backendDown, setBackendDown] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  // ── Health data state ──────────────────────────────────────────────────────
+  const [healthProfile, setHealthProfile] = useState<HealthProfile | null>(null);
+  const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
+  const [healthMemories, setHealthMemories] = useState<HealthMemory[]>([]);
+  const [mealPlans, setMealPlans] = useState<HealthMealPlan[]>([]);
+  const [sessions, setSessions] = useState<HealthSession[]>([]);
 
   // Wait for synced state to hydrate from localStorage before rendering content
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  // Check onboarding status from API on first load
-  useEffect(() => {
-    if (!hydrated || onboardingChecked) return;
-    // If already onboarded locally, skip API check
-    if (lifeState.onboarded) {
-      setOnboardingChecked(true);
-      return;
-    }
-    // Fetch profile to get canonical onboarded flag
+  // Check onboarding status and backend health on first load
+  const checkBackend = useCallback(() => {
+    setRetrying(true);
+    setBackendDown(false);
     fetch("/api/proxy/life/profile", { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => {
+        if (r.status === 502 || r.status === 503) throw new Error("backend down");
+        return r.json();
+      })
       .then((data: { profile?: { onboarded?: boolean } }) => {
         if (data.profile?.onboarded) {
           setLifeState((prev) => ({ ...prev, onboarded: true }));
         }
+        setBackendDown(false);
       })
-      .catch(() => {})
-      .finally(() => setOnboardingChecked(true));
-  }, [hydrated, onboardingChecked, lifeState.onboarded, setLifeState]);
+      .catch((e) => {
+        if (e instanceof Error && e.message === "backend down") {
+          setBackendDown(true);
+        }
+      })
+      .finally(() => { setOnboardingChecked(true); setRetrying(false); });
+  }, [setLifeState]);
+
+  useEffect(() => {
+    if (!hydrated || onboardingChecked) return;
+    if (lifeState.onboarded) {
+      setOnboardingChecked(true);
+      return;
+    }
+    checkBackend();
+  }, [hydrated, onboardingChecked, lifeState.onboarded, checkBackend]);
 
   const completeOnboarding = useCallback(() => {
     markOnboarded().catch(() => {});
     setLifeState((prev) => ({ ...prev, onboarded: true }));
+  }, [setLifeState]);
+
+  // ── Load health data on mount ──────────────────────────────────────────────
+  const refreshHealthWeightEntries = useCallback(() => {
+    listWeightEntries().then(setWeightEntries).catch(() => {});
+  }, []);
+
+  const refreshHealthMealPlans = useCallback(() => {
+    listMealPlans().then(setMealPlans).catch(() => {});
+  }, []);
+
+  const refreshHealthSessions = useCallback(() => {
+    listHealthSessions().then(setSessions).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    Promise.all([
+      getHealthProfile().then(setHealthProfile).catch(() => {}),
+      listWeightEntries().then(setWeightEntries).catch(() => {}),
+      listHealthMemories().then(setHealthMemories).catch(() => {}),
+      listMealPlans().then(setMealPlans).catch(() => {}),
+      listHealthSessions().then(setSessions).catch(() => {}),
+    ]);
+  }, [hydrated]);
+
+  // ── Open session detail tab ────────────────────────────────────────────────
+  const openSession = useCallback((s: HealthSession) => {
+    const id = `tab:session:${s.id}`;
+    setLifeState((prev) => {
+      const existing = prev.tabs.find((t) => t.id === id);
+      return {
+        ...prev,
+        tabs: existing
+          ? prev.tabs
+          : [...prev.tabs, { id, type: "session-detail" as LifeTabType, sessionId: s.id, title: s.title }],
+        activeTabId: id,
+      };
+    });
   }, [setLifeState]);
 
   // Enable cloud sync by default on first use
@@ -6234,14 +7726,9 @@ export function LifeTool() {
 
   if (!hydrated) {
     return (
-      <div className="flex flex-col h-full overflow-hidden">
-        {/* Top bar skeleton */}
-        <div className="border-b shrink-0">
-          <div className="flex items-center gap-2 px-4 py-2">
-            <Brain className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-semibold">Life Tool</span>
-          </div>
-        </div>
+      <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
+        {/* Tab bar skeleton */}
+        <div className="h-9 border-b bg-muted/10 shrink-0" />
         {/* Body skeleton */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Sidebar skeleton */}
@@ -6256,14 +7743,27 @@ export function LifeTool() {
             ))}
           </aside>
           {/* Content skeleton */}
-          <div className="flex-1 flex flex-col">
-            <div className="h-9 border-b bg-muted/10" />
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Show service error if backend is unreachable
+  if (backendDown) {
+    return (
+      <AuthGate>
+        <div className="flex flex-col h-full overflow-hidden">
+          <ServiceError
+            title="Can't reach the server"
+            message="The service is temporarily unavailable. This usually resolves in a few moments."
+            onRetry={checkBackend}
+            retrying={retrying}
+          />
+        </div>
+      </AuthGate>
     );
   }
 
@@ -6271,7 +7771,7 @@ export function LifeTool() {
   if (onboardingChecked && !lifeState.onboarded) {
     return (
       <AuthGate>
-        <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
           <OnboardingView onComplete={completeOnboarding} onOpenTab={openTab} />
         </div>
       </AuthGate>
@@ -6280,24 +7780,22 @@ export function LifeTool() {
 
   return (
     <AuthGate>
-      <div className="flex flex-col h-full overflow-hidden">
-        {/* Top bar */}
-        <div className="border-b shrink-0">
-          <div className="flex items-center gap-2 px-3 py-2">
-            <button
-              onClick={() => setSidebarOpen((v) => !v)}
-              className={cn(
-                "p-1.5 rounded-md hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground",
-                sidebarOpen && "bg-muted/50 text-foreground"
-              )}
-              title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-            >
-              {sidebarOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeft className="h-3.5 w-3.5" />}
-            </button>
-            <Brain className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-semibold">Life Tool</span>
-          </div>
-        </div>
+      <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
+        {/* Tab bar with sidebar toggle */}
+        <ToolTabBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSelect={switchTab}
+          onClose={closeTab}
+          onNewChat={openNewChat}
+          onReorder={(reordered) => setLifeState((prev) => ({ ...prev, tabs: reordered as LifeTab[] }))}
+          onPin={pinTab}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          labels={TAB_LABELS}
+          icons={TAB_ICONS}
+          colors={TAB_COLORS}
+        />
 
         {/* Body */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -6309,20 +7807,7 @@ export function LifeTool() {
           )}
 
           {/* Main content area */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Tab bar */}
-            <LifeTabBar
-              tabs={tabs}
-              activeTabId={activeTabId}
-              onSwitch={switchTab}
-              onClose={closeTab}
-              onNewChat={openNewChat}
-              onReorder={(reordered) => setLifeState((prev) => ({ ...prev, tabs: reordered }))}
-              onPin={pinTab}
-            />
-
-            {/* Tab content */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
               {activeTab === null ? (
                 <PlaceholderView tab="today" />
               ) : activeTab.type === "chat" ? (
@@ -6353,10 +7838,67 @@ export function LifeTool() {
                   settings={lifeState.settings ?? DEFAULT_SETTINGS}
                   onUpdate={(s) => setLifeState((prev) => ({ ...prev, settings: s }))}
                 />
+              ) : activeTab.type === "health-dashboard" ||
+                activeTab.type === "health-profile" ||
+                activeTab.type === "weight" ||
+                activeTab.type === "macros" ||
+                activeTab.type === "meal-plans" ||
+                activeTab.type === "sessions" ||
+                activeTab.type === "session-detail" ? (
+                healthProfile?.onboarded === false ? (
+                  <HealthOnboardingChat
+                    onComplete={() => {
+                      markHealthOnboarded().catch(() => {});
+                      setHealthProfile((prev) => prev ? { ...prev, onboarded: true } : prev);
+                    }}
+                  />
+                ) : !healthProfile ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : activeTab.type === "health-dashboard" ? (
+                  <HealthDashboardTab
+                    profile={healthProfile}
+                    weightEntries={weightEntries}
+                    sessions={sessions}
+                    onWeightAdded={refreshHealthWeightEntries}
+                    onNavigate={openTab}
+                    onOpenSession={openSession}
+                  />
+                ) : activeTab.type === "health-profile" ? (
+                  <HealthProfileTab
+                    profile={healthProfile}
+                    onProfileUpdated={setHealthProfile}
+                  />
+                ) : activeTab.type === "weight" ? (
+                  <HealthWeightTab
+                    entries={weightEntries}
+                    onRefresh={refreshHealthWeightEntries}
+                  />
+                ) : activeTab.type === "macros" ? (
+                  <HealthMacrosTab profile={healthProfile} />
+                ) : activeTab.type === "meal-plans" ? (
+                  <HealthMealPlansTab
+                    plans={mealPlans}
+                    onRefresh={refreshHealthMealPlans}
+                  />
+                ) : activeTab.type === "sessions" ? (
+                  <HealthSessionsTab
+                    sessions={sessions}
+                    onRefresh={refreshHealthSessions}
+                    onOpenSession={openSession}
+                  />
+                ) : activeTab.type === "session-detail" && activeTab.sessionId ? (
+                  <HealthSessionDetailTab
+                    sessionId={activeTab.sessionId}
+                    onStatusChanged={refreshHealthSessions}
+                  />
+                ) : (
+                  <PlaceholderView tab={activeTab.type} />
+                )
               ) : (
                 <PlaceholderView tab={activeTab.type} />
               )}
-            </div>
           </div>
         </div>
 

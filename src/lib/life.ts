@@ -28,6 +28,7 @@ export interface LifeConversation {
   id: string;
   userId: string;
   channel: string;
+  category: string; // "life" | "health" | "auto"
   title: string;
   lastMessage?: string;
   createdAt: string;
@@ -65,8 +66,26 @@ async function lifeApiFetch<T>(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "Unknown error");
-    throw new Error(`${res.status}: ${text}`);
+    const text = await res.text().catch(() => "");
+    // Try to extract a message from JSON error responses
+    let message = "";
+    try {
+      const parsed = JSON.parse(text);
+      message = parsed.error || parsed.message || "";
+    } catch {
+      message = text;
+    }
+    // Map common errors to friendly messages
+    if (res.status === 502 || res.status === 503 || message === "Backend unavailable") {
+      throw new Error("Service is temporarily unavailable. Please try again in a moment.");
+    }
+    if (res.status === 401) {
+      throw new Error("Please sign in to continue.");
+    }
+    if (res.status === 429) {
+      throw new Error("Too many requests. Please wait a moment and try again.");
+    }
+    throw new Error(message || `Request failed (${res.status})`);
   }
 
   if (res.status === 204) {
@@ -354,17 +373,22 @@ export async function streamLifeChat(
   systemContext?: string,
   routineId?: string,
   autoApprove?: boolean,
+  category?: string,
 ): Promise<void> {
   const res = await fetch("/api/proxy/life/chat/stream", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, conversationId, systemContext, routineId, autoApprove }),
+    body: JSON.stringify({ message, conversationId, systemContext, routineId, autoApprove, category }),
   });
 
   if (!res.ok) {
+    if (res.status === 502 || res.status === 503) {
+      callbacks.onError("Service is temporarily unavailable. Please try again in a moment.");
+      return;
+    }
     const err = await res.json().catch(() => ({})) as Record<string, string>;
-    callbacks.onError(err.error ?? `HTTP ${res.status}`);
+    callbacks.onError(err.error ?? `Request failed (${res.status})`);
     return;
   }
 
@@ -480,12 +504,13 @@ export async function sendLifeChat(
   systemContext?: string,
   routineId?: string,
   autoApprove?: boolean,
+  category?: string,
 ): Promise<{ conversationId: string; message: LifeMessage; effects?: ChatEffect[] }> {
   return lifeApiFetch<{ conversationId: string; message: LifeMessage; effects?: ChatEffect[] }>(
     "/chat",
     {
       method: "POST",
-      body: JSON.stringify({ message, conversationId, systemContext, routineId, autoApprove }),
+      body: JSON.stringify({ message, conversationId, systemContext, routineId, autoApprove, category }),
     }
   );
 }
@@ -558,7 +583,7 @@ export async function completeGTask(listId: string, taskId: string): Promise<GTa
 // ─── Day Summaries ────────────────────────────────────────────────────────────
 
 export interface DayBlock {
-  type: "sleep" | "wake" | "commute" | "work" | "meal" | "exercise" | "social" | "personal" | "project" | "free" | "errand";
+  type: "sleep" | "morning_routine" | "commute" | "work" | "tasks" | "meal" | "exercise" | "social" | "personal" | "project" | "rest" | "errand";
   label: string;
   description: string;
   start: string; // "HH:MM"

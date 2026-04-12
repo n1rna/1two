@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/n1rna/1tt/api/internal/ai"
 	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/middleware"
 )
@@ -48,6 +50,7 @@ type lifeConversationRecord struct {
 	UserID      string  `json:"userId"`
 	Channel     string  `json:"channel"`
 	Title       string  `json:"title"`
+	Category    string  `json:"category"`
 	LastMessage *string `json:"lastMessage"`
 	UpdatedAt   string  `json:"updatedAt"`
 	CreatedAt   string  `json:"createdAt"`
@@ -410,7 +413,7 @@ func ListLifeConversations(db *sql.DB) http.HandlerFunc {
 		}
 
 		const q = `
-			SELECT c.id, c.user_id, c.channel, c.title, c.created_at, c.updated_at,
+			SELECT c.id, c.user_id, c.channel, c.title, c.category, c.created_at, c.updated_at,
 			       (SELECT content FROM life_messages
 			        WHERE conversation_id = c.id
 			        ORDER BY created_at DESC LIMIT 1) AS last_message
@@ -431,7 +434,7 @@ func ListLifeConversations(db *sql.DB) http.HandlerFunc {
 			var c lifeConversationRecord
 			var createdAt, updatedAt time.Time
 			var lastMsg sql.NullString
-			if err := rows.Scan(&c.ID, &c.UserID, &c.Channel, &c.Title,
+			if err := rows.Scan(&c.ID, &c.UserID, &c.Channel, &c.Title, &c.Category,
 				&createdAt, &updatedAt, &lastMsg); err != nil {
 				http.Error(w, `{"error":"failed to read conversations"}`, http.StatusInternalServerError)
 				return
@@ -629,7 +632,7 @@ func LifeChat(db *sql.DB, agent *life.Agent, gcalClient *life.GCalClient) http.H
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		setup, _ := prepareChatRequest(w, r, db)
+		setup, _ := prepareChatRequest(w, r, db, agent.LLMConfig())
 		if setup == nil {
 			return
 		}
@@ -679,14 +682,16 @@ type chatSetup struct {
 
 // prepareChatRequest performs auth, request parsing, conversation
 // create/verify, history loading, memory loading, profile loading, routine
-// loading, pending actionable counting, and user message insertion. On any
-// error it writes the appropriate HTTP error and returns nil.
-func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*chatSetup, *struct {
+// loading, pending actionable counting, health data loading, and user message
+// insertion. On any error it writes the appropriate HTTP error and returns nil.
+// llmCfg is used for auto-classification when category is "auto" or empty.
+func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB, llmCfg *ai.LLMConfig) (*chatSetup, *struct {
 	Message        string `json:"message"`
 	ConversationID string `json:"conversationId"`
 	SystemContext  string `json:"systemContext"`
 	RoutineID      string `json:"routineId"`
 	AutoApprove    bool   `json:"autoApprove"`
+	Category       string `json:"category"`
 }) {
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -700,6 +705,7 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 		SystemContext  string `json:"systemContext"`
 		RoutineID      string `json:"routineId"`
 		AutoApprove    bool   `json:"autoApprove"`
+		Category       string `json:"category"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
@@ -726,6 +732,9 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 		}
 	}
 
+	// resolvedCategory holds the final category after classification.
+	var resolvedCategory string
+
 	// Create conversation if needed.
 	if convID == "" {
 		convID = uuid.NewString()
@@ -734,20 +743,29 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 		if req.RoutineID != "" {
 			routineID = &req.RoutineID
 		}
+
+		// Determine category for the new conversation.
+		if req.Category == "auto" || req.Category == "" {
+			resolvedCategory = life.ClassifyMessage(r.Context(), llmCfg, req.Message)
+		} else {
+			resolvedCategory = req.Category
+		}
+
 		if _, err := db.ExecContext(r.Context(),
-			`INSERT INTO life_conversations (id, user_id, title, routine_id) VALUES ($1, $2, $3, $4)`,
-			convID, userID, title, routineID,
+			`INSERT INTO life_conversations (id, user_id, title, routine_id, category) VALUES ($1, $2, $3, $4, $5)`,
+			convID, userID, title, routineID, resolvedCategory,
 		); err != nil {
 			log.Printf("life: create conversation for %s: %v", userID, err)
 			http.Error(w, `{"error":"failed to create conversation"}`, http.StatusInternalServerError)
 			return nil, nil
 		}
 	} else {
-		// Verify ownership.
+		// Load ownership and existing category from DB.
 		var owner string
+		var dbCategory sql.NullString
 		if err := db.QueryRowContext(r.Context(),
-			`SELECT user_id FROM life_conversations WHERE id = $1`, convID,
-		).Scan(&owner); err != nil {
+			`SELECT user_id, category FROM life_conversations WHERE id = $1`, convID,
+		).Scan(&owner, &dbCategory); err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, `{"error":"conversation not found"}`, http.StatusNotFound)
 				return nil, nil
@@ -758,6 +776,24 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 		if owner != userID {
 			http.Error(w, `{"error":"conversation not found"}`, http.StatusNotFound)
 			return nil, nil
+		}
+
+		// Use the stored category; if empty fall back to "life".
+		if dbCategory.Valid && dbCategory.String != "" {
+			resolvedCategory = dbCategory.String
+		} else {
+			resolvedCategory = "life"
+		}
+
+		// When client explicitly sends a non-auto category, respect it and persist.
+		if req.Category != "" && req.Category != "auto" && req.Category != resolvedCategory {
+			resolvedCategory = req.Category
+			if _, err := db.ExecContext(r.Context(),
+				`UPDATE life_conversations SET category = $1 WHERE id = $2`,
+				resolvedCategory, convID,
+			); err != nil {
+				log.Printf("life: update conversation category %s: %v", convID, err)
+			}
 		}
 	}
 
@@ -925,6 +961,119 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 		log.Printf("life: count pending actionables for %s: %v", userID, err)
 	}
 
+	// Load health data when the conversation is health-related.
+	var healthProfile *life.HealthProfile
+	var activeSessions []life.SessionSummary
+
+	if resolvedCategory == "health" {
+		// Ensure a health_profiles row exists so the scan below doesn't fail.
+		db.ExecContext(r.Context(),
+			`INSERT INTO health_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, userID)
+
+		var hp life.HealthProfile
+		var weightKg, heightCm, goalWeightKg, bmi, bmr, tdee sql.NullFloat64
+		var age, targetCals, proteinG, carbsG, fatG sql.NullInt64
+		var gender sql.NullString
+		var restrictions, equipment, limitations, likes, dislikes []string
+
+		err := db.QueryRowContext(r.Context(), `
+			SELECT weight_kg, height_cm, age, gender, activity_level, diet_type, diet_goal, goal_weight_kg,
+			       bmi, bmr, tdee, target_calories, protein_g, carbs_g, fat_g, dietary_restrictions,
+			       fitness_level, fitness_goal, available_equipment, physical_limitations,
+			       workout_likes, workout_dislikes, preferred_duration_min, days_per_week
+			FROM health_profiles WHERE user_id = $1`, userID,
+		).Scan(
+			&weightKg, &heightCm, &age, &gender, &hp.ActivityLevel, &hp.DietType,
+			&hp.DietGoal, &goalWeightKg, &bmi, &bmr, &tdee, &targetCals, &proteinG, &carbsG, &fatG,
+			pq.Array(&restrictions),
+			&hp.FitnessLevel, &hp.FitnessGoal,
+			pq.Array(&equipment), pq.Array(&limitations),
+			pq.Array(&likes), pq.Array(&dislikes),
+			&hp.PreferredDuration, &hp.DaysPerWeek,
+		)
+		if err != nil && err != sql.ErrNoRows {
+			log.Printf("life: load health profile for %s: %v", userID, err)
+		}
+		if err == nil {
+			if weightKg.Valid {
+				hp.WeightKg = weightKg.Float64
+			}
+			if heightCm.Valid {
+				hp.HeightCm = heightCm.Float64
+			}
+			if age.Valid {
+				hp.Age = int(age.Int64)
+			}
+			if gender.Valid {
+				hp.Gender = gender.String
+			}
+			if goalWeightKg.Valid {
+				hp.GoalWeightKg = goalWeightKg.Float64
+			}
+			if bmi.Valid {
+				hp.BMI = bmi.Float64
+			}
+			if bmr.Valid {
+				hp.BMR = bmr.Float64
+			}
+			if tdee.Valid {
+				hp.TDEE = tdee.Float64
+			}
+			if targetCals.Valid {
+				hp.TargetCalories = int(targetCals.Int64)
+			}
+			if proteinG.Valid {
+				hp.ProteinG = int(proteinG.Int64)
+			}
+			if carbsG.Valid {
+				hp.CarbsG = int(carbsG.Int64)
+			}
+			if fatG.Valid {
+				hp.FatG = int(fatG.Int64)
+			}
+			hp.Restrictions = restrictions
+			hp.AvailableEquipment = equipment
+			hp.PhysicalLimitations = limitations
+			hp.WorkoutLikes = likes
+			hp.WorkoutDislikes = dislikes
+			healthProfile = &hp
+		}
+
+		// Load active workout sessions with exercise counts.
+		sessRows, err := db.QueryContext(r.Context(), `
+			SELECT s.id, s.title, s.status, s.target_muscle_groups, s.estimated_duration,
+			       s.difficulty_level, COUNT(e.id) AS exercise_count
+			FROM health_sessions s
+			LEFT JOIN health_session_exercises e ON e.session_id = s.id
+			WHERE s.user_id = $1 AND s.status = 'active'
+			GROUP BY s.id
+			ORDER BY s.updated_at DESC LIMIT 20`, userID)
+		if err != nil {
+			log.Printf("life: load active health sessions for %s: %v", userID, err)
+		}
+		if sessRows != nil {
+			for sessRows.Next() {
+				var ss life.SessionSummary
+				var muscleGroups []string
+				var estimatedDuration sql.NullInt64
+				if err := sessRows.Scan(
+					&ss.ID, &ss.Title, &ss.Status,
+					pq.Array(&muscleGroups), &estimatedDuration,
+					&ss.Difficulty, &ss.ExerciseCount,
+				); err != nil {
+					log.Printf("life: scan active health session: %v", err)
+					continue
+				}
+				ss.MuscleGroups = muscleGroups
+				if estimatedDuration.Valid {
+					ss.Duration = int(estimatedDuration.Int64)
+				}
+				activeSessions = append(activeSessions, ss)
+			}
+			sessRows.Close()
+		}
+	}
+
 	return &chatSetup{
 		convID:    convID,
 		userMsgID: userMsgID,
@@ -936,8 +1085,11 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB) (*ch
 			Profile:                 &profile,
 			Routines:                routines,
 			PendingActionablesCount: pendingActionablesCount,
-			AutoApprove:            req.AutoApprove,
+			AutoApprove:             req.AutoApprove,
 			SystemContext:           req.SystemContext,
+			ConversationCategory:    resolvedCategory,
+			HealthProfile:           healthProfile,
+			ActiveSessions:          activeSessions,
 		},
 	}, &req
 }
@@ -1038,7 +1190,7 @@ func saveAssistantMessage(ctx context.Context, db *sql.DB, convID, userID, text 
 func LifeChatStream(db *sql.DB, agent *life.Agent, gcalClient *life.GCalClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Prepare — this writes its own errors on failure.
-		setup, _ := prepareChatRequest(w, r, db)
+		setup, _ := prepareChatRequest(w, r, db, agent.LLMConfig())
 		if setup == nil {
 			return
 		}

@@ -8,13 +8,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/tmc/langchaingo/llms"
 )
 
-// kimiMessage represents a chat message for the Kimi API with reasoning_content.
-type kimiMessage struct {
+// KimiMessage represents a chat message for the Kimi API with reasoning_content.
+type KimiMessage struct {
 	Role             string         `json:"role"`
 	Content          string         `json:"content"`
 	ReasoningContent string         `json:"reasoning_content,omitempty"`
@@ -56,8 +55,8 @@ type kimiResponse struct {
 	Choices []kimiChoice `json:"choices"`
 }
 
-// kimiChatCompletion makes a direct chat completion call handling reasoning_content.
-func kimiChatCompletion(ctx context.Context, cfg *LLMConfig, messages []kimiMessage, tools []kimiTool, temperature float64, maxTokens int) (*kimiResponse, error) {
+// KimiChatCompletion makes a direct chat completion call handling reasoning_content.
+func KimiChatCompletion(ctx context.Context, cfg *LLMConfig, messages []KimiMessage, tools []kimiTool, temperature float64, maxTokens int) (*kimiResponse, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.moonshot.ai/v1"
@@ -86,7 +85,10 @@ func kimiChatCompletion(ctx context.Context, cfg *LLMConfig, messages []kimiMess
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	// No client-level timeout: cancellation is driven by the caller's context
+	// (req is built with NewRequestWithContext above). Day summary generation
+	// against thinking models can legitimately take 2–3 minutes.
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("kimi: request: %w", err)
@@ -122,10 +124,10 @@ func llmsToolsToKimi(tools []llms.Tool) []kimiTool {
 }
 
 // llmsMessagesToKimi converts the initial langchaingo messages to kimi format.
-func llmsMessagesToKimi(messages []llms.MessageContent) []kimiMessage {
-	result := make([]kimiMessage, 0, len(messages))
+func llmsMessagesToKimi(messages []llms.MessageContent) []KimiMessage {
+	result := make([]KimiMessage, 0, len(messages))
 	for _, mc := range messages {
-		msg := kimiMessage{}
+		msg := KimiMessage{}
 		switch mc.Role {
 		case llms.ChatMessageTypeSystem:
 			msg.Role = "system"

@@ -36,15 +36,57 @@ type ChatResult = ai.ToolAgentResult
 type ChatRequest struct {
 	UserID                  string
 	Message                 string
-	History                 []Message // previous messages in the conversation, oldest first
+	History                 []Message           // previous messages in the conversation, oldest first
 	Memories                []Memory
 	Profile                 *Profile
 	Routines                []Routine
 	PendingActionablesCount int
-	CalendarEvents          []GCalEvent       // upcoming calendar events (may be nil)
-	RoutineEventLinks       map[string][]string // maps routine_id → list of linked event summaries
-	AutoApprove             bool              // if true, agent executes actions directly; if false, creates actionables for confirmation
-	SystemContext           string            // optional extra context appended to system prompt
+	CalendarEvents          []GCalEvent         // upcoming calendar events (may be nil)
+	RoutineEventLinks       map[string][]string  // maps routine_id → list of linked event summaries
+	AutoApprove             bool                 // if true, agent executes actions directly; if false, creates actionables for confirmation
+	SystemContext           string               // optional extra context appended to system prompt
+	ConversationCategory    string               // "life", "health", or "" (defaults to "life")
+	HealthProfile           *HealthProfile       // health profile data (loaded by handler)
+	ActiveSessions          []SessionSummary     // active workout sessions (loaded by handler)
+}
+
+// HealthProfile holds the user's health and fitness profile for the unified agent.
+type HealthProfile struct {
+	WeightKg            float64
+	HeightCm            float64
+	GoalWeightKg        float64
+	BMI                 float64
+	BMR                 float64
+	TDEE                float64
+	Age                 int
+	TargetCalories      int
+	ProteinG            int
+	CarbsG              int
+	FatG                int
+	Gender              string
+	ActivityLevel       string
+	DietType            string
+	DietGoal            string
+	FitnessLevel        string
+	FitnessGoal         string
+	Restrictions        []string
+	AvailableEquipment  []string
+	PhysicalLimitations []string
+	WorkoutLikes        []string
+	WorkoutDislikes     []string
+	PreferredDuration   int
+	DaysPerWeek         int
+}
+
+// SessionSummary is a condensed view of an active workout session used in the system prompt.
+type SessionSummary struct {
+	ID            string
+	Title         string
+	Status        string
+	Difficulty    string
+	MuscleGroups  []string
+	Duration      int
+	ExerciseCount int
 }
 
 // Message represents a single turn in the conversation history.
@@ -87,6 +129,7 @@ type ActionableRecord struct {
 // buildToolAgentConfig constructs the common ToolAgentConfig from a ChatRequest.
 func (a *Agent) buildToolAgentConfig(req ChatRequest) ai.ToolAgentConfig {
 	systemPrompt := buildSystemPrompt(
+		req.ConversationCategory,
 		req.Profile,
 		req.Memories,
 		req.Routines,
@@ -94,6 +137,8 @@ func (a *Agent) buildToolAgentConfig(req ChatRequest) ai.ToolAgentConfig {
 		req.CalendarEvents,
 		req.RoutineEventLinks,
 		req.AutoApprove,
+		req.HealthProfile,
+		req.ActiveSessions,
 		time.Now().UTC(),
 	)
 	if req.SystemContext != "" {
@@ -114,7 +159,7 @@ func (a *Agent) buildToolAgentConfig(req ChatRequest) ai.ToolAgentConfig {
 		},
 		MaxRounds:   5,
 		Temperature: 1.0,
-		MaxTokens:   4096,
+		MaxTokens:   16384,
 		LLMConfig:   &a.llmCfg,
 	}
 }
