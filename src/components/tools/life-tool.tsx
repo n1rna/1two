@@ -824,6 +824,18 @@ const TOOL_LABELS: Record<string, { label: string; activeLabel: string; icon: Re
   delete_task: { label: "Deleted task", activeLabel: "Deleting task", icon: <ListTodo className="size-3.5" /> },
   create_task_list: { label: "Created task list", activeLabel: "Creating task list", icon: <ListTodo className="size-3.5" /> },
   link_event_to_routine: { label: "Linked event to routine", activeLabel: "Linking event to routine", icon: <CalendarDays className="size-3.5" /> },
+  // Health tools
+  update_health_profile: { label: "Updated health profile", activeLabel: "Updating health profile", icon: <UserIcon className="size-3.5" /> },
+  log_weight: { label: "Logged weight", activeLabel: "Logging weight", icon: <Weight className="size-3.5" /> },
+  generate_meal_plan: { label: "Generated meal plan", activeLabel: "Generating meal plan", icon: <UtensilsCrossed className="size-3.5" /> },
+  create_session: { label: "Created workout", activeLabel: "Creating workout", icon: <Dumbbell className="size-3.5" /> },
+  update_session: { label: "Updated workout", activeLabel: "Updating workout", icon: <Dumbbell className="size-3.5" /> },
+  add_exercise_to_session: { label: "Added exercise", activeLabel: "Adding exercise", icon: <Plus className="size-3.5" /> },
+  remove_exercise_from_session: { label: "Removed exercise", activeLabel: "Removing exercise", icon: <Trash2 className="size-3.5" /> },
+  complete_onboarding: { label: "Onboarding complete", activeLabel: "Completing onboarding", icon: <Check className="size-3.5" /> },
+  // Cross-domain summaries
+  get_health_summary: { label: "Fetched health summary", activeLabel: "Checking health summary", icon: <Heart className="size-3.5" /> },
+  get_life_summary: { label: "Fetched life summary", activeLabel: "Checking life summary", icon: <LayoutDashboard className="size-3.5" /> },
 };
 
 // ─── Tool Call Display ────────────────────────────────────────────────────────
