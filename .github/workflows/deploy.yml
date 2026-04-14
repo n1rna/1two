@@ -14,6 +14,7 @@ jobs:
       contents: read
     outputs:
       web: ${{ steps.filter.outputs.web }}
+      kim: ${{ steps.filter.outputs.kim }}
       api: ${{ steps.filter.outputs.api }}
       cli: ${{ steps.filter.outputs.cli }}
       email-worker: ${{ steps.filter.outputs.email-worker }}
@@ -27,14 +28,16 @@ jobs:
         with:
           filters: |
             web:
-              - 'src/**'
-              - 'public/**'
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'scripts/generate-sitemap.ts'
               - 'package.json'
               - 'bun.lock'
-              - 'next.config.ts'
-              - 'open-next.config.ts'
-              - 'wrangler.jsonc'
-              - 'tsconfig.json'
+            kim:
+              - 'apps/kim/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'bun.lock'
             api:
               - 'api/**'
               - 'workers/api-container/**'
@@ -60,8 +63,8 @@ jobs:
         uses: n1rna/ee-action@main
         with:
           environment: production
-          config_path: .ee.web
-          env_file: .env.web.production
+          config_path: apps/web/.ee.web
+          env_file: apps/web/.env.web.production
           gh_secret: ${{ secrets.ENV_VARS_WEB }}
 
       - name: Setup Bun
@@ -73,17 +76,65 @@ jobs:
         run: bun install
 
       - name: Build
+        working-directory: apps/web
         run: |
           set -a
           source .env.web.production
           set +a
-          bun run cf:build
+          bunx opennextjs-cloudflare build
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/web
+          command: deploy
+          packageManager: bun
+
+  deploy-kim:
+    name: Deploy Kim (Cloudflare Workers)
+    needs: changes
+    if: needs.changes.outputs.kim == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare environment
+        uses: n1rna/ee-action@main
+        with:
+          environment: production
+          config_path: apps/kim/.ee.kim
+          env_file: apps/kim/.env.kim.production
+          gh_secret: ${{ secrets.ENV_VARS_KIM }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        working-directory: apps/kim
+        run: |
+          set -a
+          source .env.kim.production
+          set +a
+          bunx opennextjs-cloudflare build
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/kim
           command: deploy
           packageManager: bun
 
