@@ -20,14 +20,24 @@
 /public/sitemap.xml
 
 # next.js
-/.next/
+.next/
+**/.next/
 /out/
+**/out/
 
 # cloudflare
-/.open-next/
+.open-next/
+**/.open-next/
+.wrangler/
+**/.wrangler/
+
+# turbo
+.turbo/
+**/.turbo/
 
 # production
 /build
+**/build/
 
 # misc
 .DS_Store

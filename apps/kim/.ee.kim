@@ -1,0 +1,83 @@
+{
+	"project": "kim1-web",
+	"schema": {
+		"variables": {
+			"DATABASE_URL": {
+				"name": "DATABASE_URL",
+				"title": "PostgreSQL connection string (shared with 1tt.dev)",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"BETTER_AUTH_SECRET": {
+				"name": "BETTER_AUTH_SECRET",
+				"title": "Better Auth signing secret (kim1.ai)",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"BETTER_AUTH_URL": {
+				"name": "BETTER_AUTH_URL",
+				"title": "Better Auth base URL (kim1.ai)",
+				"type": "string",
+				"default": "http://lvh.me:3001",
+				"required": true
+			},
+			"GITHUB_CLIENT_ID": {
+				"name": "GITHUB_CLIENT_ID",
+				"title": "GitHub OAuth client ID for the Kim app",
+				"type": "string",
+				"required": true
+			},
+			"GITHUB_CLIENT_SECRET": {
+				"name": "GITHUB_CLIENT_SECRET",
+				"title": "GitHub OAuth client secret for the Kim app",
+				"type": "string",
+				"required": true,
+				"secret": true
+			},
+			"GOOGLE_CLIENT_ID": {
+				"name": "GOOGLE_CLIENT_ID",
+				"title": "Google OAuth client ID for the Kim app",
+				"type": "string",
+				"required": false
+			},
+			"GOOGLE_CLIENT_SECRET": {
+				"name": "GOOGLE_CLIENT_SECRET",
+				"title": "Google OAuth client secret for the Kim app",
+				"type": "string",
+				"required": false,
+				"secret": true
+			},
+			"API_BACKEND_URL": {
+				"name": "API_BACKEND_URL",
+				"title": "Go backend internal URL",
+				"type": "string",
+				"default": "http://localhost:8090",
+				"required": false
+			},
+			"NEXT_PUBLIC_API_URL": {
+				"name": "NEXT_PUBLIC_API_URL",
+				"title": "Public Go backend URL (for WebSocket connections)",
+				"type": "string",
+				"default": "http://localhost:8090",
+				"required": false
+			}
+		}
+	},
+	"environments": {
+		"development": {
+			"sheets": [".env.kim.development"]
+		},
+		"production": {
+			"sheets": [".env.kim.production"]
+		}
+	},
+	"origins": {
+		"cloudflare": {
+			"type": "cloudflare",
+			"mode": "individual",
+			"worker": "kim1"
+		}
+	}
+}

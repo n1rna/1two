@@ -96,7 +96,7 @@ type healthSessionRecord struct {
 	UserID             string                        `json:"userId"`
 	Title              string                        `json:"title"`
 	Description        string                        `json:"description"`
-	Status             string                        `json:"status"`
+	Active             bool                          `json:"active"`
 	TargetMuscleGroups []string                      `json:"targetMuscleGroups"`
 	EstimatedDuration  *int                          `json:"estimatedDuration"`
 	DifficultyLevel    string                        `json:"difficultyLevel"`
@@ -720,6 +720,75 @@ func GetHealthMealPlan(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// CreateHealthMealPlan creates an empty meal plan skeleton that the user can
+// then populate (via the detail editor or Kim). Required body: { title }.
+// Optional: planType, dietType, targetCalories.
+func CreateHealthMealPlan(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			Title          string `json:"title"`
+			PlanType       string `json:"planType"`
+			DietType       string `json:"dietType"`
+			TargetCalories *int   `json:"targetCalories"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid body"}`, http.StatusBadRequest)
+			return
+		}
+		title := strings.TrimSpace(body.Title)
+		if title == "" {
+			http.Error(w, `{"error":"title is required"}`, http.StatusBadRequest)
+			return
+		}
+		planType := body.PlanType
+		if planType == "" {
+			planType = "daily"
+		}
+
+		id := uuid.NewString()
+		emptyContent, _ := json.Marshal(map[string]any{"meals": []any{}})
+		var tc any = nil
+		if body.TargetCalories != nil {
+			tc = *body.TargetCalories
+		}
+		if _, err := db.ExecContext(r.Context(),
+			`INSERT INTO health_meal_plans (id,user_id,title,plan_type,diet_type,target_calories,content)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+			id, userID, title, planType, body.DietType, tc, string(emptyContent)); err != nil {
+			log.Printf("health: create meal plan for %s: %v", userID, err)
+			http.Error(w, `{"error":"failed to create meal plan"}`, http.StatusInternalServerError)
+			return
+		}
+
+		plan := healthMealPlanRecord{
+			ID:       id,
+			UserID:   userID,
+			Title:    title,
+			PlanType: planType,
+			DietType: body.DietType,
+			Active:   true,
+			Content:  json.RawMessage(emptyContent),
+		}
+		if body.TargetCalories != nil {
+			v := *body.TargetCalories
+			plan.TargetCalories = &v
+		}
+		now := time.Now().UTC().Format(time.RFC3339)
+		plan.CreatedAt = now
+		plan.UpdatedAt = now
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{"plan": plan})
+	}
+}
+
 func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -737,6 +806,7 @@ func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
 			DietType       *string          `json:"dietType"`
 			TargetCalories *int             `json:"targetCalories"`
 			Content        *json.RawMessage `json:"content"`
+			Active         *bool            `json:"active"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
@@ -778,6 +848,9 @@ func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
 		}
 		if req.Content != nil {
 			add("content", string(*req.Content))
+		}
+		if req.Active != nil {
+			add("active", *req.Active)
 		}
 
 		vals = append(vals, planID)
@@ -839,6 +912,82 @@ func DeleteHealthMealPlan(db *sql.DB) http.HandlerFunc {
 
 // ----- sessions -----
 
+// CreateHealthSession creates an empty workout session skeleton. Required: title.
+// Optional: description, active (default true), targetMuscleGroups, estimatedDuration,
+// difficultyLevel.
+func CreateHealthSession(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		var body struct {
+			Title              string   `json:"title"`
+			Description        string   `json:"description"`
+			Active             *bool    `json:"active"`
+			TargetMuscleGroups []string `json:"targetMuscleGroups"`
+			EstimatedDuration  *int     `json:"estimatedDuration"`
+			DifficultyLevel    string   `json:"difficultyLevel"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, `{"error":"invalid body"}`, http.StatusBadRequest)
+			return
+		}
+		title := strings.TrimSpace(body.Title)
+		if title == "" {
+			http.Error(w, `{"error":"title is required"}`, http.StatusBadRequest)
+			return
+		}
+		active := true
+		if body.Active != nil {
+			active = *body.Active
+		}
+		difficulty := body.DifficultyLevel
+		if difficulty == "" {
+			difficulty = "intermediate"
+		}
+
+		id := uuid.NewString()
+		var duration any = nil
+		if body.EstimatedDuration != nil {
+			duration = *body.EstimatedDuration
+		}
+		if _, err := db.ExecContext(r.Context(),
+			`INSERT INTO health_sessions (id,user_id,title,description,active,target_muscle_groups,estimated_duration,difficulty_level)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			id, userID, title, body.Description, active,
+			health.StringSliceToPgArray(body.TargetMuscleGroups), duration, difficulty); err != nil {
+			log.Printf("health: create session for %s: %v", userID, err)
+			http.Error(w, `{"error":"failed to create session"}`, http.StatusInternalServerError)
+			return
+		}
+
+		now := time.Now().UTC().Format(time.RFC3339)
+		rec := healthSessionRecord{
+			ID:                 id,
+			UserID:             userID,
+			Title:              title,
+			Description:        body.Description,
+			Active:             active,
+			TargetMuscleGroups: body.TargetMuscleGroups,
+			DifficultyLevel:    difficulty,
+			ExerciseCount:      0,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+		}
+		if body.EstimatedDuration != nil {
+			v := *body.EstimatedDuration
+			rec.EstimatedDuration = &v
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{"session": rec})
+	}
+}
+
 func ListHealthSessions(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -848,24 +997,25 @@ func ListHealthSessions(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		statusFilter := r.URL.Query().Get("status")
+		// Optional ?active=true|false filter.
+		activeParam := r.URL.Query().Get("active")
 
 		var rows *sql.Rows
 		var err error
-		if statusFilter != "" {
+		if activeParam == "true" || activeParam == "false" {
 			rows, err = db.QueryContext(r.Context(), `
-				SELECT s.id, s.user_id, s.title, s.description, s.status,
+				SELECT s.id, s.user_id, s.title, s.description, s.active,
 				       s.target_muscle_groups, s.estimated_duration, s.difficulty_level,
 				       s.created_at, s.updated_at,
 				       COUNT(e.id) AS exercise_count
 				FROM health_sessions s
 				LEFT JOIN health_session_exercises e ON e.session_id = s.id
-				WHERE s.user_id = $1 AND s.status = $2
+				WHERE s.user_id = $1 AND s.active = $2
 				GROUP BY s.id
-				ORDER BY s.updated_at DESC LIMIT 100`, userID, statusFilter)
+				ORDER BY s.updated_at DESC LIMIT 100`, userID, activeParam == "true")
 		} else {
 			rows, err = db.QueryContext(r.Context(), `
-				SELECT s.id, s.user_id, s.title, s.description, s.status,
+				SELECT s.id, s.user_id, s.title, s.description, s.active,
 				       s.target_muscle_groups, s.estimated_duration, s.difficulty_level,
 				       s.created_at, s.updated_at,
 				       COUNT(e.id) AS exercise_count
@@ -888,7 +1038,7 @@ func ListHealthSessions(db *sql.DB) http.HandlerFunc {
 			var estimatedDuration sql.NullInt64
 			var createdAt, updatedAt time.Time
 			if err := rows.Scan(
-				&s.ID, &s.UserID, &s.Title, &s.Description, &s.Status,
+				&s.ID, &s.UserID, &s.Title, &s.Description, &s.Active,
 				pq.Array(&muscleGroups), &estimatedDuration, &s.DifficultyLevel,
 				&createdAt, &updatedAt, &s.ExerciseCount,
 			); err != nil {
@@ -928,11 +1078,11 @@ func GetHealthSession(db *sql.DB) http.HandlerFunc {
 		var estimatedDuration sql.NullInt64
 		var createdAt, updatedAt time.Time
 		err := db.QueryRowContext(r.Context(), `
-			SELECT id, user_id, title, description, status, target_muscle_groups,
+			SELECT id, user_id, title, description, active, target_muscle_groups,
 			       estimated_duration, difficulty_level, created_at, updated_at
 			FROM health_sessions WHERE id = $1`, sessionID,
 		).Scan(
-			&s.ID, &s.UserID, &s.Title, &s.Description, &s.Status,
+			&s.ID, &s.UserID, &s.Title, &s.Description, &s.Active,
 			pq.Array(&muscleGroups), &estimatedDuration, &s.DifficultyLevel,
 			&createdAt, &updatedAt,
 		)
@@ -1001,7 +1151,7 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 		var req struct {
 			Title              *string   `json:"title"`
 			Description        *string   `json:"description"`
-			Status             *string   `json:"status"`
+			Active             *bool     `json:"active"`
 			TargetMuscleGroups *[]string `json:"targetMuscleGroups"`
 			EstimatedDuration  *int      `json:"estimatedDuration"`
 			DifficultyLevel    *string   `json:"difficultyLevel"`
@@ -1039,8 +1189,8 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 		if req.Description != nil {
 			add("description", *req.Description)
 		}
-		if req.Status != nil {
-			add("status", *req.Status)
+		if req.Active != nil {
+			add("active", *req.Active)
 		}
 		if req.TargetMuscleGroups != nil {
 			add("target_muscle_groups", pq.Array(*req.TargetMuscleGroups))
@@ -1066,11 +1216,11 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 		var estimatedDuration sql.NullInt64
 		var createdAt, updatedAt time.Time
 		if err := db.QueryRowContext(r.Context(), `
-			SELECT id, user_id, title, description, status, target_muscle_groups,
+			SELECT id, user_id, title, description, active, target_muscle_groups,
 			       estimated_duration, difficulty_level, created_at, updated_at
 			FROM health_sessions WHERE id = $1`, sessionID,
 		).Scan(
-			&s.ID, &s.UserID, &s.Title, &s.Description, &s.Status,
+			&s.ID, &s.UserID, &s.Title, &s.Description, &s.Active,
 			pq.Array(&muscleGroups), &estimatedDuration, &s.DifficultyLevel,
 			&createdAt, &updatedAt,
 		); err != nil {
@@ -1106,45 +1256,6 @@ func DeleteHealthSession(db *sql.DB) http.HandlerFunc {
 			`DELETE FROM health_sessions WHERE id = $1 AND user_id = $2`, sessionID, userID)
 		if err != nil {
 			http.Error(w, `{"error":"failed to delete session"}`, http.StatusInternalServerError)
-			return
-		}
-		n, _ := res.RowsAffected()
-		if n == 0 {
-			http.Error(w, `{"error":"session not found"}`, http.StatusNotFound)
-			return
-		}
-		json.NewEncoder(w).Encode(map[string]any{"success": true})
-	}
-}
-
-func UpdateHealthSessionStatus(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		userID := middleware.GetUserID(r.Context())
-		if userID == "" {
-			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-			return
-		}
-
-		sessionID := chi.URLParam(r, "id")
-
-		var req struct {
-			Status string `json:"status"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
-			return
-		}
-		if req.Status != "active" && req.Status != "draft" && req.Status != "archived" {
-			http.Error(w, `{"error":"status must be active, draft, or archived"}`, http.StatusBadRequest)
-			return
-		}
-
-		res, err := db.ExecContext(r.Context(),
-			`UPDATE health_sessions SET status = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`,
-			req.Status, sessionID, userID)
-		if err != nil {
-			http.Error(w, `{"error":"failed to update session status"}`, http.StatusInternalServerError)
 			return
 		}
 		n, _ := res.RowsAffected()

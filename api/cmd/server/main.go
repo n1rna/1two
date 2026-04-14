@@ -19,6 +19,7 @@ import (
 	"github.com/n1rna/1tt/api/internal/crawl"
 	"github.com/n1rna/1tt/api/internal/database"
 	"github.com/n1rna/1tt/api/internal/handler"
+	"github.com/n1rna/1tt/api/internal/kim"
 	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/llms"
 	"github.com/n1rna/1tt/api/internal/middleware"
@@ -82,8 +83,8 @@ func main() {
 		log.Printf("WARNING: Google Calendar not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)")
 	}
 
-	// Life tool — AI-powered life planning agent (includes health capabilities).
-	lifeAgent := life.NewAgent(ai.LLMConfig{
+	// Life tool — Kim AI agent with skill-based architecture.
+	lifeAgent := kim.NewAgent(ai.LLMConfig{
 		Provider:     cfg.LLMProvider,
 		APIKey:       cfg.LLMAPIKey,
 		BaseURL:      cfg.LLMBaseURL,
@@ -313,14 +314,15 @@ func main() {
 				r.Post("/health/weight", handler.CreateHealthWeightEntry(db))
 				r.Delete("/health/weight/{id}", handler.DeleteHealthWeightEntry(db))
 				r.Get("/health/meal-plans", handler.ListHealthMealPlans(db))
+				r.Post("/health/meal-plans", handler.CreateHealthMealPlan(db))
 				r.Get("/health/meal-plans/{id}", handler.GetHealthMealPlan(db))
 				r.Put("/health/meal-plans/{id}", handler.UpdateHealthMealPlan(db))
 				r.Delete("/health/meal-plans/{id}", handler.DeleteHealthMealPlan(db))
 				r.Get("/health/sessions", handler.ListHealthSessions(db))
+				r.Post("/health/sessions", handler.CreateHealthSession(db))
 				r.Get("/health/sessions/{id}", handler.GetHealthSession(db))
 				r.Put("/health/sessions/{id}", handler.UpdateHealthSession(db))
 				r.Delete("/health/sessions/{id}", handler.DeleteHealthSession(db))
-				r.Put("/health/sessions/{id}/status", handler.UpdateHealthSessionStatus(db))
 				r.Post("/health/sessions/{id}/exercises", handler.AddHealthSessionExercise(db))
 				r.Put("/health/sessions/{sid}/exercises/{eid}", handler.UpdateHealthSessionExercise(db))
 				r.Delete("/health/sessions/{sid}/exercises/{eid}", handler.DeleteHealthSessionExercise(db))
@@ -347,6 +349,7 @@ func main() {
 				r.Post("/life/chat", handler.LifeChat(db, lifeAgent, gcalClient))
 				r.Post("/life/chat/stream", handler.LifeChatStream(db, lifeAgent, gcalClient))
 				r.Get("/life/actionables", handler.ListLifeActionables(db))
+				r.Post("/life/actionables/bulk-dismiss", handler.BulkDismissActionables(db))
 				r.Post("/life/actionables/{id}/respond", handler.RespondToActionable(db, lifeAgent))
 				r.Get("/life/routines", handler.ListLifeRoutines(db))
 				r.Get("/life/routines/{id}", handler.GetLifeRoutine(db))

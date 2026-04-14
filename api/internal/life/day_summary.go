@@ -297,7 +297,7 @@ func CheckStaleSummaries(ctx context.Context, db *sql.DB) ([]StaleSummary, error
 
 // GenerateAndCacheDaySummary generates a summary for a single user+date and caches it.
 // dateStr is "YYYY-MM-DD" interpreted in the user's local timezone.
-func GenerateAndCacheDaySummary(ctx context.Context, db *sql.DB, agent *Agent, userID, dateStr string) error {
+func GenerateAndCacheDaySummary(ctx context.Context, db *sql.DB, agent ChatAgent, userID, dateStr string) error {
 	// Load profile + tz first so the events query is in the user's local day.
 	var profile Profile
 	var wakeTime, sleepTime sql.NullString
@@ -344,12 +344,12 @@ func GenerateAndCacheDaySummary(ctx context.Context, db *sql.DB, agent *Agent, u
 	}
 
 	routineRows, _ := db.QueryContext(ctx,
-		`SELECT id, name, type, description FROM life_routines WHERE user_id = $1 AND active = TRUE`, userID)
+		`SELECT id, name, description FROM life_routines WHERE user_id = $1 AND active = TRUE`, userID)
 	var routines []Routine
 	if routineRows != nil {
 		for routineRows.Next() {
 			var rt Routine
-			if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Type, &rt.Description); err == nil {
+			if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Description); err == nil {
 				routines = append(routines, rt)
 			}
 		}
@@ -480,7 +480,7 @@ func buildDaySummaryUserMessage(date time.Time, events []GCalEvent, profile *Pro
 	if len(routines) > 0 {
 		sb.WriteString("\nActive routines (for context):\n")
 		for _, rt := range routines {
-			sb.WriteString(fmt.Sprintf("- %s (%s): %s\n", rt.Name, rt.Type, rt.Description))
+			sb.WriteString(fmt.Sprintf("- %s: %s\n", rt.Name, rt.Description))
 		}
 	}
 

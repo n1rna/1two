@@ -29,7 +29,7 @@ type ChannelResponse struct {
 // IngestChannelEvent processes a message from any external channel through the
 // AI agent. It finds or creates a conversation, loads context, calls the agent,
 // persists both messages, and returns the assistant response.
-func IngestChannelEvent(ctx context.Context, db *sql.DB, agent *Agent, event ChannelEvent) (*ChannelResponse, error) {
+func IngestChannelEvent(ctx context.Context, db *sql.DB, agent ChatAgent, event ChannelEvent) (*ChannelResponse, error) {
 	userID := event.UserID
 
 	// ── 1. Find existing conversation for this channel + uid ─────────────
@@ -131,7 +131,7 @@ func IngestChannelEvent(ctx context.Context, db *sql.DB, agent *Agent, event Cha
 
 	// ── 6. Load active routines (summary only for system prompt) ─────────
 	routineRows, err := db.QueryContext(ctx,
-		`SELECT id, name, type, description FROM life_routines
+		`SELECT id, name, description FROM life_routines
 		 WHERE user_id = $1 AND active = TRUE
 		 ORDER BY created_at DESC`,
 		userID,
@@ -142,7 +142,7 @@ func IngestChannelEvent(ctx context.Context, db *sql.DB, agent *Agent, event Cha
 	var routines []Routine
 	for routineRows.Next() {
 		var rt Routine
-		if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Type, &rt.Description); err != nil {
+		if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Description); err != nil {
 			routineRows.Close()
 			return nil, fmt.Errorf("ingest: scan routine row: %w", err)
 		}

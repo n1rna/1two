@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@1tt/api-client/life": ["../../packages/api-client/src/life"],
+      "@1tt/api-client/health": ["../../packages/api-client/src/health"],
+      "@1tt/api-client/marketplace": ["../../packages/api-client/src/marketplace"],
+      "@1tt/api-client/auth-schema": ["../../packages/api-client/src/auth-schema"],
+      "@/lib/life": ["../../packages/api-client/src/life"],
+      "@/lib/health": ["../../packages/api-client/src/health"],
+      "@/lib/marketplace": ["../../packages/api-client/src/marketplace"],
+      "@/lib/auth-schema": ["../../packages/api-client/src/auth-schema"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

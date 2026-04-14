@@ -1,0 +1,532 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { Sun, Sandwich, Moon, Cookie } from "lucide-react";
+import { PageShell, Card, EmptyState } from "@/components/page-shell";
+import { ActiveToggle } from "@/components/active-toggle";
+import { Selectable, useKimAutoContext } from "@/components/kim";
+import {
+  getMealPlan,
+  updateMealPlan,
+  type HealthMealPlan,
+  type MealItem,
+} from "@/lib/health";
+
+type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
+
+const MEAL_SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner", "snack"];
+
+const SLOT_META: Record<
+  MealSlot,
+  {
+    label: string;
+    time: string;
+    Icon: React.ComponentType<{ size?: number; className?: string }>;
+    tint: string;
+  }
+> = {
+  breakfast: { label: "Breakfast", time: "07:00", Icon: Sun,      tint: "text-amber-500" },
+  lunch:     { label: "Lunch",     time: "12:30", Icon: Sandwich, tint: "text-orange-500" },
+  dinner:    { label: "Dinner",    time: "19:00", Icon: Moon,     tint: "text-indigo-500" },
+  snack:     { label: "Snack",     time: "any",   Icon: Cookie,   tint: "text-emerald-500" },
+};
+
+const DAY_LABELS: Record<string, string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+  any: "Any day",
+};
+
+const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+type WeekDay = (typeof WEEK_DAYS)[number];
+
+function normalizeDay(raw?: string): WeekDay | "any" {
+  if (!raw) return "any";
+  const k = raw.trim().toLowerCase();
+  const match = WEEK_DAYS.find((d) => d === k || d.startsWith(k.slice(0, 3)));
+  return match ?? "any";
+}
+
+function normalizeSlot(raw?: string): MealSlot {
+  const k = (raw ?? "").trim().toLowerCase();
+  if (MEAL_SLOTS.includes(k as MealSlot)) return k as MealSlot;
+  return "snack";
+}
+
+interface DayTotals {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+function emptyTotals(): DayTotals {
+  return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+}
+
+function addMealToTotals(t: DayTotals, m: MealItem): DayTotals {
+  return {
+    calories: t.calories + (m.calories ?? 0),
+    protein: t.protein + (m.protein_g ?? 0),
+    carbs: t.carbs + (m.carbs_g ?? 0),
+    fat: t.fat + (m.fat_g ?? 0),
+  };
+}
+
+export default function MealPlanDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [plan, setPlan] = useState<HealthMealPlan | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setPlan(await getMealPlan(id));
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Failed to load");
+      }
+    })();
+  }, [id]);
+
+  useKimAutoContext(
+    plan
+      ? {
+          kind: "meal-plan",
+          id: plan.id,
+          label: plan.title,
+          snapshot: {
+            title: plan.title,
+            planType: plan.planType,
+            dietType: plan.dietType,
+            targetCalories: plan.targetCalories,
+            active: plan.active,
+            meals: plan.content?.meals ?? [],
+          },
+        }
+      : null,
+  );
+
+  const meals = plan?.content?.meals ?? [];
+
+  const { columns, bySlotDay, dayTotals, planTotals } = useMemo(() => {
+    const isWeekly =
+      plan?.planType === "weekly" || meals.some((m) => normalizeDay(m.day) !== "any");
+
+    const finalColumns: (WeekDay | "any")[] = isWeekly ? WEEK_DAYS.slice() : ["any"];
+
+    const bySlotDay: Record<MealSlot, Record<string, MealItem[]>> = {
+      breakfast: {},
+      lunch: {},
+      dinner: {},
+      snack: {},
+    };
+    const dayTotals: Record<string, DayTotals> = {};
+    let planTotals = emptyTotals();
+
+    for (const col of finalColumns) dayTotals[col] = emptyTotals();
+
+    for (const m of meals) {
+      const slot = normalizeSlot(m.meal_type);
+      const day = normalizeDay(m.day);
+      const col = isWeekly && day === "any" ? "monday" : day;
+      if (!bySlotDay[slot][col]) bySlotDay[slot][col] = [];
+      bySlotDay[slot][col].push(m);
+      dayTotals[col] = addMealToTotals(dayTotals[col] ?? emptyTotals(), m);
+      planTotals = addMealToTotals(planTotals, m);
+    }
+
+    return { columns: finalColumns, bySlotDay, dayTotals, planTotals };
+  }, [plan, meals]);
+
+  if (err) {
+    return (
+      <PageShell title="Meal plan" backHref="/health/meals">
+        <EmptyState title={err} />
+      </PageShell>
+    );
+  }
+  if (!plan) {
+    return (
+      <PageShell title="Loading…" backHref="/health/meals">
+        <div className="h-64 rounded-lg bg-muted animate-pulse" />
+      </PageShell>
+    );
+  }
+
+  const numDays = columns.length;
+  const avgCalories = numDays > 0 ? Math.round(planTotals.calories / numDays) : 0;
+  const targetKcal = plan.targetCalories ?? null;
+
+  async function toggleActive(next: boolean) {
+    if (!plan) return;
+    const updated = await updateMealPlan(plan.id, { active: next });
+    setPlan(updated);
+  }
+
+  return (
+    <PageShell
+      title={plan.title}
+      subtitle={`${plan.planType || "plan"} · ${plan.dietType || "—"}${targetKcal ? ` · target ${targetKcal} kcal/day` : ""}`}
+      backHref="/health/meals"
+      actions={
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {plan.active ? "Active" : "Inactive"}
+          </span>
+          <ActiveToggle
+            active={plan.active}
+            onChange={toggleActive}
+            stopPropagation={false}
+            label={plan.active ? "Disable meal plan" : "Enable meal plan"}
+          />
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <PlanSummary
+          totals={planTotals}
+          avgCalories={avgCalories}
+          targetKcal={targetKcal}
+          numDays={numDays}
+          mealCount={meals.length}
+        />
+
+        {meals.length === 0 ? (
+          <EmptyState title="Empty plan" hint="Ask Kim to generate meals, or add them manually" />
+        ) : (
+          <WeekGrid
+            planId={plan.id}
+            columns={columns}
+            bySlotDay={bySlotDay}
+            dayTotals={dayTotals}
+            targetKcal={targetKcal}
+          />
+        )}
+      </div>
+    </PageShell>
+  );
+}
+
+function PlanSummary({
+  totals,
+  avgCalories,
+  targetKcal,
+  numDays,
+  mealCount,
+}: {
+  totals: DayTotals;
+  avgCalories: number;
+  targetKcal: number | null;
+  numDays: number;
+  mealCount: number;
+}) {
+  const totalMacroGrams = totals.protein + totals.carbs + totals.fat;
+  const pct = (v: number) => (totalMacroGrams > 0 ? (v / totalMacroGrams) * 100 : 0);
+  const pPct = pct(totals.protein);
+  const cPct = pct(totals.carbs);
+  const fPct = pct(totals.fat);
+  const deltaVsTarget = targetKcal ? avgCalories - targetKcal : null;
+  const deltaTone =
+    deltaVsTarget == null
+      ? "muted"
+      : Math.abs(deltaVsTarget) <= (targetKcal ?? 0) * 0.05
+        ? "good"
+        : "warn";
+
+  return (
+    <Card>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Stat label="Avg / day" value={`${avgCalories}`} suffix="kcal" />
+        <Stat
+          label="Target"
+          value={targetKcal ? `${targetKcal}` : "—"}
+          suffix={targetKcal ? "kcal" : undefined}
+          hint={
+            deltaVsTarget != null
+              ? `${deltaVsTarget >= 0 ? "+" : ""}${deltaVsTarget} vs target`
+              : undefined
+          }
+          hintTone={deltaTone}
+        />
+        <Stat label="Days" value={`${numDays}`} />
+        <Stat label="Meals" value={`${mealCount}`} />
+      </div>
+
+      {totalMacroGrams > 0 && (
+        <div className="mt-5 pt-5 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground">Macro split</span>
+            <span className="text-xs text-muted-foreground">Plan total</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden flex bg-muted rounded-full">
+            <div className="bg-sky-500" style={{ width: `${pPct}%` }} />
+            <div className="bg-amber-500" style={{ width: `${cPct}%` }} />
+            <div className="bg-rose-500" style={{ width: `${fPct}%` }} />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+            <MacroLegend color="bg-sky-500" label="Protein" grams={totals.protein} pct={pPct} />
+            <MacroLegend color="bg-amber-500" label="Carbs" grams={totals.carbs} pct={cPct} />
+            <MacroLegend color="bg-rose-500" label="Fat" grams={totals.fat} pct={fPct} />
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  suffix,
+  hint,
+  hintTone = "muted",
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  hint?: string;
+  hintTone?: "muted" | "good" | "warn";
+}) {
+  const toneClass =
+    hintTone === "good"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : hintTone === "warn"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-muted-foreground";
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className="text-2xl font-semibold tracking-tight tabular-nums">{value}</span>
+        {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
+      </div>
+      {hint && <div className={`mt-0.5 text-xs ${toneClass}`}>{hint}</div>}
+    </div>
+  );
+}
+
+function MacroLegend({
+  color,
+  label,
+  grams,
+  pct,
+}: {
+  color: string;
+  label: string;
+  grams: number;
+  pct: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`inline-block h-2 w-2 rounded-full ${color}`} />
+      <span>{label}</span>
+      <span className="text-foreground/80">{Math.round(grams)}g</span>
+      <span>· {Math.round(pct)}%</span>
+    </div>
+  );
+}
+
+function WeekGrid({
+  planId,
+  columns,
+  bySlotDay,
+  dayTotals,
+  targetKcal,
+}: {
+  planId: string;
+  columns: (WeekDay | "any")[];
+  bySlotDay: Record<MealSlot, Record<string, MealItem[]>>;
+  dayTotals: Record<string, DayTotals>;
+  targetKcal: number | null;
+}) {
+  const colTemplate = `minmax(112px, 128px) repeat(${columns.length}, minmax(180px, 1fr))`;
+
+  return (
+    <div className="rounded-lg border border-border bg-card shadow-xs overflow-hidden">
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: `calc(128px + ${columns.length} * 180px)` }}>
+          {/* Header row */}
+          <div
+            className="grid border-b border-border bg-muted/30"
+            style={{ gridTemplateColumns: colTemplate }}
+          >
+            <div className="px-4 py-3 text-xs font-medium text-muted-foreground">
+              Meal
+            </div>
+            {columns.map((col) => (
+              <div key={col} className="px-4 py-3 border-l border-border">
+                <div className="text-sm font-semibold">
+                  {DAY_LABELS[col] ?? col}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Slot rows */}
+          {MEAL_SLOTS.map((slot) => {
+            const hasAny = columns.some((c) => (bySlotDay[slot][c]?.length ?? 0) > 0);
+            if (!hasAny) return null;
+            const meta = SLOT_META[slot];
+            const Icon = meta.Icon;
+            return (
+              <div
+                key={slot}
+                className="grid border-b border-border"
+                style={{ gridTemplateColumns: colTemplate }}
+              >
+                <div className="px-4 py-3 flex items-start gap-2.5 bg-muted/20">
+                  <Icon size={16} className={`mt-0.5 shrink-0 ${meta.tint}`} />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium leading-tight">
+                      {meta.label}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {meta.time}
+                    </div>
+                  </div>
+                </div>
+                {columns.map((col) => {
+                  const items = bySlotDay[slot][col] ?? [];
+                  return (
+                    <div
+                      key={`${slot}-${col}`}
+                      className="border-l border-border p-2 flex flex-col gap-2 min-h-[96px]"
+                    >
+                      {items.length === 0 ? (
+                        <div className="flex-1 flex items-center justify-center">
+                          <span className="text-muted-foreground/40 text-xs">—</span>
+                        </div>
+                      ) : (
+                        items.map((m, i) => (
+                          <MealCell
+                            key={`${slot}-${col}-${i}`}
+                            planId={planId}
+                            day={col}
+                            slot={slot}
+                            index={i}
+                            meal={m}
+                          />
+                        ))
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          {/* Totals row */}
+          <div
+            className="grid bg-muted/30"
+            style={{ gridTemplateColumns: colTemplate }}
+          >
+            <div className="px-4 py-3 text-xs font-medium text-muted-foreground">
+              Day total
+            </div>
+            {columns.map((col) => {
+              const t = dayTotals[col] ?? emptyTotals();
+              const pctOfTarget = targetKcal ? (t.calories / targetKcal) * 100 : null;
+              return (
+                <div
+                  key={`total-${col}`}
+                  className="px-4 py-3 border-l border-border"
+                >
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-semibold tabular-nums">
+                      {t.calories}
+                    </span>
+                    <span className="text-xs text-muted-foreground">kcal</span>
+                  </div>
+                  {pctOfTarget != null && (
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full ${
+                          Math.abs(pctOfTarget - 100) <= 5
+                            ? "bg-emerald-500"
+                            : pctOfTarget > 110
+                              ? "bg-rose-500"
+                              : "bg-amber-500"
+                        }`}
+                        style={{ width: `${Math.min(pctOfTarget, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                  <div className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                    {Math.round(t.protein)}p · {Math.round(t.carbs)}c · {Math.round(t.fat)}f
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MealCell({
+  planId,
+  day,
+  slot,
+  index,
+  meal,
+}: {
+  planId: string;
+  day: string;
+  slot: MealSlot;
+  index: number;
+  meal: MealItem;
+}) {
+  const totalMacros = (meal.protein_g ?? 0) + (meal.carbs_g ?? 0) + (meal.fat_g ?? 0);
+  const pPct = totalMacros > 0 ? ((meal.protein_g ?? 0) / totalMacros) * 100 : 0;
+  const cPct = totalMacros > 0 ? ((meal.carbs_g ?? 0) / totalMacros) * 100 : 0;
+  const fPct = totalMacros > 0 ? ((meal.fat_g ?? 0) / totalMacros) * 100 : 0;
+
+  return (
+    <Selectable
+      kind="meal-item"
+      id={`${planId}:${day}:${slot}:${index}`}
+      label={meal.name}
+      snapshot={meal as unknown as Record<string, unknown>}
+      className="group rounded-md border border-border bg-background hover:border-foreground/20 hover:bg-accent/40 transition-colors p-2.5 cursor-pointer data-[selected=true]:border-foreground/40 data-[selected=true]:bg-accent"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium leading-snug line-clamp-2">
+            {meal.name}
+          </div>
+          {meal.description && (
+            <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2 leading-snug">
+              {meal.description}
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-sm font-semibold tabular-nums leading-none">
+            {meal.calories}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">kcal</div>
+        </div>
+      </div>
+
+      {totalMacros > 0 && (
+        <div className="mt-2 space-y-1">
+          <div className="h-1 w-full rounded-full bg-muted overflow-hidden flex">
+            <div className="bg-sky-500" style={{ width: `${pPct}%` }} />
+            <div className="bg-amber-500" style={{ width: `${cPct}%` }} />
+            <div className="bg-rose-500" style={{ width: `${fPct}%` }} />
+          </div>
+          <div className="text-[10px] text-muted-foreground tabular-nums">
+            {meal.protein_g ?? 0}p · {meal.carbs_g ?? 0}c · {meal.fat_g ?? 0}f
+          </div>
+        </div>
+      )}
+    </Selectable>
+  );
+}

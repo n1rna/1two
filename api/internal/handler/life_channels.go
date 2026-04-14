@@ -269,7 +269,7 @@ func DeleteChannelLink(db *sql.DB) http.HandlerFunc {
 
 // TelegramWebhook handles POST /life/webhooks/telegram.
 // Always returns 200 to prevent Telegram from retrying.
-func TelegramWebhook(cfg *config.Config, db *sql.DB, agent *life.Agent) http.HandlerFunc {
+func TelegramWebhook(cfg *config.Config, db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -383,7 +383,7 @@ func TelegramWebhook(cfg *config.Config, db *sql.DB, agent *life.Agent) http.Han
 // EmailWebhook handles POST /life/webhooks/email.
 // Body: {"from": "...", "subject": "...", "body": "..."}
 // Protected by a shared secret in the Authorization header.
-func EmailWebhook(cfg *config.Config, db *sql.DB, agent *life.Agent) http.HandlerFunc {
+func EmailWebhook(cfg *config.Config, db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 

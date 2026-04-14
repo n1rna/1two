@@ -1,0 +1,1053 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  AlertCircle,
+  CalendarDays,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+  Sun,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useKim } from "@/components/kim";
+import type { KimSelection } from "@/components/kim";
+import {
+  disconnectGCal,
+  exchangeGCalCode,
+  getDaySummaries,
+  getGCalAuthUrl,
+  getGCalStatus,
+  listGCalEvents,
+  type DayBlock,
+  type DaySummary,
+  type GCalEvent,
+  type GCalStatus,
+} from "@/lib/life";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatEventTime(isoString: string): string {
+  const d = new Date(isoString);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function formatDayHeader(dateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  const d = new Date(dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr);
+  d.setHours(0, 0, 0, 0);
+
+  const dayLabel = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+
+  if (d.getTime() === today.getTime()) return `Today, ${dayLabel}`;
+  if (d.getTime() === tomorrow.getTime()) return `Tomorrow, ${dayLabel}`;
+  return dayLabel;
+}
+
+// ─── Calendar grid helpers ────────────────────────────────────────────────────
+
+const CAL_START_HOUR = 0;
+const CAL_END_HOUR = 24;
+const TOTAL_HOURS = CAL_END_HOUR - CAL_START_HOUR;
+
+function toDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isTodayDate(d: Date): boolean {
+  const today = new Date();
+  return (
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  );
+}
+
+function getEventFraction(isoString: string): number {
+  const d = new Date(isoString);
+  const hours = d.getHours() + d.getMinutes() / 60;
+  return (hours - CAL_START_HOUR) / TOTAL_HOURS;
+}
+
+function getDurationFraction(startIso: string, endIso: string): number {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  return Math.max(durationHours / TOTAL_HOURS, 30 / (60 * TOTAL_HOURS));
+}
+
+function getCurrentTimeFraction(): number {
+  const now = new Date();
+  const hours = now.getHours() + now.getMinutes() / 60;
+  return (hours - CAL_START_HOUR) / TOTAL_HOURS;
+}
+
+function getEventsForDate(events: GCalEvent[], dateKey: string): GCalEvent[] {
+  return events.filter((ev) => {
+    if (ev.allDay) return ev.start === dateKey || ev.start.slice(0, 10) === dateKey;
+    return ev.start.slice(0, 10) === dateKey;
+  });
+}
+
+type CalView = "day" | "week";
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+
+function CalendarHeader({
+  view,
+  setView,
+  currentDate,
+  onPrev,
+  onNext,
+  onToday,
+  onRefresh,
+  refreshing,
+  showSummary,
+  onToggleSummary,
+}: {
+  view: CalView;
+  setView: (v: CalView) => void;
+  currentDate: Date;
+  onPrev: () => void;
+  onNext: () => void;
+  onToday: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  showSummary?: boolean;
+  onToggleSummary?: () => void;
+}) {
+  const label = (() => {
+    if (view === "day") {
+      return formatDayHeader(toDateKey(currentDate));
+    }
+    const end = new Date(currentDate);
+    end.setDate(end.getDate() + 6);
+    const startFmt = currentDate.toLocaleDateString([], { month: "short", day: "numeric" });
+    const endFmt = end.toLocaleDateString([], { month: "short", day: "numeric" });
+    return `${startFmt} – ${endFmt}`;
+  })();
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/40 shrink-0 flex-wrap">
+      <button
+        onClick={onPrev}
+        className="h-6 w-6 flex items-center justify-center rounded-md border border-border/50 hover:bg-muted text-muted-foreground hover:text-foreground"
+        aria-label="Previous"
+      >
+        <ChevronDown className="h-3.5 w-3.5 rotate-90" />
+      </button>
+      <span className="text-sm font-semibold min-w-[140px] text-center select-none">{label}</span>
+      <button
+        onClick={onNext}
+        className="h-6 w-6 flex items-center justify-center rounded-md border border-border/50 hover:bg-muted text-muted-foreground hover:text-foreground"
+        aria-label="Next"
+      >
+        <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
+      </button>
+
+      <button onClick={onToday} className="text-xs text-primary hover:underline ml-1">
+        Today
+      </button>
+
+      <div className="flex-1" />
+
+      <div className="flex items-center rounded-lg border border-border/60 bg-muted/40 p-0.5 gap-0.5">
+        {(["day", "week"] as CalView[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={cn(
+              "text-xs px-3 py-1 font-medium rounded-md transition-all",
+              view === v
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {v === "day" ? "Day" : "Week"}
+          </button>
+        ))}
+      </div>
+
+      {onToggleSummary && (
+        <button
+          onClick={onToggleSummary}
+          className={cn(
+            "flex items-center gap-1 px-2 h-7 rounded-md text-xs font-medium border",
+            showSummary
+              ? "bg-primary/10 text-primary border-primary/30"
+              : "text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted/50",
+          )}
+          title={showSummary ? "Show actual events" : "Show day summary"}
+        >
+          <Sun className="h-3 w-3" />
+          <span className="hidden sm:inline">Summary</span>
+        </button>
+      )}
+
+      {onRefresh && (
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-50"
+          title="Refresh events"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Grid pieces ──────────────────────────────────────────────────────────────
+
+function TimeGutter({ hourHeight }: { hourHeight: number }) {
+  const hours = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => CAL_START_HOUR + i);
+  return (
+    <div className="shrink-0 w-14 relative" style={{ height: TOTAL_HOURS * hourHeight }}>
+      {hours.map((h) => (
+        <div
+          key={h}
+          className="absolute right-2 -translate-y-1/2 text-[10px] uppercase tracking-wide text-muted-foreground/50 leading-none select-none text-right"
+          style={{ top: (h - CAL_START_HOUR) * hourHeight }}
+        >
+          {String(h % 24).padStart(2, "0")}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HourLines({ hourHeight }: { hourHeight: number }) {
+  const hours = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => i);
+  return (
+    <>
+      {hours.map((i) => (
+        <div key={i}>
+          <div
+            className="absolute left-0 right-0 border-t border-border/20 pointer-events-none"
+            style={{ top: i * hourHeight }}
+          />
+          {i < TOTAL_HOURS && (
+            <div
+              className="absolute left-0 right-0 border-t border-border/10 border-dashed pointer-events-none"
+              style={{ top: i * hourHeight + hourHeight / 2 }}
+            />
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function CurrentTimeBar({ hourHeight }: { hourHeight: number }) {
+  const fraction = getCurrentTimeFraction();
+  if (fraction < 0 || fraction > 1) return null;
+  const top = fraction * TOTAL_HOURS * hourHeight;
+  return (
+    <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top }}>
+      <div className="relative flex items-center">
+        <div className="h-[6px] w-[6px] rounded-full bg-red-500/80 shrink-0 -ml-[3px]" />
+        <div className="flex-1 h-px bg-red-500/80" />
+      </div>
+    </div>
+  );
+}
+
+// ─── Overlap layout ───────────────────────────────────────────────────────────
+
+interface LayoutedEvent {
+  ev: GCalEvent;
+  col: number;
+  totalCols: number;
+}
+
+function layoutEvents(events: GCalEvent[]): LayoutedEvent[] {
+  if (events.length === 0) return [];
+  const sorted = [...events].sort((a, b) => {
+    const diff = new Date(a.start).getTime() - new Date(b.start).getTime();
+    if (diff !== 0) return diff;
+    return (
+      new Date(b.end).getTime() -
+      new Date(b.start).getTime() -
+      (new Date(a.end).getTime() - new Date(a.start).getTime())
+    );
+  });
+
+  const result: LayoutedEvent[] = [];
+  const columns: number[] = [];
+
+  for (const ev of sorted) {
+    const start = new Date(ev.start).getTime();
+    const end = new Date(ev.end).getTime();
+    let placed = false;
+    for (let c = 0; c < columns.length; c++) {
+      if (columns[c] <= start) {
+        columns[c] = end;
+        result.push({ ev, col: c, totalCols: 0 });
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      columns.push(end);
+      result.push({ ev, col: columns.length - 1, totalCols: 0 });
+    }
+  }
+
+  for (const item of result) {
+    const s = new Date(item.ev.start).getTime();
+    const e = new Date(item.ev.end).getTime();
+    let maxCol = item.col;
+    for (const other of result) {
+      const os = new Date(other.ev.start).getTime();
+      const oe = new Date(other.ev.end).getTime();
+      if (os < e && oe > s) {
+        maxCol = Math.max(maxCol, other.col);
+      }
+    }
+    item.totalCols = maxCol + 1;
+  }
+
+  return result;
+}
+
+// ─── Event colors ─────────────────────────────────────────────────────────────
+
+const GCAL_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  "1":  { bg: "bg-[#7986cb]/25", border: "border-[#7986cb]", text: "text-[#7986cb]" },
+  "2":  { bg: "bg-[#33b679]/25", border: "border-[#33b679]", text: "text-[#33b679]" },
+  "3":  { bg: "bg-[#8e24aa]/25", border: "border-[#8e24aa]", text: "text-[#8e24aa]" },
+  "4":  { bg: "bg-[#e67c73]/25", border: "border-[#e67c73]", text: "text-[#e67c73]" },
+  "5":  { bg: "bg-[#f6bf26]/25", border: "border-[#f6bf26]", text: "text-[#f6bf26]" },
+  "6":  { bg: "bg-[#f4511e]/25", border: "border-[#f4511e]", text: "text-[#f4511e]" },
+  "7":  { bg: "bg-[#039be5]/25", border: "border-[#039be5]", text: "text-[#039be5]" },
+  "8":  { bg: "bg-[#616161]/25", border: "border-[#616161]", text: "text-[#616161]" },
+  "9":  { bg: "bg-[#3f51b5]/25", border: "border-[#3f51b5]", text: "text-[#3f51b5]" },
+  "10": { bg: "bg-[#0b8043]/25", border: "border-[#0b8043]", text: "text-[#0b8043]" },
+  "11": { bg: "bg-[#d50000]/25", border: "border-[#d50000]", text: "text-[#d50000]" },
+};
+
+const FALLBACK_COLORS = [
+  { bg: "bg-blue-500/20",    border: "border-blue-500",    text: "text-blue-500" },
+  { bg: "bg-emerald-500/20", border: "border-emerald-500", text: "text-emerald-500" },
+  { bg: "bg-violet-500/20",  border: "border-violet-500",  text: "text-violet-500" },
+  { bg: "bg-amber-500/20",   border: "border-amber-500",   text: "text-amber-500" },
+  { bg: "bg-rose-500/20",    border: "border-rose-500",    text: "text-rose-500" },
+  { bg: "bg-cyan-500/20",    border: "border-cyan-500",    text: "text-cyan-500" },
+  { bg: "bg-pink-500/20",    border: "border-pink-500",    text: "text-pink-500" },
+  { bg: "bg-teal-500/20",    border: "border-teal-500",    text: "text-teal-500" },
+];
+
+function getEventColor(ev: GCalEvent) {
+  if (ev.colorId && GCAL_COLORS[ev.colorId]) return GCAL_COLORS[ev.colorId];
+  let hash = 0;
+  const s = ev.summary || ev.id;
+  for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+  return FALLBACK_COLORS[Math.abs(hash) % FALLBACK_COLORS.length];
+}
+
+// ─── Skeleton + event block + all-day ─────────────────────────────────────────
+
+function EventSkeletons({ hourHeight, count = 3, compact, seed = 0 }: { hourHeight: number; count?: number; compact?: boolean; seed?: number }) {
+  const skeletons = useMemo(() => {
+    let h = seed;
+    const next = () => { h = ((h * 1103515245 + 12345) & 0x7fffffff); return h; };
+    const items: { startHour: number; duration: number }[] = [];
+    for (let i = 0; i < (count ?? 3); i++) {
+      const startHour = CAL_START_HOUR + 1 + (next() % (TOTAL_HOURS - 4));
+      const duration = 0.5 + (next() % 3) * 0.5;
+      items.push({ startHour, duration });
+    }
+    items.sort((a, b) => a.startHour - b.startHour);
+    for (let i = 1; i < items.length; i++) {
+      const prev = items[i - 1];
+      if (items[i].startHour < prev.startHour + prev.duration + 0.5) {
+        items[i].startHour = prev.startHour + prev.duration + 0.5;
+      }
+    }
+    return items.filter((s) => s.startHour + s.duration <= CAL_END_HOUR);
+  }, [count, seed]);
+
+  return (
+    <>
+      {skeletons.map((s, i) => {
+        const top = (s.startHour - CAL_START_HOUR) * hourHeight;
+        const height = s.duration * hourHeight;
+        return (
+          <div
+            key={i}
+            className="absolute left-1 right-1 rounded-md bg-muted/40 animate-pulse border-l-[3px] border-muted-foreground/20 shadow-sm"
+            style={{ top, height: Math.max(height, 20) }}
+          >
+            <div className="px-1.5 py-1 space-y-1">
+              <div className={cn("rounded bg-muted-foreground/10", compact ? "h-1.5 w-10" : "h-2.5 w-20")} />
+              {!compact && height > 30 && (
+                <div className="h-2 w-14 rounded bg-muted-foreground/10" />
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function eventSelection(ev: GCalEvent): KimSelection {
+  return {
+    kind: "event",
+    id: ev.id,
+    label: ev.summary || "(No title)",
+    snapshot: {
+      summary: ev.summary,
+      start: ev.start,
+      end: ev.end,
+      allDay: ev.allDay,
+      location: ev.location,
+      routineName: ev.routineName,
+      htmlLink: ev.htmlLink,
+    },
+  };
+}
+
+function EventBlock({
+  ev,
+  hourHeight,
+  compact,
+  col,
+  totalCols,
+  isSummary,
+}: {
+  ev: GCalEvent;
+  hourHeight: number;
+  compact: boolean;
+  col?: number;
+  totalCols?: number;
+  isSummary?: boolean;
+}) {
+  const { isSelected, toggleSelection, setOpen } = useKim();
+  const selected = !isSummary && isSelected("event", ev.id);
+
+  const topFraction = getEventFraction(ev.start);
+  const heightFraction = getDurationFraction(ev.start, ev.end);
+  const totalPx = TOTAL_HOURS * hourHeight;
+  const top = topFraction * totalPx;
+  const height = heightFraction * totalPx;
+
+  const c = col ?? 0;
+  const tc = totalCols ?? 1;
+  const widthPct = `${(1 / tc) * 100 - 1}%`;
+  const leftPct = `${(c / tc) * 100}%`;
+
+  const color = getEventColor(ev);
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isSummary) return;
+    // Cmd/Ctrl-click opens the native Google Calendar link (old behaviour).
+    if (e.metaKey || e.ctrlKey) {
+      if (ev.htmlLink) window.open(ev.htmlLink, "_blank");
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    toggleSelection(eventSelection(ev));
+    if (!selected) setOpen(true);
+  };
+
+  return (
+    <div
+      onClick={handleClick}
+      title={`${ev.summary || "(No title)"}\n${formatEventTime(ev.start)} – ${formatEventTime(ev.end)}${isSummary ? "" : "\nClick to add to Kim · ⌘-click to open in Google"}`}
+      className={cn(
+        "absolute rounded-md overflow-hidden border-l-[3px] transition-all z-10 cursor-pointer group shadow-sm hover:shadow-md hover:brightness-105",
+        color.bg,
+        color.border,
+        selected && "ring-2 ring-[color:rgb(232_176_92)] ring-offset-1 ring-offset-background",
+      )}
+      style={{ top, height: Math.max(height, 20), left: leftPct, width: widthPct }}
+    >
+      <div className="px-1.5 py-0.5 overflow-hidden h-full">
+        <p className={cn("font-semibold leading-tight truncate", color.text, compact ? "text-[9px]" : "text-[11px]")}>
+          {ev.summary || "(No title)"}
+        </p>
+        {!compact && height > 32 && (
+          <p className={cn("text-[9px] leading-tight truncate font-normal opacity-60", color.text)}>
+            {formatEventTime(ev.start)} – {formatEventTime(ev.end)}
+          </p>
+        )}
+        {ev.routineName && height > 44 && (
+          <p className={cn("text-[8px] leading-tight truncate opacity-50 mt-0.5", color.text)}>
+            {ev.routineName}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AllDayRow({ events }: { events: GCalEvent[]; compact: boolean }) {
+  const { isSelected, toggleSelection, setOpen } = useKim();
+  if (events.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b border-border/30 bg-muted/30 sticky top-0 z-20">
+      {events.map((ev) => {
+        const color = getEventColor(ev);
+        const selected = isSelected("event", ev.id);
+        return (
+          <button
+            key={ev.id}
+            type="button"
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey) {
+                if (ev.htmlLink) window.open(ev.htmlLink, "_blank");
+                return;
+              }
+              e.preventDefault();
+              e.stopPropagation();
+              toggleSelection(eventSelection(ev));
+              if (!selected) setOpen(true);
+            }}
+            className={cn(
+              "rounded-md px-2 py-0.5 font-medium truncate max-w-full transition-all hover:brightness-105 text-[10px]",
+              color.bg,
+              color.text,
+              selected && "ring-2 ring-[color:rgb(232_176_92)]",
+            )}
+            title={`${ev.summary || "(No title)"}\nClick to add to Kim · ⌘-click to open`}
+          >
+            {ev.summary || "(No title)"}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Day + multi-day views ────────────────────────────────────────────────────
+
+function DayView({
+  date,
+  events,
+  loading,
+  isSummary,
+}: {
+  date: Date;
+  events: GCalEvent[];
+  loading?: boolean;
+  isSummary?: boolean;
+}) {
+  const hourHeight = 60;
+  const dateKey = toDateKey(date);
+  const dayEvents = getEventsForDate(events, dateKey).filter((e) => !e.allDay);
+  const allDayEvents = getEventsForDate(events, dateKey).filter((e) => e.allDay);
+  const isToday = isTodayDate(date);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // On mount / when the viewed date changes: scroll to the current time
+  // (centered in the viewport) on today, or to 8am on any other day.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const totalPx = TOTAL_HOURS * hourHeight;
+    const fraction = isToday
+      ? getCurrentTimeFraction()
+      : Math.max(0, (8 - CAL_START_HOUR) / TOTAL_HOURS);
+    const clampedFraction = Math.max(0, Math.min(1, fraction));
+    // Center the indicator in the viewport when possible.
+    const target = clampedFraction * totalPx - el.clientHeight / 2;
+    el.scrollTop = Math.max(0, target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateKey, isToday]);
+
+  return (
+    <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <AllDayRow events={allDayEvents} compact={false} />
+      <div className="flex">
+        <TimeGutter hourHeight={hourHeight} />
+        <div
+          className={cn("flex-1 relative", isToday && "bg-primary/[0.02]")}
+          style={{ height: TOTAL_HOURS * hourHeight }}
+        >
+          <HourLines hourHeight={hourHeight} />
+          {isToday && <CurrentTimeBar hourHeight={hourHeight} />}
+          {loading ? (
+            <EventSkeletons hourHeight={hourHeight} count={4} seed={date.getDate()} />
+          ) : (
+            layoutEvents(dayEvents).map(({ ev, col, totalCols }) => (
+              <EventBlock
+                key={ev.id}
+                ev={ev}
+                hourHeight={hourHeight}
+                compact={false}
+                col={col}
+                totalCols={totalCols}
+                isSummary={isSummary}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MultiDayView({
+  startDate,
+  days,
+  events,
+  loading,
+  isSummary,
+}: {
+  startDate: Date;
+  days: number;
+  events: GCalEvent[];
+  loading?: boolean;
+  isSummary?: boolean;
+}) {
+  const compact = days > 7;
+  const hourHeight = compact ? 36 : 48;
+
+  const columns: Date[] = Array.from({ length: days }, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const weekHasToday = columns.some((d) => isTodayDate(d));
+  const startKey = toDateKey(startDate);
+
+  // Scroll to the current time indicator (centered) on mount and when the
+  // week window changes. If the visible week doesn't contain today, scroll
+  // to 8am instead.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const totalPx = TOTAL_HOURS * hourHeight;
+    const fraction = weekHasToday
+      ? getCurrentTimeFraction()
+      : Math.max(0, (8 - CAL_START_HOUR) / TOTAL_HOURS);
+    const clamped = Math.max(0, Math.min(1, fraction));
+    // The scroll container includes the sticky day-header row, so offset the
+    // target by a small amount to account for it.
+    const headerOffset = 40;
+    const target = clamped * totalPx - el.clientHeight / 2 + headerOffset;
+    el.scrollTop = Math.max(0, target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startKey, weekHasToday, hourHeight]);
+
+  return (
+    <div ref={scrollRef} className="flex-1 overflow-auto">
+      <div className="flex border-b border-border/40 bg-background sticky top-0 z-30">
+        <div className="w-14 shrink-0" />
+        {columns.map((d) => {
+          const isToday = isTodayDate(d);
+          return (
+            <div
+              key={toDateKey(d)}
+              className={cn(
+                "flex-1 min-w-0 text-center py-2 border-l border-border/15",
+                isToday && "bg-primary/[0.02]",
+              )}
+            >
+              <div
+                className={cn(
+                  "uppercase tracking-wide leading-none",
+                  compact ? "text-[8px]" : "text-[10px]",
+                  "text-muted-foreground/60",
+                )}
+              >
+                {d.toLocaleDateString([], { weekday: "short" })}
+              </div>
+              {compact ? (
+                <div
+                  className={cn(
+                    "leading-none mt-0.5 font-semibold text-[9px]",
+                    isToday ? "text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  {d.getDate()}
+                </div>
+              ) : (
+                <div className="leading-none mt-1 flex items-center justify-center">
+                  {isToday ? (
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
+                      {d.getDate()}
+                    </span>
+                  ) : (
+                    <span className="text-lg font-semibold text-foreground/80">{d.getDate()}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {columns.some((d) => getEventsForDate(events, toDateKey(d)).some((e) => e.allDay)) && (
+        <div className="flex border-b border-border/30">
+          <div className="w-14 shrink-0 flex items-center justify-end pr-2">
+            <span className="text-[9px] uppercase tracking-wide text-muted-foreground/40">all day</span>
+          </div>
+          {columns.map((d) => {
+            const allDay = getEventsForDate(events, toDateKey(d)).filter((e) => e.allDay);
+            return (
+              <div key={toDateKey(d)} className="flex-1 min-w-0 border-l border-border/15">
+                <AllDayRow events={allDay} compact={compact} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="flex relative">
+        <TimeGutter hourHeight={hourHeight} />
+        {columns.map((d) => {
+          const dateKey = toDateKey(d);
+          const isToday = isTodayDate(d);
+          const dayEvents = loading ? [] : getEventsForDate(events, dateKey).filter((e) => !e.allDay);
+          return (
+            <div
+              key={dateKey}
+              className={cn("flex-1 min-w-0 relative border-l border-border/15", isToday && "bg-primary/[0.02]")}
+              style={{ height: TOTAL_HOURS * hourHeight }}
+            >
+              <HourLines hourHeight={hourHeight} />
+              {isToday && <CurrentTimeBar hourHeight={hourHeight} />}
+              {loading ? (
+                <EventSkeletons hourHeight={hourHeight} count={2 + (d.getDate() % 3)} compact={compact} seed={d.getDate() * 31 + d.getMonth()} />
+              ) : (
+                layoutEvents(dayEvents).map(({ ev, col, totalCols }) => (
+                  <EventBlock
+                    key={ev.id}
+                    ev={ev}
+                    hourHeight={hourHeight}
+                    compact={compact}
+                    col={col}
+                    totalCols={totalCols}
+                    isSummary={isSummary}
+                  />
+                ))
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Day summary view ─────────────────────────────────────────────────────────
+
+const BLOCK_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  sleep:           { bg: "bg-slate-800/60 dark:bg-slate-900/70", border: "border-slate-600/40",  text: "text-slate-300" },
+  morning_routine: { bg: "bg-amber-400/20",                      border: "border-amber-400/50",  text: "text-amber-700 dark:text-amber-300" },
+  commute:         { bg: "bg-zinc-500/15",                       border: "border-zinc-400/40",   text: "text-zinc-600 dark:text-zinc-300" },
+  work:            { bg: "bg-blue-500/15",                       border: "border-blue-400/50",   text: "text-blue-700 dark:text-blue-300" },
+  tasks:           { bg: "bg-cyan-500/15",                       border: "border-cyan-400/50",   text: "text-cyan-700 dark:text-cyan-300" },
+  meal:            { bg: "bg-orange-400/20",                     border: "border-orange-400/50", text: "text-orange-700 dark:text-orange-300" },
+  exercise:        { bg: "bg-green-500/15",                      border: "border-green-400/50",  text: "text-green-700 dark:text-green-300" },
+  social:          { bg: "bg-purple-500/15",                     border: "border-purple-400/50", text: "text-purple-700 dark:text-purple-300" },
+  personal:        { bg: "bg-indigo-500/15",                     border: "border-indigo-400/50", text: "text-indigo-700 dark:text-indigo-300" },
+  project:         { bg: "bg-violet-500/15",                     border: "border-violet-400/50", text: "text-violet-700 dark:text-violet-300" },
+  rest:            { bg: "bg-stone-500/10",                      border: "border-stone-400/30",  text: "text-stone-500 dark:text-stone-400" },
+  errand:          { bg: "bg-rose-400/15",                       border: "border-rose-400/50",   text: "text-rose-700 dark:text-rose-300" },
+};
+
+const BLOCK_TYPE_COLOR_ID: Record<string, string> = {
+  sleep: "8",
+  morning_routine: "5",
+  commute: "8",
+  work: "9",
+  tasks: "7",
+  meal: "6",
+  exercise: "2",
+  social: "3",
+  personal: "7",
+  project: "1",
+  rest: "",
+  errand: "4",
+};
+
+function summaryBlocksToEvents(summaries: DaySummary[]): GCalEvent[] {
+  const events: GCalEvent[] = [];
+  for (const summary of summaries) {
+    if (!summary.blocks || summary.pending) continue;
+    for (const block of summary.blocks) {
+      const [sh, sm] = block.start.split(":").map(Number);
+      const [eh, em] = block.end.split(":").map(Number);
+      const start = new Date(summary.date + "T00:00:00");
+      start.setHours(sh, sm, 0, 0);
+      const end = new Date(summary.date + "T00:00:00");
+      end.setHours(eh, em, 0, 0);
+
+      events.push({
+        id: `summary-${summary.date}-${block.start}-${block.type}`,
+        summary: block.label,
+        description: block.description,
+        location: "",
+        start: start.toISOString(),
+        end: end.toISOString(),
+        allDay: false,
+        status: "confirmed",
+        colorId: BLOCK_TYPE_COLOR_ID[block.type] ?? "",
+        htmlLink: "",
+      });
+    }
+  }
+  return events;
+}
+
+
+// ─── Top-level CalendarView ───────────────────────────────────────────────────
+
+export function CalendarView() {
+  const [status, setStatus] = useState<GCalStatus | null>(null);
+  const [events, setEvents] = useState<GCalEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  // Tracks whether we've completed at least one successful events fetch.
+  // Used to decide whether to show the skeleton (first load only) vs. keep
+  // existing events on screen during refreshes / view changes.
+  const [eventsEverLoaded, setEventsEverLoaded] = useState(false);
+  const [summariesEverLoaded, setSummariesEverLoaded] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<CalView>("day");
+  const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  const [summaries, setSummaries] = useState<DaySummary[]>([]);
+  const [summariesLoading, setSummariesLoading] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+
+  const daysToLoad = view === "day" ? 1 : 7;
+
+  const loadEvents = useCallback(async (connected: boolean, startDate: Date, numDays: number) => {
+    if (!connected) return;
+    setEventsLoading(true);
+    try {
+      const fromDate = new Date(startDate);
+      const toDate = new Date(startDate);
+      toDate.setDate(toDate.getDate() + numDays);
+      const from = fromDate.toISOString().slice(0, 10);
+      const to = toDate.toISOString().slice(0, 10);
+      const evs = await listGCalEvents(from, to);
+      setEvents(evs);
+      setEventsEverLoaded(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load events");
+    } finally {
+      setEventsLoading(false);
+    }
+  }, []);
+
+  const loadSummaries = useCallback(async (connected: boolean, startDate: Date) => {
+    if (!connected) return;
+    setSummariesLoading(true);
+    try {
+      const from = startDate.toISOString().slice(0, 10);
+      const toDate = new Date(startDate);
+      toDate.setDate(toDate.getDate() + 7);
+      const to = toDate.toISOString().slice(0, 10);
+      const result = await getDaySummaries(from, to);
+      setSummaries(result);
+      setSummariesEverLoaded(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load day summaries");
+    } finally {
+      setSummariesLoading(false);
+    }
+  }, []);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const s = await getGCalStatus();
+      setStatus(s);
+      if (s.connected) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        await loadEvents(true, today, 1);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load calendar status");
+    } finally {
+      setLoading(false);
+    }
+  }, [loadEvents]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code) {
+      setConnecting(true);
+      exchangeGCalCode(code)
+        .then(() => {
+          window.history.replaceState(null, "", window.location.pathname);
+          return loadStatus();
+        })
+        .catch((e) => setError(e instanceof Error ? e.message : "OAuth exchange failed"))
+        .finally(() => setConnecting(false));
+    } else {
+      loadStatus();
+    }
+  }, [loadStatus]);
+
+  useEffect(() => {
+    if (status?.connected) {
+      loadEvents(true, currentDate, daysToLoad);
+      if (showSummary) {
+        loadSummaries(true, currentDate);
+      }
+    }
+  }, [view, currentDate, status?.connected, daysToLoad, loadEvents, showSummary, loadSummaries]);
+
+  useEffect(() => {
+    if (!showSummary || !status?.connected) return;
+    const hasPending = summaries.some((s) => s.pending);
+    if (!hasPending) return;
+    const interval = setInterval(() => {
+      loadSummaries(true, currentDate);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [showSummary, summaries, status?.connected, currentDate, loadSummaries]);
+
+  const handleConnect = async () => {
+    setConnecting(true);
+    setError(null);
+    try {
+      const { url } = await getGCalAuthUrl();
+      window.open(url, "_self");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to get auth URL");
+      setConnecting(false);
+    }
+  };
+
+  const handlePrev = () => {
+    setCurrentDate((d) => {
+      const next = new Date(d);
+      next.setDate(next.getDate() - (view === "day" ? 1 : 7));
+      return next;
+    });
+  };
+  const handleNext = () => {
+    setCurrentDate((d) => {
+      const next = new Date(d);
+      next.setDate(next.getDate() + (view === "day" ? 1 : 7));
+      return next;
+    });
+  };
+  const handleToday = () => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    setCurrentDate(d);
+  };
+
+  if (loading || connecting) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!status?.connected) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-5 px-8 text-center">
+        <div className="rounded-full bg-muted p-4">
+          <CalendarDays className="h-8 w-8 text-muted-foreground/60" />
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-sm font-semibold">Connect Google Calendar</p>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            View and manage your events directly from the Life Tool.
+          </p>
+        </div>
+        {error && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive max-w-sm">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {error}
+          </div>
+        )}
+        <Button size="sm" onClick={handleConnect} disabled={connecting}>
+          {connecting && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+          Connect Google Calendar
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => disconnectGCal()}>
+          Reset
+        </Button>
+      </div>
+    );
+  }
+
+  const displayEvents = showSummary ? summaryBlocksToEvents(summaries) : events;
+  // Only show the skeleton on the FIRST load. On subsequent refreshes or
+  // view changes, keep the current events on screen and let the header's
+  // spinner communicate the activity.
+  const displayLoading = showSummary
+    ? summariesLoading && !summariesEverLoaded
+    : eventsLoading && !eventsEverLoaded;
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-destructive/20 bg-destructive/5 text-xs text-destructive shrink-0">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          {error}
+        </div>
+      )}
+      <CalendarHeader
+        view={view}
+        setView={setView}
+        currentDate={currentDate}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onToday={handleToday}
+        onRefresh={() => {
+          if (status?.connected) {
+            loadEvents(true, currentDate, daysToLoad);
+            if (showSummary) loadSummaries(true, currentDate);
+          }
+        }}
+        refreshing={eventsLoading}
+        showSummary={showSummary}
+        onToggleSummary={() => setShowSummary((v) => !v)}
+      />
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        {view === "day" ? (
+          <DayView
+            date={currentDate}
+            events={displayEvents}
+            loading={displayLoading}
+            isSummary={showSummary}
+          />
+        ) : (
+          <MultiDayView
+            startDate={currentDate}
+            days={7}
+            events={displayEvents}
+            loading={displayLoading}
+            isSummary={showSummary}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

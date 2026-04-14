@@ -39,17 +39,27 @@ install:
 # Development
 # =========================================
 
-# Start Next.js dev server
+# Start Next.js dev server (1tt.dev on :3000)
 dev:
-    just with-env-web bun run dev
+    bun run --filter ./apps/web dev
+
+# Start Kim dev server (kim1.ai on :3001)
+dev-kim:
+    bun run --filter ./apps/kim dev
 
 # Start Go API server
 api:
     just with-env-api bash -c '"cd api && go run ./cmd/server"'
 
-# Start both web and api in parallel
+# Start web + api in parallel
 dev-all:
     just api &
+    just dev
+
+# Start web + kim + api in parallel
+dev-everything:
+    just api &
+    just dev-kim &
     just dev
 
 # =========================================
@@ -64,9 +74,13 @@ api-generate:
 # Build
 # =========================================
 
-# Build Next.js for production
+# Build Next.js for production (web)
 build:
-    just with-env-web bun run build
+    bun run --filter ./apps/web build
+
+# Build Kim for production
+build-kim:
+    bun run --filter ./apps/kim build
 
 # Build Go API binary
 api-build:
@@ -136,28 +150,44 @@ db-create-migration name:
 # Deployment (Cloudflare)
 # =========================================
 
-# Build Next.js for Cloudflare Workers
+# Build web for Cloudflare Workers
 cf-build:
-    bun run cf:build
+    bun run --filter ./apps/web cf:build
 
-# Preview Next.js on local Cloudflare dev
+# Build kim for Cloudflare Workers
+cf-build-kim:
+    bun run --filter ./apps/kim cf:build
+
+# Preview web on local Cloudflare dev
 cf-preview:
-    bun run cf:preview
+    bun run --filter ./apps/web cf:preview
 
-# Deploy Next.js to Cloudflare Workers
+# Preview kim on local Cloudflare dev
+cf-preview-kim:
+    bun run --filter ./apps/kim cf:preview
+
+# Deploy web to Cloudflare Workers
 cf-deploy:
-    bun run cf:deploy
+    bun run --filter ./apps/web cf:deploy
+
+# Deploy kim to Cloudflare Workers
+cf-deploy-kim:
+    bun run --filter ./apps/kim cf:deploy
 
 # Deploy Go API container to Cloudflare
 cf-deploy-api:
     cd workers/api-container && bun install && wrangler deploy
 
-# Deploy everything (web + api)
-deploy: cf-deploy cf-deploy-api
+# Deploy everything (web + kim + api)
+deploy: cf-deploy cf-deploy-kim cf-deploy-api
 
 # Set a secret for the web worker
 cf-secret-web name:
-    wrangler secret put {{name}}
+    cd apps/web && wrangler secret put {{name}}
+
+# Set a secret for the kim worker
+cf-secret-kim name:
+    cd apps/kim && wrangler secret put {{name}}
 
 # Set a secret for the api container worker
 cf-secret-api name:

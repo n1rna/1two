@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -628,7 +629,7 @@ func DeleteLifeConversation(db *sql.DB) http.HandlerFunc {
 // Body: {message, conversationId?}.
 // Creates a new conversation if conversationId is absent, saves both the user
 // message and the assistant response, and returns the assistant message.
-func LifeChat(db *sql.DB, agent *life.Agent, gcalClient *life.GCalClient) http.HandlerFunc {
+func LifeChat(db *sql.DB, agent life.ChatAgent, gcalClient *life.GCalClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -927,7 +928,7 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB, llmC
 
 	// Load active routines (summary only for system prompt).
 	const routineQ = `
-		SELECT id, name, type, description
+		SELECT id, name, description
 		FROM life_routines
 		WHERE user_id = $1 AND active = TRUE
 		ORDER BY created_at DESC`
@@ -939,7 +940,7 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB, llmC
 	var routines []life.Routine
 	for routineRows.Next() {
 		var rt life.Routine
-		if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Type, &rt.Description); err != nil {
+		if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Description); err != nil {
 			routineRows.Close()
 			http.Error(w, `{"error":"failed to read routines"}`, http.StatusInternalServerError)
 			return nil, nil
@@ -962,10 +963,11 @@ func prepareChatRequest(w http.ResponseWriter, r *http.Request, db *sql.DB, llmC
 	}
 
 	// Load health data when the conversation is health-related.
+	// Covers the "health" category plus Kim modes that target health data.
 	var healthProfile *life.HealthProfile
 	var activeSessions []life.SessionSummary
 
-	if resolvedCategory == "health" {
+	if resolvedCategory == "health" || resolvedCategory == "meals" || resolvedCategory == "gym" {
 		// Ensure a health_profiles row exists so the scan below doesn't fail.
 		db.ExecContext(r.Context(),
 			`INSERT INTO health_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, userID)
@@ -1187,7 +1189,7 @@ func saveAssistantMessage(ctx context.Context, db *sql.DB, convID, userID, text 
 // LifeChatStream handles POST /life/chat/stream using Server-Sent Events.
 // Tokens are streamed to the client as they arrive; the final SSE event
 // contains the persisted assistant message record.
-func LifeChatStream(db *sql.DB, agent *life.Agent, gcalClient *life.GCalClient) http.HandlerFunc {
+func LifeChatStream(db *sql.DB, agent life.ChatAgent, gcalClient *life.GCalClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Prepare — this writes its own errors on failure.
 		setup, _ := prepareChatRequest(w, r, db, agent.LLMConfig())
@@ -1391,9 +1393,77 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// BulkDismissActionables handles POST /life/actionables/bulk-dismiss.
+// Body: { "ids": string[] } — dismiss specific actionables.
+//       { "all_pending": true } — dismiss every pending actionable for this user.
+//       { "ids": string[], "all_pending": true } — union of both.
+// Returns: { "dismissed": number }
+func BulkDismissActionables(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		var req struct {
+			IDs        []string `json:"ids"`
+			AllPending bool     `json:"all_pending"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+			return
+		}
+		if len(req.IDs) == 0 && !req.AllPending {
+			http.Error(w, `{"error":"ids or all_pending is required"}`, http.StatusBadRequest)
+			return
+		}
+
+		var dismissed int64
+		if req.AllPending {
+			result, err := db.ExecContext(r.Context(),
+				`UPDATE life_actionables
+				 SET status = 'dismissed', response = '{"action":"dismiss","bulk":true}', resolved_at = NOW()
+				 WHERE user_id = $1 AND status = 'pending'`,
+				userID,
+			)
+			if err != nil {
+				log.Printf("life: bulk dismiss all pending for %s: %v", userID, err)
+				http.Error(w, `{"error":"failed to dismiss actionables"}`, http.StatusInternalServerError)
+				return
+			}
+			n, _ := result.RowsAffected()
+			dismissed += n
+		}
+		if len(req.IDs) > 0 {
+			result, err := db.ExecContext(r.Context(),
+				`UPDATE life_actionables
+				 SET status = 'dismissed', response = '{"action":"dismiss","bulk":true}', resolved_at = NOW()
+				 WHERE user_id = $1 AND id = ANY($2) AND status = 'pending'`,
+				userID, pq.Array(req.IDs),
+			)
+			if err != nil {
+				log.Printf("life: bulk dismiss ids for %s: %v", userID, err)
+				http.Error(w, `{"error":"failed to dismiss actionables"}`, http.StatusInternalServerError)
+				return
+			}
+			n, _ := result.RowsAffected()
+			// Avoid double-counting if all_pending was also true — subtract the
+			// overlap by re-running only on still-pending rows would be racy, so
+			// we just use the larger of the two counts.
+			if n > dismissed {
+				dismissed = n
+			}
+		}
+
+		json.NewEncoder(w).Encode(map[string]any{"dismissed": dismissed})
+	}
+}
+
 // RespondToActionable handles POST /life/actionables/{id}/respond.
 // Body: {"action": "confirm"|"dismiss"|"snooze"|"choose"|"input", "data": any}
-func RespondToActionable(db *sql.DB, agent *life.Agent) http.HandlerFunc {
+func RespondToActionable(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -1575,7 +1645,6 @@ func executeActionableAction(ctx context.Context, db *sql.DB, gcalClient *life.G
 	case "create_routine":
 		var payload struct {
 			Name        string          `json:"name"`
-			Type        string          `json:"type"`
 			Description string          `json:"description"`
 			Schedule    json.RawMessage `json:"schedule"`
 			Config      json.RawMessage `json:"config"`
@@ -1584,8 +1653,8 @@ func executeActionableAction(ctx context.Context, db *sql.DB, gcalClient *life.G
 			log.Printf("life: execute action create_routine: unmarshal: %v", err)
 			return
 		}
-		if payload.Name == "" || payload.Type == "" {
-			log.Printf("life: execute action create_routine: missing name or type")
+		if payload.Name == "" {
+			log.Printf("life: execute action create_routine: missing name")
 			return
 		}
 		schedStr := "{}"
@@ -1598,9 +1667,9 @@ func executeActionableAction(ctx context.Context, db *sql.DB, gcalClient *life.G
 		}
 		id := uuid.NewString()
 		if _, err := db.ExecContext(ctx,
-			`INSERT INTO life_routines (id, user_id, name, type, description, schedule, config)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			id, userID, payload.Name, payload.Type, payload.Description, schedStr, cfgStr,
+			`INSERT INTO life_routines (id, user_id, name, description, schedule, config)
+			 VALUES ($1, $2, $3, $4, $5, $6)`,
+			id, userID, payload.Name, payload.Description, schedStr, cfgStr,
 		); err != nil {
 			log.Printf("life: execute action create_routine: insert: %v", err)
 			return
@@ -1911,10 +1980,10 @@ type lifeRoutineRecord struct {
 	ID            string          `json:"id"`
 	UserID        string          `json:"userId"`
 	Name          string          `json:"name"`
-	Type          string          `json:"type"`
 	Description   string          `json:"description"`
 	Schedule      json.RawMessage `json:"schedule"`
 	Config        json.RawMessage `json:"config"`
+	ConfigSchema  json.RawMessage `json:"configSchema"`
 	Active        bool            `json:"active"`
 	LastTriggered *string         `json:"lastTriggered"`
 	CreatedAt     string          `json:"createdAt"`
@@ -1939,13 +2008,13 @@ func GetLifeRoutine(db *sql.DB) http.HandlerFunc {
 		var rec lifeRoutineRecord
 		var createdAt, updatedAt time.Time
 		var lastTriggered sql.NullTime
-		var schedule, config sql.NullString
+		var schedule, config, configSchema sql.NullString
 		if err := db.QueryRowContext(r.Context(),
-			`SELECT id, user_id, name, type, description, schedule, config, active, last_triggered, created_at, updated_at
+			`SELECT id, user_id, name, description, schedule, config, config_schema, active, last_triggered, created_at, updated_at
 			 FROM life_routines WHERE id = $1 AND user_id = $2`,
 			routineID, userID,
-		).Scan(&rec.ID, &rec.UserID, &rec.Name, &rec.Type, &rec.Description,
-			&schedule, &config, &rec.Active, &lastTriggered, &createdAt, &updatedAt); err != nil {
+		).Scan(&rec.ID, &rec.UserID, &rec.Name, &rec.Description,
+			&schedule, &config, &configSchema, &rec.Active, &lastTriggered, &createdAt, &updatedAt); err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, `{"error":"routine not found"}`, http.StatusNotFound)
 				return
@@ -1965,6 +2034,9 @@ func GetLifeRoutine(db *sql.DB) http.HandlerFunc {
 		if config.Valid {
 			rec.Config = json.RawMessage(config.String)
 		}
+		if configSchema.Valid {
+			rec.ConfigSchema = json.RawMessage(configSchema.String)
+		}
 
 		json.NewEncoder(w).Encode(map[string]any{"routine": rec})
 	}
@@ -1981,7 +2053,7 @@ func ListLifeRoutines(db *sql.DB) http.HandlerFunc {
 		}
 
 		const q = `
-			SELECT id, user_id, name, type, description, schedule, config, active, created_at, updated_at
+			SELECT id, user_id, name, description, schedule, config, config_schema, active, created_at, updated_at
 			FROM life_routines
 			WHERE user_id = $1 AND active = TRUE
 			ORDER BY created_at DESC`
@@ -1996,17 +2068,18 @@ func ListLifeRoutines(db *sql.DB) http.HandlerFunc {
 		routines := make([]lifeRoutineRecord, 0)
 		for rows.Next() {
 			var rec lifeRoutineRecord
-			var schedule, config []byte
+			var schedule, config, configSchema []byte
 			var createdAt, updatedAt time.Time
 			if err := rows.Scan(
-				&rec.ID, &rec.UserID, &rec.Name, &rec.Type, &rec.Description,
-				&schedule, &config, &rec.Active, &createdAt, &updatedAt,
+				&rec.ID, &rec.UserID, &rec.Name, &rec.Description,
+				&schedule, &config, &configSchema, &rec.Active, &createdAt, &updatedAt,
 			); err != nil {
 				http.Error(w, `{"error":"failed to read routine"}`, http.StatusInternalServerError)
 				return
 			}
 			rec.Schedule = json.RawMessage(schedule)
 			rec.Config = json.RawMessage(config)
+			rec.ConfigSchema = json.RawMessage(configSchema)
 			rec.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 			rec.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
 			routines = append(routines, rec)
@@ -2033,11 +2106,11 @@ func CreateLifeRoutine(db *sql.DB) http.HandlerFunc {
 		}
 
 		var req struct {
-			Name        string          `json:"name"`
-			Type        string          `json:"type"`
-			Description string          `json:"description"`
-			Schedule    json.RawMessage `json:"schedule"`
-			Config      json.RawMessage `json:"config"`
+			Name         string          `json:"name"`
+			Description  string          `json:"description"`
+			Schedule     json.RawMessage `json:"schedule"`
+			Config       json.RawMessage `json:"config"`
+			ConfigSchema json.RawMessage `json:"configSchema"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
@@ -2048,32 +2121,31 @@ func CreateLifeRoutine(db *sql.DB) http.HandlerFunc {
 			http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
 			return
 		}
-		req.Type = strings.TrimSpace(req.Type)
-		if req.Type == "" {
-			http.Error(w, `{"error":"type is required"}`, http.StatusBadRequest)
-			return
-		}
 		if len(req.Schedule) == 0 {
 			req.Schedule = json.RawMessage(`{}`)
 		}
 		if len(req.Config) == 0 {
 			req.Config = json.RawMessage(`{}`)
 		}
+		if len(req.ConfigSchema) == 0 {
+			req.ConfigSchema = json.RawMessage(`{}`)
+		}
 
 		id := uuid.NewString()
 		const q = `
-			INSERT INTO life_routines (id, user_id, name, type, description, schedule, config)
+			INSERT INTO life_routines (id, user_id, name, description, schedule, config, config_schema)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING id, user_id, name, type, description, schedule, config, active, created_at, updated_at`
+			RETURNING id, user_id, name, description, schedule, config, config_schema, active, created_at, updated_at`
 
 		var rec lifeRoutineRecord
-		var schedule, config []byte
+		var schedule, config, configSchema []byte
 		var createdAt, updatedAt time.Time
 		if err := db.QueryRowContext(r.Context(), q,
-			id, userID, req.Name, req.Type, req.Description, []byte(req.Schedule), []byte(req.Config),
+			id, userID, req.Name, req.Description,
+			string(req.Schedule), string(req.Config), string(req.ConfigSchema),
 		).Scan(
-			&rec.ID, &rec.UserID, &rec.Name, &rec.Type, &rec.Description,
-			&schedule, &config, &rec.Active, &createdAt, &updatedAt,
+			&rec.ID, &rec.UserID, &rec.Name, &rec.Description,
+			&schedule, &config, &configSchema, &rec.Active, &createdAt, &updatedAt,
 		); err != nil {
 			log.Printf("life: create routine for %s: %v", userID, err)
 			http.Error(w, `{"error":"failed to create routine"}`, http.StatusInternalServerError)
@@ -2081,6 +2153,7 @@ func CreateLifeRoutine(db *sql.DB) http.HandlerFunc {
 		}
 		rec.Schedule = json.RawMessage(schedule)
 		rec.Config = json.RawMessage(config)
+		rec.ConfigSchema = json.RawMessage(configSchema)
 		rec.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		rec.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
 
@@ -2104,11 +2177,12 @@ func UpdateLifeRoutine(db *sql.DB) http.HandlerFunc {
 		routineID := chi.URLParam(r, "id")
 
 		var req struct {
-			Name        *string         `json:"name"`
-			Description *string         `json:"description"`
-			Schedule    json.RawMessage `json:"schedule"`
-			Config      json.RawMessage `json:"config"`
-			Active      *bool           `json:"active"`
+			Name         *string         `json:"name"`
+			Description  *string         `json:"description"`
+			Schedule     json.RawMessage `json:"schedule"`
+			Config       json.RawMessage `json:"config"`
+			ConfigSchema json.RawMessage `json:"configSchema"`
+			Active       *bool           `json:"active"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
@@ -2117,32 +2191,41 @@ func UpdateLifeRoutine(db *sql.DB) http.HandlerFunc {
 
 		const q = `
 			UPDATE life_routines
-			SET name        = COALESCE($1, name),
-			    description = COALESCE($2, description),
-			    schedule    = CASE WHEN $3::jsonb IS NOT NULL THEN $3::jsonb ELSE schedule END,
-			    config      = CASE WHEN $4::jsonb IS NOT NULL THEN $4::jsonb ELSE config END,
-			    active      = COALESCE($5, active),
-			    updated_at  = NOW()
-			WHERE id = $6 AND user_id = $7
-			RETURNING id, user_id, name, type, description, schedule, config, active, created_at, updated_at`
+			SET name          = COALESCE($1, name),
+			    description   = COALESCE($2, description),
+			    schedule      = CASE WHEN $3::jsonb IS NOT NULL THEN $3::jsonb ELSE schedule END,
+			    config        = CASE WHEN $4::jsonb IS NOT NULL THEN $4::jsonb ELSE config END,
+			    config_schema = CASE WHEN $5::jsonb IS NOT NULL THEN $5::jsonb ELSE config_schema END,
+			    active        = COALESCE($6, active),
+			    updated_at    = NOW()
+			WHERE id = $7 AND user_id = $8
+			RETURNING id, user_id, name, description, schedule, config, config_schema, active, created_at, updated_at`
 
-		var scheduleParam, configParam interface{}
-		if len(req.Schedule) > 0 {
-			scheduleParam = []byte(req.Schedule)
+		// Pass as *string so the pq driver serialises as text (not bytea).
+		// A nil pointer → SQL NULL → the CASE keeps the existing column value.
+		var scheduleParam, configParam, schemaParam *string
+		if len(req.Schedule) > 0 && !bytes.Equal(req.Schedule, []byte("null")) {
+			s := string(req.Schedule)
+			scheduleParam = &s
 		}
-		if len(req.Config) > 0 {
-			configParam = []byte(req.Config)
+		if len(req.Config) > 0 && !bytes.Equal(req.Config, []byte("null")) {
+			s := string(req.Config)
+			configParam = &s
+		}
+		if len(req.ConfigSchema) > 0 && !bytes.Equal(req.ConfigSchema, []byte("null")) {
+			s := string(req.ConfigSchema)
+			schemaParam = &s
 		}
 
 		var rec lifeRoutineRecord
-		var schedule, config []byte
+		var schedule, config, configSchema []byte
 		var createdAt, updatedAt time.Time
 		if err := db.QueryRowContext(r.Context(), q,
-			req.Name, req.Description, scheduleParam, configParam, req.Active,
+			req.Name, req.Description, scheduleParam, configParam, schemaParam, req.Active,
 			routineID, userID,
 		).Scan(
-			&rec.ID, &rec.UserID, &rec.Name, &rec.Type, &rec.Description,
-			&schedule, &config, &rec.Active, &createdAt, &updatedAt,
+			&rec.ID, &rec.UserID, &rec.Name, &rec.Description,
+			&schedule, &config, &configSchema, &rec.Active, &createdAt, &updatedAt,
 		); err != nil {
 			if err == sql.ErrNoRows {
 				http.Error(w, `{"error":"routine not found"}`, http.StatusNotFound)
@@ -2154,6 +2237,7 @@ func UpdateLifeRoutine(db *sql.DB) http.HandlerFunc {
 		}
 		rec.Schedule = json.RawMessage(schedule)
 		rec.Config = json.RawMessage(config)
+		rec.ConfigSchema = json.RawMessage(configSchema)
 		rec.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		rec.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
 

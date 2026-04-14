@@ -10,703 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/n1rna/1tt/api/internal/health"
 	"github.com/tmc/langchaingo/llms"
 )
 
-// toolDefs returns the full list of tool definitions the agent can call.
-func toolDefs() []llms.Tool {
-	return []llms.Tool{
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "create_actionable",
-				Description: "Create an actionable item that surfaces to the user for a decision or acknowledgement.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"type": map[string]any{
-							"type":        "string",
-							"enum":        []string{"confirm", "choose", "input", "info"},
-							"description": "confirm = yes/no; choose = pick from options; input = free-text response; info = read-only notice",
-						},
-						"title": map[string]any{
-							"type":        "string",
-							"description": "Short headline (max ~80 chars)",
-						},
-						"description": map[string]any{
-							"type":        "string",
-							"description": "Explanation shown to the user",
-						},
-						"template": map[string]any{
-							"type":        "string",
-							"enum":        []string{"daily_plan", "daily_review", "routine_check", "meal_choice", "schedule_pick", "reminder", "preference", "task_roundup", "streak", "suggestion"},
-							"description": "Optional visual template for rich display",
-						},
-						"data": map[string]any{
-							"type":        "object",
-							"description": "Optional structured data for the template",
-						},
-						"options": map[string]any{
-							"type":        "array",
-							"description": "Required for type=choose. List of choices.",
-							"items": map[string]any{
-								"type": "object",
-								"properties": map[string]any{
-									"id":     map[string]any{"type": "string"},
-									"label":  map[string]any{"type": "string"},
-									"detail": map[string]any{"type": "string"},
-								},
-								"required": []string{"id", "label"},
-							},
-						},
-						"due_at": map[string]any{
-							"type":        "string",
-							"description": "Optional ISO-8601 deadline",
-						},
-						"action_type": map[string]any{
-							"type":        "string",
-							"enum":        []string{"create_routine", "create_memory", "create_calendar_event", "delete_calendar_event", "create_task", "none"},
-							"description": "Deferred action to execute when the user confirms.",
-						},
-						"action_payload": map[string]any{
-							"type":        "object",
-							"description": "Data for the deferred action.",
-						},
-					},
-					"required": []string{"type", "title"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "remember",
-				Description: "Store a new fact, preference, instruction, habit, allergy, or injury about the user for future context.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"content": map[string]any{
-							"type":        "string",
-							"description": "The fact or preference to remember",
-						},
-						"category": map[string]any{
-							"type":        "string",
-							"enum":        []string{"preference", "instruction", "fact", "habit", "allergy", "injury"},
-							"description": "Category for organising the memory",
-						},
-					},
-					"required": []string{"content"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "forget",
-				Description: "Remove a memory that is no longer accurate or relevant.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"memory_id": map[string]any{
-							"type":        "string",
-							"description": "The ID of the memory to delete (soft-delete)",
-						},
-					},
-					"required": []string{"memory_id"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "create_routine",
-				Description: "Create a new recurring routine. Only use when you have HIGH confidence the user wants this tracked. For medium confidence, create a confirm actionable instead.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"name": map[string]any{
-							"type":        "string",
-							"description": "Human-readable name (e.g. 'Morning Gym', 'Call Family', 'Evening Reading')",
-						},
-						"type": map[string]any{
-							"type":        "string",
-							"enum":        []string{"call_loved_ones", "gym", "reading", "morning_routine", "evening_routine", "weekly_review", "habit_tracker", "custom"},
-							"description": "Routine category",
-						},
-						"description": map[string]any{
-							"type":        "string",
-							"description": "What this routine involves",
-						},
-						"schedule": map[string]any{
-							"type":        "object",
-							"description": `When the routine occurs. Format: {"frequency": "daily"|"weekly"|"every_n_days", "interval": 2, "days": [1,3,5], "time": "09:00"}. days: 0=Sun..6=Sat.`,
-							"properties": map[string]any{
-								"frequency": map[string]any{"type": "string", "enum": []string{"daily", "weekly", "every_n_days"}},
-								"interval":  map[string]any{"type": "integer", "description": "For every_n_days: repeat every N days"},
-								"days":      map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "For weekly: which days (0=Sun..6=Sat)"},
-								"time":      map[string]any{"type": "string", "description": "Preferred time in HH:MM format"},
-							},
-						},
-						"config": map[string]any{
-							"type":        "object",
-							"description": `Type-specific data. Examples: call_loved_ones: {"contacts":[{"name":"Mom","frequency":"every_other_day"}]}; gym: {"variations":[{"day":"monday","workout":"legs"}]}; reading: {"books":[{"title":"...","status":"reading"}]}`,
-						},
-					},
-					"required": []string{"name", "type"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "update_routine",
-				Description: "Update an existing routine. Use this instead of creating a new one when the user wants to modify a routine. Call list_routines first to get the routine ID.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"routine_id": map[string]any{
-							"type":        "string",
-							"description": "ID of the routine to update",
-						},
-						"name": map[string]any{
-							"type":        "string",
-							"description": "New name (optional, only if changing)",
-						},
-						"description": map[string]any{
-							"type":        "string",
-							"description": "New description (optional)",
-						},
-						"schedule": map[string]any{
-							"type":        "object",
-							"description": "New schedule (optional, replaces existing)",
-						},
-						"config": map[string]any{
-							"type":        "object",
-							"description": "New config (optional, replaces existing)",
-						},
-						"active": map[string]any{
-							"type":        "boolean",
-							"description": "Set to false to deactivate the routine",
-						},
-					},
-					"required": []string{"routine_id"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "delete_routine",
-				Description: "Deactivate (soft-delete) a routine. Call list_routines first to get the routine ID.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"routine_id": map[string]any{
-							"type":        "string",
-							"description": "ID of the routine to delete",
-						},
-					},
-					"required": []string{"routine_id"},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "list_routines",
-				Description: "Retrieve the user's active routines with their IDs. Always call this before updating or deleting a routine.",
-				Parameters: map[string]any{
-					"type":       "object",
-					"properties": map[string]any{},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "list_actionables",
-				Description: "Retrieve the user's actionables, optionally filtered by status.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"status": map[string]any{
-							"type":        "string",
-							"enum":        []string{"pending", "confirmed", "dismissed", "snoozed"},
-							"description": "Filter by status. Defaults to pending.",
-						},
-					},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "get_calendar_events",
-				Description: "Fetch upcoming events from the user's connected Google Calendar.",
-				Parameters: map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"days_ahead": map[string]any{
-							"type":        "integer",
-							"description": "How many days ahead to fetch events. Defaults to 7.",
-						},
-					},
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: &llms.FunctionDefinition{
-				Name:        "create_calendar_event",
-				Description: "Create a new event on the user's Google Calendar.",
-				Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"summary": map[string]any{
-						"type":        "string",
-						"description": "Event title",
-					},
-					"start": map[string]any{
-						"type":        "string",
-						"description": "Start time in RFC3339 format (e.g. 2026-03-24T09:00:00Z)",
-					},
-					"end": map[string]any{
-						"type":        "string",
-						"description": "End time in RFC3339 format",
-					},
-					"description": map[string]any{
-						"type":        "string",
-						"description": "Optional event description",
-					},
-					"location": map[string]any{
-						"type":        "string",
-						"description": "Optional event location",
-					},
-					"routine_id": map[string]any{
-						"type":        "string",
-						"description": "Optional: link this event to a routine by its ID",
-					},
-					"recurrence": map[string]any{
-						"type":        "array",
-						"description": `Optional: RRULE strings for recurring events, e.g. ["RRULE:FREQ=WEEKLY;BYDAY=MO"]`,
-						"items":       map[string]any{"type": "string"},
-					},
-				},
-				"required": []string{"summary", "start", "end"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "link_event_to_routine",
-			Description: "Link an existing Google Calendar event to a routine. Use when a calendar event corresponds to a routine.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"event_id":   map[string]any{"type": "string", "description": "Google Calendar event ID"},
-					"routine_id": map[string]any{"type": "string", "description": "Routine ID to link to"},
-				},
-				"required": []string{"event_id", "routine_id"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "update_calendar_event",
-			Description: "Update an existing event on the user's Google Calendar. Call get_calendar_events first to get event IDs.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"event_id":    map[string]any{"type": "string", "description": "The event ID to update"},
-					"summary":     map[string]any{"type": "string", "description": "New title (optional)"},
-					"start":       map[string]any{"type": "string", "description": "New start time RFC3339 (optional)"},
-					"end":         map[string]any{"type": "string", "description": "New end time RFC3339 (optional)"},
-					"description": map[string]any{"type": "string", "description": "New description (optional)"},
-					"location":    map[string]any{"type": "string", "description": "New location (optional)"},
-				},
-				"required": []string{"event_id"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "delete_calendar_event",
-			Description: "Delete an event from the user's Google Calendar. Call get_calendar_events first to get event IDs.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"event_id": map[string]any{"type": "string", "description": "The event ID to delete"},
-				},
-				"required": []string{"event_id"},
-			},
-		},
-	},
-	// ── Google Tasks ──────────────────────────────────────────────────────
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "list_tasks",
-			Description: "List tasks from the user's Google Tasks. Returns pending tasks by default.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"list_id": map[string]any{
-						"type":        "string",
-						"description": "Task list ID. Omit to use the default list.",
-					},
-					"show_completed": map[string]any{
-						"type":        "boolean",
-						"description": "Include completed tasks. Defaults to false.",
-					},
-				},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "create_task",
-			Description: "Create a new task in Google Tasks.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"title":   map[string]any{"type": "string", "description": "Task title"},
-					"notes":   map[string]any{"type": "string", "description": "Optional notes"},
-					"due":     map[string]any{"type": "string", "description": "Due date in YYYY-MM-DD format"},
-					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
-				},
-				"required": []string{"title"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "complete_task",
-			Description: "Mark a Google Task as completed.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"task_id": map[string]any{"type": "string", "description": "The task ID"},
-					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
-				},
-				"required": []string{"task_id"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "update_task",
-			Description: "Update a Google Task's title, notes, due date, or status.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"task_id": map[string]any{"type": "string", "description": "The task ID"},
-					"title":   map[string]any{"type": "string", "description": "New title"},
-					"notes":   map[string]any{"type": "string", "description": "New notes"},
-					"due":     map[string]any{"type": "string", "description": "Due date YYYY-MM-DD"},
-					"status":  map[string]any{"type": "string", "enum": []string{"needsAction", "completed"}},
-					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
-				},
-				"required": []string{"task_id"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "delete_task",
-			Description: "Permanently delete a Google Task.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"task_id": map[string]any{"type": "string", "description": "The task ID"},
-					"list_id": map[string]any{"type": "string", "description": "Task list ID. Omit for default."},
-				},
-				"required": []string{"task_id"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "create_task_list",
-			Description: "Create a new Google Tasks list.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"title": map[string]any{"type": "string", "description": "Name of the new task list"},
-				},
-				"required": []string{"title"},
-			},
-		},
-	},
-	// ── Health tools ──────────────────────────────────────────────────────
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "update_health_profile",
-			Description: "Update user's health profile — body stats, diet, fitness level, equipment, limitations, preferences.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"weight_kg":              map[string]any{"type": "number"},
-					"height_cm":              map[string]any{"type": "number"},
-					"age":                    map[string]any{"type": "integer"},
-					"gender":                 map[string]any{"type": "string", "enum": []string{"male", "female"}},
-					"activity_level":         map[string]any{"type": "string", "enum": []string{"sedentary", "light", "moderate", "active", "very_active"}},
-					"diet_type":              map[string]any{"type": "string", "enum": []string{"balanced", "keto", "low_carb", "high_protein", "mediterranean", "paleo", "vegan"}},
-					"diet_goal":              map[string]any{"type": "string", "enum": []string{"lose", "maintain", "gain"}},
-					"goal_weight_kg":         map[string]any{"type": "number"},
-					"dietary_restrictions":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-					"fitness_level":          map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
-					"fitness_goal":           map[string]any{"type": "string", "enum": []string{"strength", "hypertrophy", "endurance", "weight_loss", "general_fitness"}},
-					"available_equipment":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-					"physical_limitations":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-					"workout_likes":          map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-					"workout_dislikes":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-					"preferred_duration_min": map[string]any{"type": "integer"},
-					"days_per_week":          map[string]any{"type": "integer"},
-				},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "log_weight",
-			Description: "Record a weight measurement. Also updates the profile's current weight.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"weight_kg": map[string]any{"type": "number"},
-					"note":      map[string]any{"type": "string"},
-					"date":      map[string]any{"type": "string", "description": "YYYY-MM-DD, defaults to today"},
-				},
-				"required": []string{"weight_kg"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "generate_meal_plan",
-			Description: "Generate a structured meal plan based on the user's profile and preferences.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"plan_type": map[string]any{"type": "string", "enum": []string{"daily", "weekly"}},
-					"title":     map[string]any{"type": "string"},
-					"meals": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"day":       map[string]any{"type": "string"},
-								"meal_type": map[string]any{"type": "string", "enum": []string{"breakfast", "lunch", "dinner", "snack"}},
-								"name":      map[string]any{"type": "string"},
-								"calories":  map[string]any{"type": "integer"},
-								"protein_g": map[string]any{"type": "integer"},
-								"carbs_g":   map[string]any{"type": "integer"},
-								"fat_g":     map[string]any{"type": "integer"},
-							},
-							"required": []string{"meal_type", "name", "calories"},
-						},
-					},
-				},
-				"required": []string{"plan_type", "title", "meals"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "create_session",
-			Description: "Create a new workout session with exercises.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"title":                map[string]any{"type": "string"},
-					"description":          map[string]any{"type": "string"},
-					"status":               map[string]any{"type": "string", "enum": []string{"active", "archived"}, "description": "Defaults to 'active'. Use 'archived' only if the user explicitly asks for an inactive template."},
-					"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-					"estimated_duration":   map[string]any{"type": "integer"},
-					"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
-					"exercises": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"exercise_name":  map[string]any{"type": "string"},
-								"sets":           map[string]any{"type": "integer"},
-								"reps":           map[string]any{"type": "string"},
-								"weight":         map[string]any{"type": "string"},
-								"rest_seconds":   map[string]any{"type": "integer"},
-								"notes":          map[string]any{"type": "string"},
-								"superset_group": map[string]any{"type": "string"},
-							},
-							"required": []string{"exercise_name"},
-						},
-					},
-				},
-				"required": []string{"title", "exercises"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "update_session",
-			Description: "Update a workout session's metadata or status.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"session_id":           map[string]any{"type": "string"},
-					"title":                map[string]any{"type": "string"},
-					"description":          map[string]any{"type": "string"},
-					"status":               map[string]any{"type": "string", "enum": []string{"active", "archived"}, "description": "'active' or 'archived' (inactive). Drafts are no longer supported."},
-					"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-					"estimated_duration":   map[string]any{"type": "integer"},
-					"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
-				},
-				"required": []string{"session_id"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "add_exercise_to_session",
-			Description: "Add exercises to an existing workout session.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"session_id": map[string]any{"type": "string"},
-					"exercises": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type": "object",
-							"properties": map[string]any{
-								"exercise_name":  map[string]any{"type": "string"},
-								"sets":           map[string]any{"type": "integer"},
-								"reps":           map[string]any{"type": "string"},
-								"weight":         map[string]any{"type": "string"},
-								"rest_seconds":   map[string]any{"type": "integer"},
-								"notes":          map[string]any{"type": "string"},
-								"superset_group": map[string]any{"type": "string"},
-							},
-							"required": []string{"exercise_name"},
-						},
-					},
-				},
-				"required": []string{"session_id", "exercises"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "remove_exercise_from_session",
-			Description: "Remove an exercise from a session by ID.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"session_id":  map[string]any{"type": "string"},
-					"exercise_id": map[string]any{"type": "string"},
-				},
-				"required": []string{"session_id", "exercise_id"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "complete_onboarding",
-			Description: "Mark the user's health onboarding as complete. Call ONLY after collecting basic profile info AND the user has confirmed they are ready to proceed.",
-			Parameters: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
-		},
-	},
-	// ── Cross-domain fetch tools ───────────────────────────────────────────
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "get_health_summary",
-			Description: "Fetch the user's health profile, recent weight entries, nutrition stats, and active workout sessions.",
-			Parameters: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "get_life_summary",
-			Description: "Fetch the user's upcoming calendar events, active routines, and pending actionables count.",
-			Parameters: map[string]any{
-				"type":       "object",
-				"properties": map[string]any{},
-			},
-		},
-	},
-	// ── Marketplace tools ─────────────────────────────────────────────────
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "search_marketplace",
-			Description: "Search the marketplace for published routines, gym sessions, or meal plans shared by the community.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"kind": map[string]any{
-						"type":        "string",
-						"enum":        []string{"routine", "gym_session", "meal_plan", "any"},
-						"description": "Type of item to search for. Use 'any' to search all kinds.",
-					},
-					"query": map[string]any{
-						"type":        "string",
-						"description": "Full-text search query (keywords, goals, muscle groups, etc.)",
-					},
-					"limit": map[string]any{
-						"type":        "integer",
-						"description": "Maximum number of results to return (default 5, max 20)",
-					},
-				},
-				"required": []string{"kind", "query"},
-			},
-		},
-	},
-	{
-		Type: "function",
-		Function: &llms.FunctionDefinition{
-			Name:        "fork_marketplace_item",
-			Description: "Fork a marketplace item, creating a personal copy of the routine, gym session, or meal plan under the user's account.",
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"item_id": map[string]any{
-						"type":        "string",
-						"description": "The marketplace item ID to fork",
-					},
-					"version": map[string]any{
-						"type":        "integer",
-						"description": "Optional specific version number to fork. Defaults to the current version.",
-					},
-				},
-				"required": []string{"item_id"},
-			},
-		},
-	},
-	}
-}
 
 // toolsRequiringApproval are tools that create/modify/delete resources.
 // When autoApprove is false, calls to these tools are intercepted and
@@ -766,11 +74,11 @@ func toolActionTitle(toolName string, args map[string]any) string {
 	}
 }
 
-// executeTool dispatches a single tool call to the appropriate DB operation and
+// ExecuteTool dispatches a single tool call to the appropriate DB operation and
 // returns a JSON string result (always valid JSON).
 // When autoApprove is false, write operations are intercepted and converted to
 // confirm-type actionables so the user must approve them.
-func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall) string {
+func ExecuteTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall) string {
 	var args map[string]any
 	if err := json.Unmarshal([]byte(call.FunctionCall.Arguments), &args); err != nil {
 		return jsonError("invalid arguments: " + err.Error())
@@ -852,6 +160,12 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolGetHealthSummary(ctx, db, userID)
 	case "get_life_summary":
 		return toolGetLifeSummary(ctx, db, gcalClient, userID)
+	case "dismiss_actionables":
+		return toolDismissActionables(ctx, db, userID, args)
+	// ── Frontend-only form draft (pure echo, no side effects) ──
+	case "draft_form":
+		out, _ := json.Marshal(args)
+		return string(out)
 	// ── Marketplace tools ──
 	case "search_marketplace":
 		return toolSearchMarketplace(ctx, db, args)
@@ -863,6 +177,55 @@ func executeTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 }
 
 // ----- individual tool implementations -----
+
+func toolDismissActionables(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	ids := []string{}
+	if raw, ok := args["actionable_ids"].([]any); ok {
+		for _, v := range raw {
+			if s, ok := v.(string); ok && s != "" {
+				ids = append(ids, s)
+			}
+		}
+	}
+	allPending, _ := args["all_pending"].(bool)
+	if len(ids) == 0 && !allPending {
+		return jsonError("provide actionable_ids or set all_pending=true")
+	}
+
+	var dismissed int64
+	if allPending {
+		result, err := db.ExecContext(ctx,
+			`UPDATE life_actionables
+			 SET status = 'dismissed', response = '{"action":"dismiss","bulk":true,"source":"agent"}', resolved_at = NOW()
+			 WHERE user_id = $1 AND status = 'pending'`,
+			userID,
+		)
+		if err != nil {
+			log.Printf("life: agent bulk dismiss all for %s: %v", userID, err)
+			return jsonError("failed to dismiss actionables")
+		}
+		n, _ := result.RowsAffected()
+		dismissed += n
+	}
+	if len(ids) > 0 {
+		result, err := db.ExecContext(ctx,
+			`UPDATE life_actionables
+			 SET status = 'dismissed', response = '{"action":"dismiss","bulk":true,"source":"agent"}', resolved_at = NOW()
+			 WHERE user_id = $1 AND id = ANY($2) AND status = 'pending'`,
+			userID, pq.Array(ids),
+		)
+		if err != nil {
+			log.Printf("life: agent bulk dismiss ids for %s: %v", userID, err)
+			return jsonError("failed to dismiss actionables")
+		}
+		n, _ := result.RowsAffected()
+		if n > dismissed {
+			dismissed = n
+		}
+	}
+
+	return fmt.Sprintf(`{"success":true,"dismissed":%d}`, dismissed)
+}
 
 func toolCreateActionable(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
 	log.Printf("life agent: toolCreateActionable called with args: %v", args)
@@ -992,10 +355,6 @@ func toolCreateRoutine(ctx context.Context, db *sql.DB, userID string, args map[
 	if name == "" {
 		return jsonError("name is required")
 	}
-	rType, _ := args["type"].(string)
-	if rType == "" {
-		return jsonError("type is required")
-	}
 	description, _ := args["description"].(string)
 
 	scheduleJSON := []byte("{}")
@@ -1016,15 +375,24 @@ func toolCreateRoutine(ctx context.Context, db *sql.DB, userID string, args map[
 		configJSON = b
 	}
 
+	schemaJSON := []byte("{}")
+	if sch, ok := args["config_schema"]; ok && sch != nil {
+		b, err := json.Marshal(sch)
+		if err != nil {
+			return jsonError("failed to encode config_schema: " + err.Error())
+		}
+		schemaJSON = b
+	}
+
 	id := uuid.NewString()
 	const q = `
-		INSERT INTO life_routines (id, user_id, name, type, description, schedule, config)
+		INSERT INTO life_routines (id, user_id, name, description, schedule, config, config_schema)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at`
 
 	var createdAt time.Time
 	if err := db.QueryRowContext(ctx, q,
-		id, userID, name, rType, description, string(scheduleJSON), string(configJSON),
+		id, userID, name, description, string(scheduleJSON), string(configJSON), string(schemaJSON),
 	).Scan(&id, &createdAt); err != nil {
 		return jsonError("failed to create routine: " + err.Error())
 	}
@@ -1032,7 +400,6 @@ func toolCreateRoutine(ctx context.Context, db *sql.DB, userID string, args map[
 	return jsonOK(map[string]any{
 		"routine_id":  id,
 		"name":        name,
-		"type":        rType,
 		"description": description,
 		"created_at":  createdAt.UTC().Format(time.RFC3339),
 	})
@@ -1085,6 +452,15 @@ func toolUpdateRoutine(ctx context.Context, db *sql.DB, userID string, args map[
 			return jsonError("failed to encode config: " + err.Error())
 		}
 		sets = append(sets, fmt.Sprintf("config = $%d", paramIdx))
+		params = append(params, string(b))
+		paramIdx++
+	}
+	if sch, ok := args["config_schema"]; ok && sch != nil {
+		b, err := json.Marshal(sch)
+		if err != nil {
+			return jsonError("failed to encode config_schema: " + err.Error())
+		}
+		sets = append(sets, fmt.Sprintf("config_schema = $%d", paramIdx))
 		params = append(params, string(b))
 		paramIdx++
 	}
@@ -1905,7 +1281,7 @@ func toolHealthCreateSession(ctx context.Context, db *sql.DB, userID, args strin
 	var params struct {
 		Title        string               `json:"title"`
 		Description  string               `json:"description"`
-		Status       string               `json:"status"`
+		Active       *bool                `json:"active"`
 		MuscleGroups []string             `json:"target_muscle_groups"`
 		Duration     int                  `json:"estimated_duration"`
 		Difficulty   string               `json:"difficulty_level"`
@@ -1917,8 +1293,9 @@ func toolHealthCreateSession(ctx context.Context, db *sql.DB, userID, args strin
 	if params.Title == "" {
 		return jsonError("title is required")
 	}
-	if params.Status == "" {
-		params.Status = "active"
+	active := true
+	if params.Active != nil {
+		active = *params.Active
 	}
 	if params.Difficulty == "" {
 		params.Difficulty = "intermediate"
@@ -1926,17 +1303,17 @@ func toolHealthCreateSession(ctx context.Context, db *sql.DB, userID, args strin
 
 	id := uuid.NewString()
 	if _, err := db.ExecContext(ctx,
-		`INSERT INTO health_sessions (id,user_id,title,description,status,target_muscle_groups,estimated_duration,difficulty_level)
+		`INSERT INTO health_sessions (id,user_id,title,description,active,target_muscle_groups,estimated_duration,difficulty_level)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-		id, userID, params.Title, params.Description, params.Status,
+		id, userID, params.Title, params.Description, active,
 		health.StringSliceToPgArray(params.MuscleGroups), params.Duration, params.Difficulty); err != nil {
 		log.Printf("life agent: create health session: %v", err)
 		return jsonError("failed to create session")
 	}
 
 	count := insertHealthExercises(ctx, db, id, userID, params.Exercises, 0)
-	return fmt.Sprintf(`{"success":true,"id":"%s","title":"%s","status":"%s","exercise_count":%d}`,
-		id, params.Title, params.Status, count)
+	return fmt.Sprintf(`{"success":true,"id":"%s","title":"%s","active":%t,"exercise_count":%d}`,
+		id, params.Title, active, count)
 }
 
 func toolHealthUpdateSession(ctx context.Context, db *sql.DB, userID, args string) string {
@@ -1944,7 +1321,7 @@ func toolHealthUpdateSession(ctx context.Context, db *sql.DB, userID, args strin
 		SessionID    string   `json:"session_id"`
 		Title        *string  `json:"title"`
 		Description  *string  `json:"description"`
-		Status       *string  `json:"status"`
+		Active       *bool    `json:"active"`
 		MuscleGroups []string `json:"target_muscle_groups"`
 		Duration     *int     `json:"estimated_duration"`
 		Difficulty   *string  `json:"difficulty_level"`
@@ -1971,8 +1348,8 @@ func toolHealthUpdateSession(ctx context.Context, db *sql.DB, userID, args strin
 	if params.Description != nil {
 		add("description", *params.Description)
 	}
-	if params.Status != nil {
-		add("status", *params.Status)
+	if params.Active != nil {
+		add("active", *params.Active)
 	}
 	if params.MuscleGroups != nil {
 		add("target_muscle_groups", health.StringSliceToPgArray(params.MuscleGroups))
@@ -2052,7 +1429,7 @@ func toolGetHealthSummary(ctx context.Context, db *sql.DB, userID string) string
 	type sessionRow struct {
 		ID            string   `json:"id"`
 		Title         string   `json:"title"`
-		Status        string   `json:"status"`
+		Active        bool     `json:"active"`
 		Difficulty    string   `json:"difficulty"`
 		MuscleGroups  []string `json:"muscle_groups"`
 		Duration      int      `json:"duration_min"`
@@ -2128,22 +1505,22 @@ func toolGetHealthSummary(ctx context.Context, db *sql.DB, userID string) string
 		result["recent_weight_entries"] = entries
 	}
 
-	// Load active/draft sessions with exercise counts.
+	// Load active sessions with exercise counts.
 	sessRows, err := db.QueryContext(ctx, `
-		SELECT s.id, s.title, s.status, s.difficulty_level,
+		SELECT s.id, s.title, s.active, s.difficulty_level,
 		       s.target_muscle_groups, s.estimated_duration,
 		       COUNT(e.id) AS exercise_count
 		FROM health_sessions s
 		LEFT JOIN health_session_exercises e ON e.session_id = s.id
-		WHERE s.user_id = $1 AND s.status IN ('active', 'draft')
-		GROUP BY s.id, s.title, s.status, s.difficulty_level, s.target_muscle_groups, s.estimated_duration
+		WHERE s.user_id = $1 AND s.active = TRUE
+		GROUP BY s.id, s.title, s.active, s.difficulty_level, s.target_muscle_groups, s.estimated_duration
 		ORDER BY s.updated_at DESC`, userID)
 	if err == nil {
 		sessions := []sessionRow{}
 		for sessRows.Next() {
 			var s sessionRow
 			var mgRaw sql.NullString
-			if sessRows.Scan(&s.ID, &s.Title, &s.Status, &s.Difficulty, &mgRaw, &s.Duration, &s.ExerciseCount) == nil {
+			if sessRows.Scan(&s.ID, &s.Title, &s.Active, &s.Difficulty, &mgRaw, &s.Duration, &s.ExerciseCount) == nil {
 				if mgRaw.Valid && mgRaw.String != "{}" && mgRaw.String != "" {
 					// Parse PostgreSQL array literal like {chest,shoulders}
 					raw := strings.Trim(mgRaw.String, "{}")
@@ -2169,18 +1546,17 @@ func toolGetLifeSummary(ctx context.Context, db *sql.DB, gcalClient *GCalClient,
 
 	// Active routines.
 	routineRows, err := db.QueryContext(ctx,
-		`SELECT id, name, type, description FROM life_routines WHERE user_id=$1 AND active=TRUE ORDER BY created_at DESC`, userID)
+		`SELECT id, name, description FROM life_routines WHERE user_id=$1 AND active=TRUE ORDER BY created_at DESC`, userID)
 	if err == nil {
 		type routineItem struct {
 			ID          string `json:"id"`
 			Name        string `json:"name"`
-			Type        string `json:"type"`
 			Description string `json:"description,omitempty"`
 		}
 		routines := []routineItem{}
 		for routineRows.Next() {
 			var r routineItem
-			if routineRows.Scan(&r.ID, &r.Name, &r.Type, &r.Description) == nil {
+			if routineRows.Scan(&r.ID, &r.Name, &r.Description) == nil {
 				routines = append(routines, r)
 			}
 		}

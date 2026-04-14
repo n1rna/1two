@@ -59,7 +59,7 @@ func CheckDueCycles(ctx context.Context, db *sql.DB) ([]DueCycle, error) {
 
 // RunUserCycle executes a single planning cycle for one user.
 // This is the "consumer" side — called per queue message.
-func RunUserCycle(ctx context.Context, db *sql.DB, agent *Agent, userID string, cycle PlanCycle) error {
+func RunUserCycle(ctx context.Context, db *sql.DB, agent ChatAgent, userID string, cycle PlanCycle) error {
 	// Load user data for prompt building.
 	user, err := loadSchedulerUser(ctx, db, userID)
 	if err != nil {
@@ -209,7 +209,7 @@ func ranToday(last *time.Time, today time.Time) bool {
 }
 
 // runCycleForUser executes a single planning cycle for one user.
-func runCycleForUser(ctx context.Context, db *sql.DB, agent *Agent, user SchedulerUser, cycle PlanCycle) error {
+func runCycleForUser(ctx context.Context, db *sql.DB, agent ChatAgent, user SchedulerUser, cycle PlanCycle) error {
 	userID := user.UserID
 
 	// ── 1. Find or create scheduler conversation ─────────────────────────
@@ -276,7 +276,7 @@ func runCycleForUser(ctx context.Context, db *sql.DB, agent *Agent, user Schedul
 
 	// ── 5. Load routines ─────────────────────────────────────────────────
 	routineRows, err := db.QueryContext(ctx,
-		`SELECT id, name, type, description FROM life_routines
+		`SELECT id, name, description FROM life_routines
 		 WHERE user_id = $1 AND active = TRUE
 		 ORDER BY created_at DESC`,
 		userID,
@@ -287,7 +287,7 @@ func runCycleForUser(ctx context.Context, db *sql.DB, agent *Agent, user Schedul
 	var routines []Routine
 	for routineRows.Next() {
 		var rt Routine
-		if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Type, &rt.Description); err != nil {
+		if err := routineRows.Scan(&rt.ID, &rt.Name, &rt.Description); err != nil {
 			routineRows.Close()
 			return fmt.Errorf("scan routine: %w", err)
 		}

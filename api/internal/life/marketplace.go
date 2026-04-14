@@ -113,13 +113,13 @@ func slugify(s string) string {
 func snapshotContent(ctx context.Context, db *sql.DB, kind, sourceID, userID string) (json.RawMessage, error) {
 	switch kind {
 	case "routine":
-		var name, rtype, description, schedule, config string
+		var name, description, schedule, config, configSchema string
 		var active bool
 		err := db.QueryRowContext(ctx,
-			`SELECT name, type, description, schedule::text, config::text, active
+			`SELECT name, description, schedule::text, config::text, config_schema::text, active
 			 FROM life_routines WHERE id = $1 AND user_id = $2`,
 			sourceID, userID,
-		).Scan(&name, &rtype, &description, &schedule, &config, &active)
+		).Scan(&name, &description, &schedule, &config, &configSchema, &active)
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("routine not found")
 		}
@@ -127,25 +127,25 @@ func snapshotContent(ctx context.Context, db *sql.DB, kind, sourceID, userID str
 			return nil, err
 		}
 		payload := map[string]any{
-			"name":        name,
-			"type":        rtype,
-			"description": description,
-			"schedule":    json.RawMessage(schedule),
-			"config":      json.RawMessage(config),
-			"active":      active,
+			"name":         name,
+			"description":  description,
+			"schedule":     json.RawMessage(schedule),
+			"config":       json.RawMessage(config),
+			"configSchema": json.RawMessage(configSchema),
+			"active":       active,
 		}
 		b, err := json.Marshal(payload)
 		return json.RawMessage(b), err
 
 	case "gym_session":
-		var title, description, status, difficulty string
+		var title, description, difficulty string
 		var muscleGroups []string
 		var estimatedDuration sql.NullInt64
 		err := db.QueryRowContext(ctx,
-			`SELECT title, description, status, target_muscle_groups, estimated_duration, difficulty_level
+			`SELECT title, description, target_muscle_groups, estimated_duration, difficulty_level
 			 FROM health_sessions WHERE id = $1 AND user_id = $2`,
 			sourceID, userID,
-		).Scan(&title, &description, &status, pq.Array(&muscleGroups), &estimatedDuration, &difficulty)
+		).Scan(&title, &description, pq.Array(&muscleGroups), &estimatedDuration, &difficulty)
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("gym session not found")
 		}
@@ -194,7 +194,6 @@ func snapshotContent(ctx context.Context, db *sql.DB, kind, sourceID, userID str
 		payload := map[string]any{
 			"title":                title,
 			"description":          description,
-			"status":               status,
 			"target_muscle_groups": muscleGroups,
 			"estimated_duration":   dur,
 			"difficulty_level":     difficulty,
@@ -608,20 +607,16 @@ func ForkItem(ctx context.Context, db *sql.DB, userID, itemID string, versionNum
 	switch kind {
 	case "routine":
 		var wrapper struct {
-			Name        string          `json:"name"`
-			Type        string          `json:"type"`
-			Description string          `json:"description"`
-			Schedule    json.RawMessage `json:"schedule"`
-			Config      json.RawMessage `json:"config"`
+			Name         string          `json:"name"`
+			Description  string          `json:"description"`
+			Schedule     json.RawMessage `json:"schedule"`
+			Config       json.RawMessage `json:"config"`
+			ConfigSchema json.RawMessage `json:"configSchema"`
 		}
 		_ = json.Unmarshal([]byte(rawContent), &wrapper)
 		name := wrapper.Name
 		if name == "" {
 			name = vTitle
-		}
-		rtype := wrapper.Type
-		if rtype == "" {
-			rtype = "custom"
 		}
 		schedule := string(wrapper.Schedule)
 		if schedule == "" || schedule == "null" {
@@ -631,17 +626,20 @@ func ForkItem(ctx context.Context, db *sql.DB, userID, itemID string, versionNum
 		if config == "" || config == "null" {
 			config = "{}"
 		}
+		schema := string(wrapper.ConfigSchema)
+		if schema == "" || schema == "null" {
+			schema = "{}"
+		}
 		_, err = db.ExecContext(ctx,
-			`INSERT INTO life_routines (id, user_id, name, type, description, schedule, config, forked_from_mp_id, forked_from_version)
+			`INSERT INTO life_routines (id, user_id, name, description, schedule, config, config_schema, forked_from_mp_id, forked_from_version)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			newID, userID, name, rtype, wrapper.Description, schedule, config, itemID, targetVersion,
+			newID, userID, name, wrapper.Description, schedule, config, schema, itemID, targetVersion,
 		)
 
 	case "gym_session":
 		type sessionContent struct {
 			Title        string `json:"title"`
 			Description  string `json:"description"`
-			Status       string `json:"status"`
 			Difficulty   string `json:"difficulty_level"`
 			Duration     *int   `json:"estimated_duration"`
 			MuscleGroups []string `json:"target_muscle_groups"`
@@ -660,17 +658,14 @@ func ForkItem(ctx context.Context, db *sql.DB, userID, itemID string, versionNum
 		if jsonErr := json.Unmarshal([]byte(rawContent), &sc); jsonErr != nil {
 			return "", "", fmt.Errorf("invalid session content: %w", jsonErr)
 		}
-		if sc.Status == "" {
-			sc.Status = "draft"
-		}
 		if sc.Difficulty == "" {
 			sc.Difficulty = "intermediate"
 		}
 		_, err = db.ExecContext(ctx,
 			`INSERT INTO health_sessions
-			  (id, user_id, title, description, status, target_muscle_groups, estimated_duration, difficulty_level, forked_from_mp_id, forked_from_version)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-			newID, userID, sc.Title, sc.Description, sc.Status,
+			  (id, user_id, title, description, target_muscle_groups, estimated_duration, difficulty_level, forked_from_mp_id, forked_from_version)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+			newID, userID, sc.Title, sc.Description,
 			pq.Array(sc.MuscleGroups), sc.Duration, sc.Difficulty,
 			itemID, targetVersion,
 		)

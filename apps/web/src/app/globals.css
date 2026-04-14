@@ -1,0 +1,446 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+
+:root {
+  --background: rgb(255, 249, 246);
+  --foreground: rgb(92, 75, 67);
+  --card: rgb(255, 255, 255);
+  --card-foreground: rgb(92, 75, 67);
+  --popover: rgb(255, 255, 255);
+  --popover-foreground: rgb(92, 75, 67);
+  --primary: rgb(255, 126, 165);
+  --primary-foreground: rgb(255, 255, 255);
+  --secondary: rgb(243, 235, 230);
+  --secondary-foreground: rgb(92, 75, 67);
+  --muted: rgb(250, 243, 240);
+  --muted-foreground: rgb(161, 142, 132);
+  --accent: rgb(255, 219, 228);
+  --accent-foreground: rgb(179, 62, 93);
+  --destructive: rgb(229, 72, 77);
+  --destructive-foreground: rgb(253, 252, 253);
+  --border: rgb(235, 224, 218);
+  --input: rgb(235, 224, 218);
+  --ring: rgb(255, 126, 165);
+  --chart-1: rgb(255, 126, 165);
+  --chart-2: rgb(179, 62, 93);
+  --chart-3: rgb(212, 165, 154);
+  --chart-4: rgb(244, 196, 194);
+  --chart-5: rgb(232, 213, 208);
+  --sidebar: rgb(252, 247, 245);
+  --sidebar-foreground: rgb(92, 75, 67);
+  --sidebar-primary: rgb(255, 126, 165);
+  --sidebar-primary-foreground: rgb(255, 255, 255);
+  --sidebar-accent: rgb(255, 219, 228);
+  --sidebar-accent-foreground: rgb(179, 62, 93);
+  --sidebar-border: rgb(240, 228, 222);
+  --sidebar-ring: rgb(255, 126, 165);
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: JetBrains Mono, monospace;
+  --radius: 0.5rem;
+  --shadow-x: 0px;
+  --shadow-y: 2px;
+  --shadow-blur: 10px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.03;
+  --shadow-color: 0 0% 0%;
+  --shadow-2xs: 0px 2px 10px 0px hsl(0 0% 0% / 0.01);
+  --shadow-xs: 0px 2px 10px 0px hsl(0 0% 0% / 0.01);
+  --shadow-sm: 0px 2px 10px 0px hsl(0 0% 0% / 0.03), 0px 1px 2px -1px hsl(0 0% 0% / 0.03);
+  --shadow: 0px 2px 10px 0px hsl(0 0% 0% / 0.03), 0px 1px 2px -1px hsl(0 0% 0% / 0.03);
+  --shadow-md: 0px 2px 10px 0px hsl(0 0% 0% / 0.03), 0px 2px 4px -1px hsl(0 0% 0% / 0.03);
+  --shadow-lg: 0px 2px 10px 0px hsl(0 0% 0% / 0.03), 0px 4px 6px -1px hsl(0 0% 0% / 0.03);
+  --shadow-xl: 0px 2px 10px 0px hsl(0 0% 0% / 0.03), 0px 8px 10px -1px hsl(0 0% 0% / 0.03);
+  --shadow-2xl: 0px 2px 10px 0px hsl(0 0% 0% / 0.07);
+  --tracking-normal: -0.01em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: rgb(26, 20, 18);
+  --foreground: rgb(234, 224, 220);
+  --card: rgb(36, 29, 26);
+  --card-foreground: rgb(234, 224, 220);
+  --popover: rgb(36, 29, 26);
+  --popover-foreground: rgb(234, 224, 220);
+  --primary: rgb(255, 126, 165);
+  --primary-foreground: rgb(26, 20, 18);
+  --secondary: rgb(45, 36, 33);
+  --secondary-foreground: rgb(234, 224, 220);
+  --muted: rgb(45, 36, 33);
+  --muted-foreground: rgb(161, 142, 132);
+  --accent: rgb(61, 37, 42);
+  --accent-foreground: rgb(255, 179, 198);
+  --destructive: rgb(229, 72, 77);
+  --destructive-foreground: rgb(253, 252, 253);
+  --border: rgb(51, 42, 38);
+  --input: rgb(51, 42, 38);
+  --ring: rgb(255, 126, 165);
+  --chart-1: rgb(255, 126, 165);
+  --chart-2: rgb(255, 179, 198);
+  --chart-3: rgb(212, 165, 154);
+  --chart-4: rgb(92, 75, 67);
+  --chart-5: rgb(51, 42, 38);
+  --sidebar: rgb(20, 15, 13);
+  --sidebar-foreground: rgb(234, 224, 220);
+  --sidebar-primary: rgb(255, 126, 165);
+  --sidebar-primary-foreground: rgb(26, 20, 18);
+  --sidebar-accent: rgb(61, 37, 42);
+  --sidebar-accent-foreground: rgb(255, 179, 198);
+  --sidebar-border: rgb(45, 36, 33);
+  --sidebar-ring: rgb(255, 126, 165);
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: JetBrains Mono, monospace;
+  --radius: 0.5rem;
+  --shadow-x: 0px;
+  --shadow-y: 4px;
+  --shadow-blur: 15px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.3;
+  --shadow-color: 0 0% 0%;
+  --shadow-2xs: 0px 4px 15px 0px hsl(0 0% 0% / 0.15);
+  --shadow-xs: 0px 4px 15px 0px hsl(0 0% 0% / 0.15);
+  --shadow-sm: 0px 4px 15px 0px hsl(0 0% 0% / 0.30), 0px 1px 2px -1px hsl(0 0% 0% / 0.30);
+  --shadow: 0px 4px 15px 0px hsl(0 0% 0% / 0.30), 0px 1px 2px -1px hsl(0 0% 0% / 0.30);
+  --shadow-md: 0px 4px 15px 0px hsl(0 0% 0% / 0.30), 0px 2px 4px -1px hsl(0 0% 0% / 0.30);
+  --shadow-lg: 0px 4px 15px 0px hsl(0 0% 0% / 0.30), 0px 4px 6px -1px hsl(0 0% 0% / 0.30);
+  --shadow-xl: 0px 4px 15px 0px hsl(0 0% 0% / 0.30), 0px 8px 10px -1px hsl(0 0% 0% / 0.30);
+  --shadow-2xl: 0px 4px 15px 0px hsl(0 0% 0% / 0.75);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+  --font-display: var(--font-display), Georgia, serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+/* ─── Kim agent surface (Atelier Terminal) ──────────────────────────────── */
+/* Scoped tokens used inside .kim-surface. Two variants — light (warm paper)
+   and dark (warm ink) — both preserving the amber wordmark + serif feel. */
+.kim-surface {
+  /* light-mode defaults (warm paper atelier) */
+  --kim-bg: rgb(250, 245, 237);
+  --kim-bg-raised: rgb(255, 251, 245);
+  --kim-bg-sunken: rgb(241, 233, 221);
+  --kim-border: rgb(220, 205, 184);
+  --kim-border-strong: rgb(188, 165, 132);
+  --kim-ink: rgb(48, 38, 28);
+  --kim-ink-dim: rgb(110, 92, 72);
+  --kim-ink-faint: rgb(172, 152, 128);
+  --kim-amber: rgb(176, 108, 32);
+  --kim-amber-soft: rgb(176 108 32 / 0.12);
+  --kim-amber-dim: rgb(212, 158, 92);
+  --kim-rose: rgb(190, 64, 72);
+  --kim-green: rgb(80, 124, 60);
+  color: var(--kim-ink);
+  background: var(--kim-bg);
+  font-family: var(--font-geist-sans), var(--font-sans);
+  background-image:
+    radial-gradient(
+      circle at 20% 0%,
+      rgb(212 158 92 / 0.22),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgb(188 165 132 / 0.3),
+      transparent 60%
+    );
+}
+
+.dark .kim-surface {
+  --kim-bg: rgb(22, 19, 17);
+  --kim-bg-raised: rgb(30, 26, 23);
+  --kim-bg-sunken: rgb(17, 15, 14);
+  --kim-border: rgb(54, 46, 40);
+  --kim-border-strong: rgb(84, 70, 58);
+  --kim-ink: rgb(238, 228, 214);
+  --kim-ink-dim: rgb(168, 156, 140);
+  --kim-ink-faint: rgb(110, 100, 88);
+  --kim-amber: rgb(232, 176, 92);
+  --kim-amber-soft: rgb(232 176 92 / 0.14);
+  --kim-amber-dim: rgb(168, 124, 58);
+  --kim-rose: rgb(232, 120, 130);
+  --kim-green: rgb(138, 186, 120);
+  background-image:
+    radial-gradient(
+      circle at 20% 0%,
+      rgb(62 44 28 / 0.35),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgb(40 30 24 / 0.5),
+      transparent 60%
+    );
+}
+.kim-surface .kim-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+.dark .kim-surface .kim-grain {
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+.kim-surface .kim-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0.005em;
+}
+.kim-surface .kim-mono {
+  font-family: var(--font-geist-mono), var(--font-mono), ui-monospace, monospace;
+  font-feature-settings: "liga" 0, "calt" 0;
+}
+.kim-surface ::selection {
+  background: var(--kim-amber);
+  color: var(--kim-bg);
+}
+.kim-surface .kim-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--kim-amber-dim),
+    var(--kim-amber),
+    var(--kim-amber-dim),
+    transparent
+  );
+  opacity: 0.35;
+}
+.kim-surface[data-streaming="true"] .kim-rail {
+  animation: kim-pulse 1.6s ease-in-out infinite;
+}
+@keyframes kim-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+@keyframes kim-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.kim-caret::after {
+  content: "▍";
+  color: var(--kim-amber);
+  margin-left: 2px;
+  animation: kim-blink 1s steps(1) infinite;
+}
+.kim-surface .kim-tool-card {
+  border: 1px solid var(--kim-border);
+  background: var(--kim-bg-raised);
+  position: relative;
+  overflow: hidden;
+}
+.kim-surface .kim-tool-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--kim-amber);
+}
+.kim-surface .kim-tool-card[data-status="error"]::before {
+  background: var(--kim-rose);
+}
+.kim-surface .kim-tool-card[data-status="running"]::before {
+  background: var(--kim-ink-faint);
+  animation: kim-pulse 1.2s ease-in-out infinite;
+}
+.kim-surface .kim-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 9999px;
+  border: 1px solid rgb(232 176 92 / 0.4);
+  background: rgb(232 176 92 / 0.1);
+  color: var(--kim-ink);
+  font-size: 11px;
+  line-height: 1;
+  font-family: var(--font-geist-sans), var(--font-sans);
+}
+.kim-surface .kim-chip:hover {
+  border-color: var(--kim-amber);
+  background: rgb(232 176 92 / 0.18);
+}
+/* Slash-command menu themed for Kim. Targets the popover rendered inside
+   any .kim-surface subtree and rewrites its visual language to match. */
+.kim-surface [class*="bg-popover"],
+.kim-surface [class*="bg-popover"] * {
+  /* NOTE: we can't just swap tokens; the popover uses literal bg-popover.
+     Instead we use a descendant-overriding rule below. */
+}
+.kim-surface .bg-popover {
+  background: var(--kim-bg-raised) !important;
+  border-color: var(--kim-border-strong) !important;
+  color: var(--kim-ink);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.35) !important;
+}
+.kim-surface .bg-popover button {
+  color: var(--kim-ink) !important;
+}
+.kim-surface .bg-popover button.bg-muted,
+.kim-surface .bg-popover button:hover {
+  background: var(--kim-amber-soft) !important;
+}
+.kim-surface .bg-popover .text-primary {
+  color: var(--kim-amber) !important;
+  font-family: var(--font-geist-mono), var(--font-mono), ui-monospace, monospace;
+}
+.kim-surface .bg-popover .text-foreground {
+  color: var(--kim-ink) !important;
+  font-family: var(--font-geist-sans), var(--font-sans);
+  letter-spacing: 0.01em;
+}
+.kim-surface .bg-popover .text-muted-foreground {
+  color: var(--kim-ink-dim) !important;
+}
+.kim-surface .bg-popover .border {
+  border-color: var(--kim-border) !important;
+}
+
+/* selection highlight on host pages */
+[data-selectable][data-selected="true"] {
+  outline: 2px solid rgb(232, 176, 92);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+[data-selectable] {
+  transition: outline-color 0.15s ease;
+}
+[data-selection-mode="true"] [data-selectable] {
+  cursor: pointer;
+}
+[data-selection-mode="true"] [data-selectable]:hover {
+  outline: 2px dashed rgb(232, 176, 92 / 0.5);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Theme toggle wave transition */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+

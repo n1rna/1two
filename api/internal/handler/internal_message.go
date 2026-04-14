@@ -19,7 +19,7 @@ type InternalMessage struct {
 
 // HandleInternalMessage is the single entry point for all internal worker messages.
 // It validates the secret, parses the message type, and dispatches accordingly.
-func HandleInternalMessage(cfg *config.Config, db *sql.DB, r2 *storage.R2Client, agent *life.Agent) http.HandlerFunc {
+func HandleInternalMessage(cfg *config.Config, db *sql.DB, r2 *storage.R2Client, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if cfg.InternalSecret == "" || r.Header.Get("X-Internal-Secret") != cfg.InternalSecret {
 			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
@@ -111,7 +111,7 @@ func handleSchedulerCheck(r *http.Request, w http.ResponseWriter, db *sql.DB) {
 }
 
 // handleSchedulerRun executes a single planning cycle for one user.
-func handleSchedulerRun(r *http.Request, w http.ResponseWriter, db *sql.DB, agent *life.Agent, data json.RawMessage) {
+func handleSchedulerRun(r *http.Request, w http.ResponseWriter, db *sql.DB, agent life.ChatAgent, data json.RawMessage) {
 	var payload struct {
 		UserID string         `json:"user_id"`
 		Cycle  life.PlanCycle `json:"cycle"`
@@ -159,7 +159,7 @@ func handleSummaryCheck(r *http.Request, w http.ResponseWriter, db *sql.DB) {
 }
 
 // handleSummaryGenerate generates a single day summary for one user.
-func handleSummaryGenerate(r *http.Request, w http.ResponseWriter, db *sql.DB, agent *life.Agent, data json.RawMessage) {
+func handleSummaryGenerate(r *http.Request, w http.ResponseWriter, db *sql.DB, agent life.ChatAgent, data json.RawMessage) {
 	var payload struct {
 		UserID string `json:"user_id"`
 		Date   string `json:"date"`
