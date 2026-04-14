@@ -70,7 +70,8 @@ Permanent documentation lives in [`docs/`](./docs):
 - [architecture.md](./docs/architecture.md) — monorepo layout, service topology
 - [kim-and-1tt.md](./docs/kim-and-1tt.md) — the split, URL layout, brand cues
 - [auth.md](./docs/auth.md) — shared users, two better-auth instances, cookies
-- [env-and-secrets.md](./docs/env-and-secrets.md) — `ee` CLI, three-tier secret model
+- [env-and-secrets.md](./docs/env-and-secrets.md) — three-tier secret model
+- [ee-cli.md](./docs/ee-cli.md) — the `ee` CLI, commands, and repo conventions
 - [development.md](./docs/development.md) — local setup, ports, troubleshooting
 - [migration-history.md](./docs/migration-history.md) — how the kim split happened
 

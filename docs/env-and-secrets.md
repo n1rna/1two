@@ -1,7 +1,8 @@
 # Env and secrets
 
 How environment variables are defined, where they live, and how to change
-one safely. The whole system runs on the [`ee`](https://ee.n1rna.net) CLI.
+one safely. The whole system runs on the [`ee`](https://ee.n1rna.net) CLI
+— if you need the command reference, read [ee-cli.md](./ee-cli.md) first.
 
 ## The three-tier model
 
