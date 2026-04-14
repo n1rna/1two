@@ -8,7 +8,7 @@ import {
   ArrowUpRight,
   Sparkles,
   Database,
-  Brain,
+  Shield,
   Terminal,
   Zap,
   Layers,
@@ -196,12 +196,6 @@ function Hero() {
           >
             Browse all tools
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-          <Link
-            href="/life"
-            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-6 py-3 text-[15px] font-medium text-foreground backdrop-blur transition-colors hover:border-border hover:bg-background"
-          >
-            Try the life planner
           </Link>
         </motion.div>
 
@@ -432,55 +426,6 @@ function RedisStudioVisual() {
   );
 }
 
-function LifeVisual() {
-  return (
-    <div className="relative">
-      <div className="absolute -inset-5 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/20 via-primary/0 to-primary/10 blur-2xl" />
-      <div className="overflow-hidden rounded-[18px] border border-border/70 bg-card/90 shadow-[0_20px_60px_-20px_rgba(179,62,93,0.25)]">
-        <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-2.5">
-          <div className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground/80">
-            <Brain className="h-3 w-3 text-primary" />
-            life · morning summary
-          </div>
-          <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/80">
-            tue apr 14
-          </span>
-        </div>
-        <div className="space-y-2 p-4">
-          {[
-            { time: "07:00–08:00", label: "Morning routine", tone: "muted" },
-            { time: "08:30–17:00", label: "Deep work · 4 meetings", tone: "primary" },
-            { time: "17:30–18:30", label: "Gym · push day", tone: "primary" },
-            { time: "19:00–20:00", label: "Dinner · 620 kcal", tone: "muted" },
-            { time: "22:30–07:00", label: "Sleep", tone: "muted" },
-          ].map((b, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-[12px]",
-                b.tone === "primary"
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-border/50 bg-background/60"
-              )}
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  b.tone === "primary" ? "bg-primary" : "bg-muted-foreground/40"
-                )}
-              />
-              <span className="font-mono text-[10px] text-muted-foreground">
-                {b.time}
-              </span>
-              <span className="font-medium text-foreground">{b.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Flagships section ───────────────────────────────────────────────────────
 
 function Flagships() {
@@ -516,18 +461,6 @@ function Flagships() {
           delay={0.1}
           reverse
         />
-
-        <FlagshipCard
-          icon={Brain}
-          eyebrow="Planning · AI"
-          title="Life Planner"
-          italic="+ Health"
-          description="One assistant for routines, calendar, tasks, weight, meals, and workouts. Talks to Google Calendar and Tasks, generates your morning summary, and takes action instead of describing it."
-          href="/life"
-          cta="Try the life planner"
-          visual={<LifeVisual />}
-          delay={0.15}
-        />
       </div>
     </Section>
   );
@@ -541,7 +474,7 @@ const CATEGORY_PILLS: { label: string; icon: LucideIcon }[] = [
   { label: "Encoders", icon: Terminal },
   { label: "Generators", icon: Sparkles },
   { label: "Converters", icon: Zap },
-  { label: "Crypto", icon: Brain },
+  { label: "Crypto", icon: Shield },
   { label: "Text tools", icon: Code2 },
   { label: "Web tools", icon: Layers },
 ];
@@ -618,12 +551,15 @@ function ManyMore() {
               Browse all tools
               <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
-            <Link
-              href="/life"
+            <a
+              href="https://kim1.ai"
+              target="_blank"
+              rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-6 py-3 text-[14px] font-medium text-foreground backdrop-blur transition-colors hover:border-border hover:bg-background"
             >
-              Or meet the life planner
-            </Link>
+              Or meet kim at kim1.ai
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </a>
           </div>
         </motion.div>
       </div>

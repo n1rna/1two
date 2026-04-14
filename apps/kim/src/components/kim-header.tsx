@@ -18,7 +18,7 @@ export function KimHeader() {
     >
       <div className="h-full px-4 flex items-center gap-4">
         <Link
-          href="/"
+          href="/today"
           className="flex items-baseline gap-1.5 group"
           aria-label="Kim home"
         >

@@ -46,7 +46,7 @@ export function PublicUserMenu() {
   return (
     <div ref={menuRef} className="flex items-center gap-2">
       <Link
-        href="/"
+        href="/today"
         className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-xs font-medium hover:bg-accent hover:border-foreground/20 transition-colors"
       >
         Go to Kim
@@ -90,7 +90,7 @@ export function PublicUserMenu() {
                 My published items
               </Link>
               <Link
-                href="/"
+                href="/today"
                 onClick={() => setOpen(false)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors sm:hidden"
               >

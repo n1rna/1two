@@ -31,10 +31,10 @@ interface NavItem {
 
 const PRIMARY_ITEMS: NavItem[] = [
   {
-    href: "/",
+    href: "/today",
     label: "Today",
     icon: Sun,
-    match: (p) => p === "/" || p === "/today",
+    match: (p) => p === "/today",
   },
   { href: "/actionables", label: "Inbox", icon: CheckSquare },
 ];
@@ -90,6 +90,11 @@ export function LifeNav() {
   const [expanded, setExpanded] = useState(currentIsSecondary);
 
   const isExtended = mode === "extended";
+
+  // Hidden during first-run onboarding to keep the user focused on the flow.
+  if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+    return null;
+  }
 
   return (
     <nav
