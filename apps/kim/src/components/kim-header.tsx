@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { UserMenu } from "@/components/layout/user-menu";
 
 /**
  * Minimal header for the Kim subdomain. Replaces the main 1tt.dev header
@@ -44,6 +45,7 @@ export function KimHeader() {
           <ArrowUpRight className="h-3 w-3" />
         </a>
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   );
