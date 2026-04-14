@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { listMarketplaceItems, type MarketplaceItem } from "@/lib/marketplace";
+import { listPublicMarketplaceItems, type MarketplaceItem } from "@/lib/marketplace";
 import { MarketplaceCard } from "./MarketplaceCard";
 
 const KIND_TABS: { value: string; label: string }[] = [
@@ -41,7 +41,7 @@ export function MarketplaceBrowser() {
     setLoading(true);
     setError(null);
     try {
-      const res = await listMarketplaceItems({
+      const res = await listPublicMarketplaceItems({
         q: q || undefined,
         kind: k || undefined,
         limit: 48,

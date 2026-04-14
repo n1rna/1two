@@ -157,7 +157,7 @@ export function MyMarketplaceItems() {
                 </span>
               </div>
               <Link
-                href={`/marketplace/${item.id}`}
+                href={`/m/${item.slug}`}
                 className="text-sm font-semibold hover:text-primary transition-colors block truncate"
               >
                 {item.title}

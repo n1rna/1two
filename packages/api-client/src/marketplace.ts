@@ -153,6 +153,27 @@ export async function getPublicMarketplaceItem(
   return res.json() as Promise<MarketplaceItem>;
 }
 
+export async function listPublicMarketplaceItems(params?: {
+  q?: string;
+  kind?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<MarketplaceListResponse> {
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set("q", params.q);
+  if (params?.kind) qs.set("kind", params.kind);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const query = qs.toString() ? `?${qs}` : "";
+  const res = await fetch(`/api/proxy/public/marketplace${query}`, {
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load marketplace (${res.status})`);
+  }
+  return res.json() as Promise<MarketplaceListResponse>;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export const KIND_LABELS: Record<MarketplaceKind, string> = {

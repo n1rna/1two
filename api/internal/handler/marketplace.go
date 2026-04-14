@@ -253,6 +253,34 @@ func ForkMarketplaceItem(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// ListPublicMarketplace handles GET /public/marketplace (no auth).
+// Returns the same list ListMarketplace returns — published items are public
+// by definition, so there's no user-specific filtering.
+func ListPublicMarketplace(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+		filter := life.MarketplaceFilter{
+			Kind:   r.URL.Query().Get("kind"),
+			Query:  r.URL.Query().Get("q"),
+			Limit:  limit,
+			Offset: offset,
+		}
+
+		items, err := life.ListMarketplace(r.Context(), db, filter)
+		if err != nil {
+			log.Printf("marketplace: public list: %v", err)
+			http.Error(w, `{"error":"failed to list marketplace"}`, http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}
+}
+
 // GetPublicMarketplaceItem handles GET /public/marketplace/{slug} (no auth).
 func GetPublicMarketplaceItem(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

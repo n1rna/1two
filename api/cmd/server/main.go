@@ -175,8 +175,9 @@ func main() {
 			r.Post("/life/webhooks/email", handler.EmailWebhook(cfg, db, lifeAgent))
 		}
 
-		// Marketplace — public item view (no auth required)
+		// Marketplace — public browse + item view (no auth required)
 		if db != nil {
+			r.Get("/public/marketplace", handler.ListPublicMarketplace(db))
 			r.Get("/public/marketplace/{slug}", handler.GetPublicMarketplaceItem(db))
 		}
 

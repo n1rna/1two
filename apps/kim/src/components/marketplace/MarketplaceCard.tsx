@@ -9,7 +9,7 @@ import { KIND_LABELS, KIND_COLORS } from "@/lib/marketplace";
 export function MarketplaceCard({ item }: { item: MarketplaceItem }) {
   return (
     <Link
-      href={`/marketplace/${item.id}`}
+      href={`/m/${item.slug}`}
       className="group flex flex-col gap-3 rounded-xl border bg-card p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors"
     >
       <div className="flex items-start justify-between gap-2">
