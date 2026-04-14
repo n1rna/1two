@@ -11,6 +11,7 @@ Permanent documentation for the 1tt monorepo. Start here.
 | [auth.md](./auth.md) | Shared users table + two better-auth instances, cookie domains, session forwarding through the API proxy |
 | [env-and-secrets.md](./env-and-secrets.md) | The three-tier secret model (local, CI, runtime), adding a new secret |
 | [ee-cli.md](./ee-cli.md) | The `ee` CLI — what it is, key commands, how we use it in this repo (read this if you're touching env vars) |
+| [kim-agent.md](./kim-agent.md) | Kim agent architecture — skills, tools, prompt composition, how to add a new skill |
 | [development.md](./development.md) | Local setup, `just` commands, ports, `lvh.me`, what to run for which workflow |
 | [migration-history.md](./migration-history.md) | The 5-stage monorepo split — frozen record of how we got here |
 
