@@ -30,22 +30,51 @@ The developer tools you actually need. Free, fast, no sign-up.
 - **Databases**: Neon (Postgres), Turso (SQLite), Upstash (Redis)
 - **Storage**: Cloudflare R2
 
+## Monorepo layout
+
+This repo is a bun workspace with two Next.js apps, one Go API, and shared
+packages.
+
+```
+apps/web       → 1tt.dev          — developer tools platform
+apps/kim       → kim1.ai          — personal life agent
+packages/      → shared TS libs (api-client, …)
+api/           → Go backend
+workers/       → Cloudflare Container + email inbound workers
+cli/           → 1tt CLI (Go)
+docs/          → architecture, auth, env, dev setup — read this first
+```
+
 ## Development
 
 ```bash
 # Install dependencies
 just install
 
-# Start frontend + backend
-just dev-all
+# Start everything (web + kim + api)
+just dev-everything
 
-# Or separately
-just dev    # Next.js dev server
-just api    # Go API server
+# Or individually
+just dev           # 1tt.dev web   (port 3000)
+just dev-kim       # kim1.ai       (port 3001)
+just api           # Go API        (port 8090)
 ```
+
+Use `http://lvh.me:3000` and `http://lvh.me:3001` in your browser, not
+`localhost` — see [docs/auth.md](./docs/auth.md) for why.
+
+## Docs
+
+Permanent documentation lives in [`docs/`](./docs):
+
+- [architecture.md](./docs/architecture.md) — monorepo layout, service topology
+- [kim-and-1tt.md](./docs/kim-and-1tt.md) — the split, URL layout, brand cues
+- [auth.md](./docs/auth.md) — shared users, two better-auth instances, cookies
+- [env-and-secrets.md](./docs/env-and-secrets.md) — `ee` CLI, three-tier secret model
+- [development.md](./docs/development.md) — local setup, ports, troubleshooting
+- [migration-history.md](./docs/migration-history.md) — how the kim split happened
 
 ## Links
 
-- **Website**: [1tt.dev](https://1tt.dev)
-- **Shop**: [1tt.dev/shop](https://1tt.dev/shop)
-- **Guides**: [1tt.dev/guides](https://1tt.dev/guides)
+- **1tt.dev** — [1tt.dev](https://1tt.dev) · [shop](https://1tt.dev/shop) · [guides](https://1tt.dev/guides)
+- **kim1.ai** — [kim1.ai](https://kim1.ai)

@@ -1,8 +1,13 @@
-# Kim1.ai monorepo split — staging doc
+# Migration history: kim1.ai monorepo split
 
-Living tracker for the monorepo restructure that splits the Kim life tool out
-of `1tt.dev` into its own deployment at `kim1.ai`. Each stage is resumable.
-Mark progress by editing the `Status:` lines.
+> **Frozen reference.** This doc tracks the one-time restructure that moved
+> kim out of 1tt.dev and into its own app. All 5 stages are complete — kim
+> now runs on kim1.ai with its own worker, auth, and OAuth apps. Kept as a
+> historical record of the decisions and the ordering. For current-state
+> info see [architecture.md](./architecture.md) and [kim-and-1tt.md](./kim-and-1tt.md).
+
+Living tracker for the monorepo restructure that split the kim life tool out
+of `1tt.dev` into its own deployment at `kim1.ai`. Each stage was resumable.
 
 ## Target layout
 
