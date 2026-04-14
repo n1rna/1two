@@ -3,6 +3,12 @@
 # dependencies
 /node_modules
 **/node_modules
+
+# claude code session state
+.claude/
+
+# generated
+apps/web/public/sitemap.xml
 /.pnp
 .pnp.*
 .yarn/*

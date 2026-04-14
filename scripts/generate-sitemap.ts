@@ -1,6 +1,6 @@
-import { tools, getSearchItems } from "../src/lib/tools/registry";
-import { guides } from "../src/lib/guides/registry";
-import { docs } from "../src/lib/docs/registry";
+import { tools, getSearchItems } from "../apps/web/src/lib/tools/registry";
+import { guides } from "../apps/web/src/lib/guides/registry";
+import { docs } from "../apps/web/src/lib/docs/registry";
 import { writeFileSync } from "fs";
 import { join } from "path";
 
@@ -55,5 +55,5 @@ ${urls
 </urlset>
 `;
 
-writeFileSync(join(import.meta.dirname, "../public/sitemap.xml"), xml);
+writeFileSync(join(import.meta.dirname, "../apps/web/public/sitemap.xml"), xml);
 console.log(`Sitemap generated with ${urls.length} URLs`);

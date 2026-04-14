@@ -13,9 +13,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "api:generate": "kubb generate",
-    "cf:build": "opennextjs-cloudflare build",
+    "cf:build": "ee apply production -c .ee.web -- opennextjs-cloudflare build",
     "cf:preview": "wrangler dev",
-    "cf:deploy": "opennextjs-cloudflare build && wrangler deploy"
+    "cf:deploy": "ee apply production -c .ee.web -- bash -c 'opennextjs-cloudflare build && wrangler deploy'"
   },
   "dependencies": {
     "@1tt/api-client": "workspace:*",
