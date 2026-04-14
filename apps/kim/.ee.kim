@@ -78,6 +78,12 @@
 			"type": "cloudflare",
 			"mode": "individual",
 			"worker": "kim1"
+		},
+		"github": {
+			"type": "github",
+			"mode": "bundled",
+			"repo": "n1rna/1tt",
+			"secret_name": "ENV_VARS_KIM"
 		}
 	}
 }
