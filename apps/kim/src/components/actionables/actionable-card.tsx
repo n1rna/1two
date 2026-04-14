@@ -65,7 +65,7 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
 };
 
 const TEMPLATE_META: Record<string, { label: string; icon: React.ReactNode }> = {
-  daily_plan: { label: "Daily Plan", icon: <Sun className="h-3.5 w-3.5 text-amber-500" /> },
+  daily_plan: { label: "Daily Plan", icon: <Sun className="h-3.5 w-3.5 text-teal-500" /> },
   daily_review: { label: "Daily Review", icon: <Pencil className="h-3.5 w-3.5 text-violet-500" /> },
   routine_check: { label: "Routine Check", icon: <Repeat className="h-3.5 w-3.5 text-blue-500" /> },
   meal_choice: { label: "Meal Choice", icon: <Utensils className="h-3.5 w-3.5 text-orange-500" /> },
@@ -196,7 +196,7 @@ function ActionableContent({ actionable }: { actionable: LifeActionable }) {
         {d.missed && d.missed.length > 0 && (
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <AlertCircle className="size-3 text-amber-500" />
+              <AlertCircle className="size-3 text-teal-500" />
               <span className="text-[11px] font-semibold text-foreground/80 uppercase tracking-wider">
                 Missed
               </span>
@@ -424,7 +424,7 @@ export function ActionableCard({
     <div
       className={cn(
         "rounded-lg border bg-card transition-all",
-        isDueSoon && !isOverdue && "border-amber-500/30",
+        isDueSoon && !isOverdue && "border-teal-500/30",
         isOverdue && "border-red-500/30",
       )}
     >
@@ -461,7 +461,7 @@ export function ActionableCard({
               <span
                 className={cn(
                   "flex items-center gap-0.5",
-                  isOverdue ? "text-red-500" : isDueSoon ? "text-amber-500" : "",
+                  isOverdue ? "text-red-500" : isDueSoon ? "text-teal-500" : "",
                 )}
               >
                 <Clock className="h-2.5 w-2.5" />

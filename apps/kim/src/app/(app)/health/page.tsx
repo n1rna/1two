@@ -64,7 +64,7 @@ const GENDER_OPTIONS = [
 function bmiCategory(bmi: number): { label: string; color: string } {
   if (bmi < 18.5) return { label: "Underweight", color: "text-sky-600 dark:text-sky-400" };
   if (bmi < 25) return { label: "Healthy", color: "text-emerald-600 dark:text-emerald-400" };
-  if (bmi < 30) return { label: "Overweight", color: "text-amber-600 dark:text-amber-400" };
+  if (bmi < 30) return { label: "Overweight", color: "text-teal-600 dark:text-teal-400" };
   return { label: "Obese", color: "text-rose-600 dark:text-rose-400" };
 }
 
@@ -218,7 +218,7 @@ function GoalBanner({ profile }: { profile: HealthProfile }) {
     direction === "lose"
       ? "text-sky-600 dark:text-sky-400"
       : direction === "gain"
-        ? "text-amber-600 dark:text-amber-400"
+        ? "text-teal-600 dark:text-teal-400"
         : "text-emerald-600 dark:text-emerald-400";
 
   return (
@@ -438,7 +438,7 @@ function NutritionSection({
               title={`Protein ${pPct}%`}
             />
             <div
-              className="bg-amber-500/80"
+              className="bg-teal-500/80"
               style={{ width: `${cPct}%` }}
               title={`Carbs ${cPct}%`}
             />
@@ -467,7 +467,7 @@ function NutritionSection({
             value={c}
             unit="g"
             pct={cPct}
-            color="bg-amber-500/80"
+            color="bg-teal-500/80"
             saving={savingField === "carbsG"}
             onSave={(v) => onSave("carbsG", { carbsG: v == null ? null : Math.round(v) })}
           />

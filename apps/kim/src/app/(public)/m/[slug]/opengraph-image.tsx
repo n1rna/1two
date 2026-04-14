@@ -10,9 +10,9 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const ACCENT: Record<MarketplaceKind, string> = {
-  routine: "#7c3aed",
-  gym_session: "#ea580c",
-  meal_plan: "#0d9488",
+  routine: "#5F9598",
+  gym_session: "#C84B42",
+  meal_plan: "#7EA879",
 };
 
 const KIND_LABELS: Record<MarketplaceKind, string> = {

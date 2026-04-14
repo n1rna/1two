@@ -345,7 +345,7 @@ const FALLBACK_COLORS = [
   { bg: "bg-blue-500/20",    border: "border-blue-500",    text: "text-blue-500" },
   { bg: "bg-emerald-500/20", border: "border-emerald-500", text: "text-emerald-500" },
   { bg: "bg-violet-500/20",  border: "border-violet-500",  text: "text-violet-500" },
-  { bg: "bg-amber-500/20",   border: "border-amber-500",   text: "text-amber-500" },
+  { bg: "bg-teal-500/20",   border: "border-teal-500",   text: "text-teal-500" },
   { bg: "bg-rose-500/20",    border: "border-rose-500",    text: "text-rose-500" },
   { bg: "bg-cyan-500/20",    border: "border-cyan-500",    text: "text-cyan-500" },
   { bg: "bg-pink-500/20",    border: "border-pink-500",    text: "text-pink-500" },
@@ -754,7 +754,7 @@ function MultiDayView({
 
 const BLOCK_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   sleep:           { bg: "bg-slate-800/60 dark:bg-slate-900/70", border: "border-slate-600/40",  text: "text-slate-300" },
-  morning_routine: { bg: "bg-amber-400/20",                      border: "border-amber-400/50",  text: "text-amber-700 dark:text-amber-300" },
+  morning_routine: { bg: "bg-teal-400/20",                      border: "border-teal-400/50",  text: "text-teal-700 dark:text-teal-300" },
   commute:         { bg: "bg-zinc-500/15",                       border: "border-zinc-400/40",   text: "text-zinc-600 dark:text-zinc-300" },
   work:            { bg: "bg-blue-500/15",                       border: "border-blue-400/50",   text: "text-blue-700 dark:text-blue-300" },
   tasks:           { bg: "bg-cyan-500/15",                       border: "border-cyan-400/50",   text: "text-cyan-700 dark:text-cyan-300" },

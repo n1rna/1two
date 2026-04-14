@@ -114,7 +114,7 @@ export function ToolCallDisplay({
       <div
         className="flex items-center justify-center size-4 rounded-full shrink-0"
         style={{
-          background: failed ? "rgb(232 120 130 / 0.12)" : "var(--kim-amber-soft)",
+          background: failed ? "rgb(232 120 130 / 0.12)" : "var(--kim-teal-soft)",
           color: failed ? "var(--kim-rose)" : "var(--kim-amber)",
         }}
       >

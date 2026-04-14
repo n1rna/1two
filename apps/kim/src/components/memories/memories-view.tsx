@@ -39,7 +39,7 @@ const MEMORY_CATEGORIES = [
 const CATEGORY_COLORS: Record<string, string> = {
   preference: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
   instruction: "bg-purple-500/15 text-purple-600 dark:text-purple-400",
-  fact: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  fact: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
   habit: "bg-green-500/15 text-green-600 dark:text-green-400",
 };
 
@@ -208,7 +208,7 @@ export function MemoriesView() {
             <div className="flex items-center gap-3 px-4 py-1 border-t text-[10px] text-muted-foreground/50 shrink-0">
               <span>{editorContent.length} chars</span>
               <span>{editorContent.split("\n").length} lines</span>
-              {editorDirty && <span className="text-amber-500">unsaved</span>}
+              {editorDirty && <span className="text-teal-500">unsaved</span>}
               {!editorDirty && !isNew && <span className="text-green-500">saved</span>}
               <span className="ml-auto">Cmd+S to save</span>
             </div>

@@ -8,38 +8,40 @@
 
 
 :root {
-  --background: rgb(255, 249, 246);
-  --foreground: rgb(92, 75, 67);
+  /* Palette — https://colorhunt.co/palette/061e291d546d5f9598f3f4f4
+     #F3F4F4 near-white · #5F9598 sage teal · #1D546D mid teal · #061E29 deep navy */
+  --background: rgb(243, 244, 244);
+  --foreground: rgb(6, 30, 41);
   --card: rgb(255, 255, 255);
-  --card-foreground: rgb(92, 75, 67);
+  --card-foreground: rgb(6, 30, 41);
   --popover: rgb(255, 255, 255);
-  --popover-foreground: rgb(92, 75, 67);
-  --primary: rgb(255, 126, 165);
-  --primary-foreground: rgb(255, 255, 255);
-  --secondary: rgb(243, 235, 230);
-  --secondary-foreground: rgb(92, 75, 67);
-  --muted: rgb(250, 243, 240);
-  --muted-foreground: rgb(161, 142, 132);
-  --accent: rgb(255, 219, 228);
-  --accent-foreground: rgb(179, 62, 93);
-  --destructive: rgb(229, 72, 77);
-  --destructive-foreground: rgb(253, 252, 253);
-  --border: rgb(235, 224, 218);
-  --input: rgb(235, 224, 218);
-  --ring: rgb(255, 126, 165);
-  --chart-1: rgb(255, 126, 165);
-  --chart-2: rgb(179, 62, 93);
-  --chart-3: rgb(212, 165, 154);
-  --chart-4: rgb(244, 196, 194);
-  --chart-5: rgb(232, 213, 208);
-  --sidebar: rgb(252, 247, 245);
-  --sidebar-foreground: rgb(92, 75, 67);
-  --sidebar-primary: rgb(255, 126, 165);
-  --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(255, 219, 228);
-  --sidebar-accent-foreground: rgb(179, 62, 93);
-  --sidebar-border: rgb(240, 228, 222);
-  --sidebar-ring: rgb(255, 126, 165);
+  --popover-foreground: rgb(6, 30, 41);
+  --primary: rgb(29, 84, 109);
+  --primary-foreground: rgb(243, 244, 244);
+  --secondary: rgb(229, 235, 236);
+  --secondary-foreground: rgb(6, 30, 41);
+  --muted: rgb(234, 239, 240);
+  --muted-foreground: rgb(95, 149, 152);
+  --accent: rgb(218, 229, 230);
+  --accent-foreground: rgb(29, 84, 109);
+  --destructive: rgb(191, 60, 62);
+  --destructive-foreground: rgb(243, 244, 244);
+  --border: rgb(213, 222, 224);
+  --input: rgb(213, 222, 224);
+  --ring: rgb(29, 84, 109);
+  --chart-1: rgb(29, 84, 109);
+  --chart-2: rgb(95, 149, 152);
+  --chart-3: rgb(140, 178, 181);
+  --chart-4: rgb(177, 204, 206);
+  --chart-5: rgb(213, 227, 228);
+  --sidebar: rgb(236, 241, 242);
+  --sidebar-foreground: rgb(6, 30, 41);
+  --sidebar-primary: rgb(29, 84, 109);
+  --sidebar-primary-foreground: rgb(243, 244, 244);
+  --sidebar-accent: rgb(218, 229, 230);
+  --sidebar-accent-foreground: rgb(29, 84, 109);
+  --sidebar-border: rgb(213, 222, 224);
+  --sidebar-ring: rgb(29, 84, 109);
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, monospace;
@@ -63,38 +65,39 @@
 }
 
 .dark {
-  --background: rgb(26, 20, 18);
-  --foreground: rgb(234, 224, 220);
-  --card: rgb(36, 29, 26);
-  --card-foreground: rgb(234, 224, 220);
-  --popover: rgb(36, 29, 26);
-  --popover-foreground: rgb(234, 224, 220);
-  --primary: rgb(255, 126, 165);
-  --primary-foreground: rgb(26, 20, 18);
-  --secondary: rgb(45, 36, 33);
-  --secondary-foreground: rgb(234, 224, 220);
-  --muted: rgb(45, 36, 33);
-  --muted-foreground: rgb(161, 142, 132);
-  --accent: rgb(61, 37, 42);
-  --accent-foreground: rgb(255, 179, 198);
-  --destructive: rgb(229, 72, 77);
-  --destructive-foreground: rgb(253, 252, 253);
-  --border: rgb(51, 42, 38);
-  --input: rgb(51, 42, 38);
-  --ring: rgb(255, 126, 165);
-  --chart-1: rgb(255, 126, 165);
-  --chart-2: rgb(255, 179, 198);
-  --chart-3: rgb(212, 165, 154);
-  --chart-4: rgb(92, 75, 67);
-  --chart-5: rgb(51, 42, 38);
-  --sidebar: rgb(20, 15, 13);
-  --sidebar-foreground: rgb(234, 224, 220);
-  --sidebar-primary: rgb(255, 126, 165);
-  --sidebar-primary-foreground: rgb(26, 20, 18);
-  --sidebar-accent: rgb(61, 37, 42);
-  --sidebar-accent-foreground: rgb(255, 179, 198);
-  --sidebar-border: rgb(45, 36, 33);
-  --sidebar-ring: rgb(255, 126, 165);
+  /* Deep navy backgrounds, sage-teal as the accessible accent on top */
+  --background: rgb(6, 30, 41);
+  --foreground: rgb(243, 244, 244);
+  --card: rgb(13, 42, 56);
+  --card-foreground: rgb(243, 244, 244);
+  --popover: rgb(13, 42, 56);
+  --popover-foreground: rgb(243, 244, 244);
+  --primary: rgb(95, 149, 152);
+  --primary-foreground: rgb(6, 30, 41);
+  --secondary: rgb(18, 52, 68);
+  --secondary-foreground: rgb(243, 244, 244);
+  --muted: rgb(16, 46, 60);
+  --muted-foreground: rgb(140, 178, 181);
+  --accent: rgb(29, 84, 109);
+  --accent-foreground: rgb(243, 244, 244);
+  --destructive: rgb(232, 100, 108);
+  --destructive-foreground: rgb(6, 30, 41);
+  --border: rgb(21, 55, 71);
+  --input: rgb(21, 55, 71);
+  --ring: rgb(95, 149, 152);
+  --chart-1: rgb(95, 149, 152);
+  --chart-2: rgb(140, 178, 181);
+  --chart-3: rgb(29, 84, 109);
+  --chart-4: rgb(177, 204, 206);
+  --chart-5: rgb(21, 55, 71);
+  --sidebar: rgb(4, 22, 32);
+  --sidebar-foreground: rgb(243, 244, 244);
+  --sidebar-primary: rgb(95, 149, 152);
+  --sidebar-primary-foreground: rgb(6, 30, 41);
+  --sidebar-accent: rgb(29, 84, 109);
+  --sidebar-accent-foreground: rgb(243, 244, 244);
+  --sidebar-border: rgb(21, 55, 71);
+  --sidebar-ring: rgb(95, 149, 152);
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: JetBrains Mono, monospace;
@@ -219,62 +222,64 @@
 }
 
 /* ─── Kim agent surface (Atelier Terminal) ──────────────────────────────── */
-/* Scoped tokens used inside .kim-surface. Two variants — light (warm paper)
-   and dark (warm ink) — both preserving the amber wordmark + serif feel. */
+/* Scoped tokens used inside .kim-surface. Two variants — light (airy paper)
+   and dark (deep navy ink) — anchored on the teal palette.
+   --kim-amber (historically amber) is now the teal accent; the name is kept
+   so existing descendant selectors don't need to be renamed. */
 .kim-surface {
-  /* light-mode defaults (warm paper atelier) */
-  --kim-bg: rgb(250, 245, 237);
-  --kim-bg-raised: rgb(255, 251, 245);
-  --kim-bg-sunken: rgb(241, 233, 221);
-  --kim-border: rgb(220, 205, 184);
-  --kim-border-strong: rgb(188, 165, 132);
-  --kim-ink: rgb(48, 38, 28);
-  --kim-ink-dim: rgb(110, 92, 72);
-  --kim-ink-faint: rgb(172, 152, 128);
-  --kim-amber: rgb(176, 108, 32);
-  --kim-amber-soft: rgb(176 108 32 / 0.12);
-  --kim-amber-dim: rgb(212, 158, 92);
-  --kim-rose: rgb(190, 64, 72);
-  --kim-green: rgb(80, 124, 60);
+  /* light-mode defaults (airy paper atelier) */
+  --kim-bg: rgb(243, 244, 244);
+  --kim-bg-raised: rgb(255, 255, 255);
+  --kim-bg-sunken: rgb(229, 235, 236);
+  --kim-border: rgb(200, 213, 215);
+  --kim-border-strong: rgb(140, 178, 181);
+  --kim-ink: rgb(6, 30, 41);
+  --kim-ink-dim: rgb(29, 84, 109);
+  --kim-ink-faint: rgb(95, 149, 152);
+  --kim-amber: rgb(29, 84, 109);
+  --kim-amber-soft: rgb(29 84 109 / 0.1);
+  --kim-amber-dim: rgb(95, 149, 152);
+  --kim-rose: rgb(191, 60, 62);
+  --kim-green: rgb(70, 128, 110);
   color: var(--kim-ink);
   background: var(--kim-bg);
   font-family: var(--font-geist-sans), var(--font-sans);
   background-image:
     radial-gradient(
       circle at 20% 0%,
-      rgb(212 158 92 / 0.22),
+      rgb(95 149 152 / 0.18),
       transparent 55%
     ),
     radial-gradient(
       circle at 100% 100%,
-      rgb(188 165 132 / 0.3),
+      rgb(29 84 109 / 0.14),
       transparent 60%
     );
 }
 
 .dark .kim-surface {
-  --kim-bg: rgb(22, 19, 17);
-  --kim-bg-raised: rgb(30, 26, 23);
-  --kim-bg-sunken: rgb(17, 15, 14);
-  --kim-border: rgb(54, 46, 40);
-  --kim-border-strong: rgb(84, 70, 58);
-  --kim-ink: rgb(238, 228, 214);
-  --kim-ink-dim: rgb(168, 156, 140);
-  --kim-ink-faint: rgb(110, 100, 88);
-  --kim-amber: rgb(232, 176, 92);
-  --kim-amber-soft: rgb(232 176 92 / 0.14);
-  --kim-amber-dim: rgb(168, 124, 58);
+  --kim-bg: rgb(6, 30, 41);
+  --kim-bg-raised: rgb(13, 42, 56);
+  --kim-bg-sunken: rgb(4, 22, 32);
+  --kim-border: rgb(21, 55, 71);
+  --kim-border-strong: rgb(29, 84, 109);
+  --kim-ink: rgb(243, 244, 244);
+  --kim-ink-dim: rgb(157, 181, 184);
+  --kim-ink-faint: rgb(95, 149, 152);
+  --kim-amber: rgb(95, 149, 152);
+  --kim-amber-soft: rgb(95 149 152 / 0.14);
+  --kim-amber-dim: rgb(63, 116, 120);
   --kim-rose: rgb(232, 120, 130);
-  --kim-green: rgb(138, 186, 120);
+  --kim-green: rgb(134, 184, 160);
   background-image:
     radial-gradient(
       circle at 20% 0%,
-      rgb(62 44 28 / 0.35),
+      rgb(29 84 109 / 0.35),
       transparent 55%
     ),
     radial-gradient(
       circle at 100% 100%,
-      rgb(40 30 24 / 0.5),
+      rgb(13 42 56 / 0.5),
       transparent 60%
     );
 }
@@ -364,8 +369,8 @@
   gap: 5px;
   padding: 3px 9px 3px 7px;
   border-radius: 9999px;
-  border: 1px solid rgb(232 176 92 / 0.4);
-  background: rgb(232 176 92 / 0.1);
+  border: 1px solid color-mix(in srgb, var(--kim-amber) 40%, transparent);
+  background: color-mix(in srgb, var(--kim-amber) 10%, transparent);
   color: var(--kim-ink);
   font-size: 11px;
   line-height: 1;
@@ -373,7 +378,7 @@
 }
 .kim-surface .kim-chip:hover {
   border-color: var(--kim-amber);
-  background: rgb(232 176 92 / 0.18);
+  background: color-mix(in srgb, var(--kim-amber) 18%, transparent);
 }
 /* Slash-command menu themed for Kim. Targets the popover rendered inside
    any .kim-surface subtree and rewrites its visual language to match. */
@@ -413,7 +418,7 @@
 
 /* selection highlight on host pages */
 [data-selectable][data-selected="true"] {
-  outline: 2px solid rgb(232, 176, 92);
+  outline: 2px solid rgb(95, 149, 152);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -424,7 +429,7 @@
   cursor: pointer;
 }
 [data-selection-mode="true"] [data-selectable]:hover {
-  outline: 2px dashed rgb(232, 176, 92 / 0.5);
+  outline: 2px dashed rgb(95 149 152 / 0.5);
   outline-offset: 2px;
   border-radius: 6px;
 }

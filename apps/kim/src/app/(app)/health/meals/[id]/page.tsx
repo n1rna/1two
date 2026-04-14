@@ -26,7 +26,7 @@ const SLOT_META: Record<
     tint: string;
   }
 > = {
-  breakfast: { label: "Breakfast", time: "07:00", Icon: Sun,      tint: "text-amber-500" },
+  breakfast: { label: "Breakfast", time: "07:00", Icon: Sun,      tint: "text-teal-500" },
   lunch:     { label: "Lunch",     time: "12:30", Icon: Sandwich, tint: "text-orange-500" },
   dinner:    { label: "Dinner",    time: "19:00", Icon: Moon,     tint: "text-indigo-500" },
   snack:     { label: "Snack",     time: "any",   Icon: Cookie,   tint: "text-emerald-500" },
@@ -266,12 +266,12 @@ function PlanSummary({
           </div>
           <div className="h-2 w-full overflow-hidden flex bg-muted rounded-full">
             <div className="bg-sky-500" style={{ width: `${pPct}%` }} />
-            <div className="bg-amber-500" style={{ width: `${cPct}%` }} />
+            <div className="bg-teal-500" style={{ width: `${cPct}%` }} />
             <div className="bg-rose-500" style={{ width: `${fPct}%` }} />
           </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
             <MacroLegend color="bg-sky-500" label="Protein" grams={totals.protein} pct={pPct} />
-            <MacroLegend color="bg-amber-500" label="Carbs" grams={totals.carbs} pct={cPct} />
+            <MacroLegend color="bg-teal-500" label="Carbs" grams={totals.carbs} pct={cPct} />
             <MacroLegend color="bg-rose-500" label="Fat" grams={totals.fat} pct={fPct} />
           </div>
         </div>
@@ -297,7 +297,7 @@ function Stat({
     hintTone === "good"
       ? "text-emerald-600 dark:text-emerald-400"
       : hintTone === "warn"
-        ? "text-amber-600 dark:text-amber-400"
+        ? "text-teal-600 dark:text-teal-400"
         : "text-muted-foreground";
   return (
     <div className="min-w-0">
@@ -451,7 +451,7 @@ function WeekGrid({
                             ? "bg-emerald-500"
                             : pctOfTarget > 110
                               ? "bg-rose-500"
-                              : "bg-amber-500"
+                              : "bg-teal-500"
                         }`}
                         style={{ width: `${Math.min(pctOfTarget, 100)}%` }}
                       />
@@ -519,7 +519,7 @@ function MealCell({
         <div className="mt-2 space-y-1">
           <div className="h-1 w-full rounded-full bg-muted overflow-hidden flex">
             <div className="bg-sky-500" style={{ width: `${pPct}%` }} />
-            <div className="bg-amber-500" style={{ width: `${cPct}%` }} />
+            <div className="bg-teal-500" style={{ width: `${cPct}%` }} />
             <div className="bg-rose-500" style={{ width: `${fPct}%` }} />
           </div>
           <div className="text-[10px] text-muted-foreground tabular-nums">

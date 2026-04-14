@@ -116,11 +116,11 @@ function Transcript() {
         }
         return (
           <div key={i} className="flex gap-3">
-            <span className="text-amber-400/90 select-none">kim</span>
+            <span className="text-teal-400/90 select-none">kim</span>
             <div className="flex-1">
               {turn.tool && (
-                <div className="inline-flex items-center gap-1.5 mb-1 px-1.5 py-0.5 rounded-sm bg-amber-400/10 border border-amber-400/20 text-[10px] uppercase tracking-[0.14em] text-amber-300/80">
-                  <span className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" />
+                <div className="inline-flex items-center gap-1.5 mb-1 px-1.5 py-0.5 rounded-sm bg-teal-400/10 border border-teal-400/20 text-[10px] uppercase tracking-[0.14em] text-teal-300/80">
+                  <span className="h-1 w-1 rounded-full bg-teal-400 animate-pulse" />
                   {turn.tool}
                 </div>
               )}
@@ -139,7 +139,7 @@ function Transcript() {
 function Caret() {
   return (
     <span
-      className="inline-block w-[7px] h-[1em] align-[-2px] ml-0.5 bg-amber-300/90 animate-[caret_1s_steps(2,_jump-none)_infinite]"
+      className="inline-block w-[7px] h-[1em] align-[-2px] ml-0.5 bg-teal-300/90 animate-[caret_1s_steps(2,_jump-none)_infinite]"
       aria-hidden
     />
   );
@@ -175,7 +175,7 @@ export function LoginContent() {
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-gradient(800px 500px at 85% 8%, rgba(251,191,36,0.12), transparent 60%), radial-gradient(600px 400px at 10% 90%, rgba(251,146,60,0.06), transparent 60%)",
+              "radial-gradient(800px 500px at 85% 8%, rgba(95,149,152,0.18), transparent 60%), radial-gradient(600px 400px at 10% 90%, rgba(29,84,109,0.14), transparent 60%)",
           }}
         />
         <div
@@ -197,10 +197,10 @@ export function LoginContent() {
         />
         {/* slow orbiting hairline ring in the top-right */}
         <div
-          className="absolute -top-40 -right-40 w-[480px] h-[480px] rounded-full border border-amber-400/10 pointer-events-none"
+          className="absolute -top-40 -right-40 w-[480px] h-[480px] rounded-full border border-teal-400/10 pointer-events-none"
           style={{ animation: "orbit-slow 60s linear infinite" }}
         >
-          <span className="absolute top-1/2 -left-[3px] h-1.5 w-1.5 rounded-full bg-amber-400/80 shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
+          <span className="absolute top-1/2 -left-[3px] h-1.5 w-1.5 rounded-full bg-teal-400/80 shadow-[0_0_12px_rgba(95,149,152,0.9)]" />
         </div>
 
         {/* header status */}
@@ -222,7 +222,7 @@ export function LoginContent() {
               <span className="italic text-[112px] md:text-[156px] text-zinc-50 tracking-tight">
                 kim
               </span>
-              <span className="italic text-3xl md:text-4xl text-amber-300/90">
+              <span className="italic text-3xl md:text-4xl text-teal-300/90">
                 .
               </span>
             </div>
@@ -318,7 +318,7 @@ export function LoginContent() {
               <span className="text-[13.5px] text-zinc-200 flex-1">
                 continue with GitHub
               </span>
-              <span className="font-mono text-[10px] text-zinc-600 group-hover:text-amber-400/90 transition-colors">
+              <span className="font-mono text-[10px] text-zinc-600 group-hover:text-teal-400/90 transition-colors">
                 →
               </span>
             </button>
@@ -333,7 +333,7 @@ export function LoginContent() {
               <span className="text-[13.5px] text-zinc-200 flex-1">
                 continue with Google
               </span>
-              <span className="font-mono text-[10px] text-zinc-600 group-hover:text-amber-400/90 transition-colors">
+              <span className="font-mono text-[10px] text-zinc-600 group-hover:text-teal-400/90 transition-colors">
                 →
               </span>
             </button>

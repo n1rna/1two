@@ -126,7 +126,7 @@ export default function KimFullChatPage() {
           </span>
           <button
             onClick={newConversation}
-            className="w-7 h-7 rounded-sm flex items-center justify-center hover:bg-[var(--kim-amber-soft)]"
+            className="w-7 h-7 rounded-sm flex items-center justify-center hover:bg-[var(--kim-teal-soft)]"
             style={{ color: "var(--kim-ink-dim)" }}
             title="New"
           >
@@ -152,7 +152,7 @@ export default function KimFullChatPage() {
             >
               <button
                 onClick={() => loadConversation(c.id)}
-                className={`flex-1 text-left px-2 py-2 text-xs rounded-sm truncate ${c.id === conversationId ? "bg-[var(--kim-amber-soft)]" : "hover:bg-[var(--kim-amber-soft)]/50"}`}
+                className={`flex-1 text-left px-2 py-2 text-xs rounded-sm truncate ${c.id === conversationId ? "bg-[var(--kim-teal-soft)]" : "hover:bg-[var(--kim-teal-soft)]/50"}`}
                 style={{
                   color:
                     c.id === conversationId

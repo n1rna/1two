@@ -162,7 +162,7 @@ export function MessageBubble({
                   <blockquote
                     className="border-l-2 pl-3 italic my-2"
                     style={{
-                      borderColor: "var(--kim-amber-dim)",
+                      borderColor: "var(--kim-teal-dim)",
                       color: "var(--kim-ink-dim)",
                     }}
                   >

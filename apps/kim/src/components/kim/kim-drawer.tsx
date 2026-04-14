@@ -274,7 +274,7 @@ export function KimDrawer() {
                 }}
                 className={cn(
                   "block w-40 text-left px-3 py-2 text-xs kim-mono uppercase tracking-[0.14em]",
-                  m === mode && "bg-[var(--kim-amber-soft)]",
+                  m === mode && "bg-[var(--kim-teal-soft)]",
                 )}
                 style={{
                   color: m === mode ? "var(--kim-amber)" : "var(--kim-ink-dim)",
@@ -293,7 +293,7 @@ export function KimDrawer() {
           className="relative px-5 py-2.5 border-b flex items-center gap-2"
           style={{
             borderColor: "var(--kim-border)",
-            background: "var(--kim-amber-soft)",
+            background: "var(--kim-teal-soft)",
           }}
         >
           <FileEdit size={12} style={{ color: "var(--kim-amber)" }} />
@@ -356,8 +356,8 @@ export function KimDrawer() {
                     setShowHistory(false);
                   }}
                   className={cn(
-                    "w-full text-left px-2 py-2 text-xs hover:bg-[var(--kim-amber-soft)] rounded-sm truncate",
-                    c.id === conversationId && "bg-[var(--kim-amber-soft)]",
+                    "w-full text-left px-2 py-2 text-xs hover:bg-[var(--kim-teal-soft)] rounded-sm truncate",
+                    c.id === conversationId && "bg-[var(--kim-teal-soft)]",
                   )}
                   style={{
                     color:
@@ -521,7 +521,7 @@ function HeaderButton({
     <button
       onClick={onClick}
       title={title}
-      className="w-7 h-7 rounded-sm flex items-center justify-center hover:bg-[var(--kim-amber-soft)]"
+      className="w-7 h-7 rounded-sm flex items-center justify-center hover:bg-[var(--kim-teal-soft)]"
       style={{ color: "var(--kim-ink-dim)" }}
     >
       {children}

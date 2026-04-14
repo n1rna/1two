@@ -13,7 +13,7 @@ import {
 
 const HEALTH_DIFFICULTY_COLORS: Record<string, string> = {
   easy: "text-green-500",
-  moderate: "text-amber-500",
+  moderate: "text-teal-500",
   hard: "text-orange-500",
   extreme: "text-red-500",
 };
@@ -132,7 +132,7 @@ function GymSessionReadOnly({ content }: { content: unknown }) {
   const supersetColors = [
     "border-teal-500",
     "border-violet-500",
-    "border-amber-500",
+    "border-teal-500",
     "border-rose-500",
     "border-green-500",
   ];
@@ -329,7 +329,7 @@ function MealPlanReadOnly({ content }: { content: unknown }) {
                   <th className="text-right px-3 py-2 font-medium text-blue-600 dark:text-blue-400">
                     C
                   </th>
-                  <th className="text-right px-3 py-2 font-medium text-amber-600 dark:text-amber-400">
+                  <th className="text-right px-3 py-2 font-medium text-teal-600 dark:text-teal-400">
                     F
                   </th>
                 </tr>
@@ -355,7 +355,7 @@ function MealPlanReadOnly({ content }: { content: unknown }) {
                     <td className="px-3 py-2 text-right tabular-nums text-blue-600 dark:text-blue-400">
                       {meal.carbs_g != null ? `${meal.carbs_g}g` : "—"}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-amber-600 dark:text-amber-400">
+                    <td className="px-3 py-2 text-right tabular-nums text-teal-600 dark:text-teal-400">
                       {meal.fat_g != null ? `${meal.fat_g}g` : "—"}
                     </td>
                   </tr>

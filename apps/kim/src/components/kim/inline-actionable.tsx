@@ -70,7 +70,7 @@ export function InlineChatActionable({
               key={opt.id}
               className={cn(
                 "flex items-start gap-2 p-2 rounded-md cursor-pointer transition-colors",
-                selectedOption === opt.id ? "bg-[var(--kim-amber-soft)]" : "hover:bg-[var(--kim-bg-raised)]",
+                selectedOption === opt.id ? "bg-[var(--kim-teal-soft)]" : "hover:bg-[var(--kim-bg-raised)]",
               )}
             >
               <input

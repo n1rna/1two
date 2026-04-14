@@ -29,7 +29,7 @@ const DIET_COLORS: Record<string, string> = {
   vegan: "bg-green-500/15 text-green-600 dark:text-green-400",
   pescatarian: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
   keto: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-  paleo: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  paleo: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
 };
 
 function dietColor(dietType?: string): string {

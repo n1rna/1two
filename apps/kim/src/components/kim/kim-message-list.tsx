@@ -86,7 +86,7 @@ export function KimMessageList({
                     >
                       <div
                         className="flex items-center justify-center size-4 rounded-full"
-                        style={{ background: "var(--kim-amber-soft)", color: "var(--kim-amber)" }}
+                        style={{ background: "var(--kim-teal-soft)", color: "var(--kim-amber)" }}
                       >
                         <Check className="size-2.5" />
                       </div>

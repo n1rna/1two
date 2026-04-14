@@ -183,15 +183,15 @@ export const KIND_LABELS: Record<MarketplaceKind, string> = {
 };
 
 export const KIND_COLORS: Record<MarketplaceKind, string> = {
-  routine: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-  gym_session: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-  meal_plan: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
+  routine: "bg-teal-500/15 text-teal-700 dark:text-teal-300",
+  gym_session: "bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  meal_plan: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
 };
 
 export const KIND_ACCENT_HEX: Record<MarketplaceKind, string> = {
-  routine: "#7c3aed",
-  gym_session: "#ea580c",
-  meal_plan: "#0d9488",
+  routine: "#5F9598",
+  gym_session: "#C84B42",
+  meal_plan: "#7EA879",
 };
 
 export function kindRoute(
