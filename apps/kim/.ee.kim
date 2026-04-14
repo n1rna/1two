@@ -51,14 +51,7 @@
 			},
 			"API_BACKEND_URL": {
 				"name": "API_BACKEND_URL",
-				"title": "Go backend internal URL",
-				"type": "string",
-				"default": "http://localhost:8090",
-				"required": false
-			},
-			"NEXT_PUBLIC_API_URL": {
-				"name": "NEXT_PUBLIC_API_URL",
-				"title": "Public Go backend URL (for WebSocket connections)",
+				"title": "Go backend URL for local dev (unset in prod so the service binding is used)",
 				"type": "string",
 				"default": "http://localhost:8090",
 				"required": false
