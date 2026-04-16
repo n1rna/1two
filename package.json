@@ -22,5 +22,8 @@
   },
   "devDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
   }
 }

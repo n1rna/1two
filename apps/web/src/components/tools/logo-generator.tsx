@@ -158,11 +158,18 @@ const SIZE_PRESETS = [
   { label: "1024", size: 1024 },
 ];
 
+function uid(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
 function makeGradient(stops: [string, number][], type: GradientType = "linear", angle = 135): GradientConfig {
   return {
     type,
     angle,
-    stops: stops.map(([hex, position]) => ({ id: crypto.randomUUID(), hex, position })),
+    stops: stops.map(([hex, position]) => ({ id: uid(), hex, position })),
   };
 }
 
@@ -229,7 +236,7 @@ function deserializeConfig(s: SerializableConfig): LogoConfig {
     mode: sc.m, hex: sc.h,
     gradient: {
       type: sc.g.t, angle: sc.g.a,
-      stops: sc.g.s.map((st) => ({ id: crypto.randomUUID(), position: st.p, hex: st.h })),
+      stops: sc.g.s.map((st) => ({ id: uid(), position: st.p, hex: st.h })),
     },
   });
   return {
@@ -660,7 +667,7 @@ function GradientBuilder({ gradient, onChange }: GradientBuilderProps) {
     const positions = gradient.stops.map((s) => s.position);
     const maxPos = Math.max(...positions);
     const newPos = Math.min(100, maxPos + 20);
-    const newStop: GradientStop = { id: crypto.randomUUID(), position: newPos, hex: "#888888" };
+    const newStop: GradientStop = { id: uid(), position: newPos, hex: "#888888" };
     onChange({ ...gradient, stops: [...gradient.stops, newStop] });
   }, [gradient, onChange]);
 
@@ -966,10 +973,18 @@ function setPublishSizeDefault(size: number) {
   try { localStorage.setItem(PUBLISH_SIZE_KEY, String(size)); } catch {}
 }
 
+interface PublishedVariant {
+  variant: string;
+  width: number;
+  height: number;
+  contentType: string;
+}
+
 interface PublishedLogo {
   id: string;
   slug: string;
   url: string;
+  variants: PublishedVariant[];
 }
 
 interface LogoPublishDialogProps {
@@ -977,10 +992,11 @@ interface LogoPublishDialogProps {
   onOpenChange: (open: boolean) => void;
   published: PublishedLogo | null;
   publishing: boolean;
-  onPublish: (size: number) => void;
-  onRepublish: (size: number) => void;
+  onPublish: (sizes: number[], includeSvg: boolean) => void;
+  onRepublish: (sizes: number[], includeSvg: boolean) => void;
   onUnpublish: () => void;
-  onNewUrl: (size: number) => Promise<void> | void;
+  onNewUrl: (sizes: number[], includeSvg: boolean) => Promise<void> | void;
+  onDeleteVariants?: (variants: string[]) => void;
   /** When true, dialog was triggered by a save action and needs the user to pick an update method */
   saveTriggered?: boolean;
   /** The size this logo was last published at */
@@ -989,23 +1005,38 @@ interface LogoPublishDialogProps {
 
 function LogoPublishDialog({
   open, onOpenChange, published, publishing,
-  onPublish, onRepublish, onUnpublish, onNewUrl,
+  onPublish, onRepublish, onUnpublish, onNewUrl, onDeleteVariants,
   saveTriggered = false, currentPublishSize,
 }: LogoPublishDialogProps) {
   const [newUrlLoading, setNewUrlLoading] = useState(false);
   const [defaultAction, setDefaultAction] = useState<PublishAction | null>(() => getPublishDefault());
-  const [selectedSize, setSelectedSize] = useState<number>(() => currentPublishSize || getPublishSizeDefault());
+  const defaultSize = currentPublishSize || getPublishSizeDefault();
+  const [selectedSizes, setSelectedSizes] = useState<number[]>([defaultSize]);
+  const [includeSvg, setIncludeSvg] = useState(false);
+  const canPublish = selectedSizes.length > 0 || includeSvg;
 
-  // Sync selectedSize when dialog opens with a different logo
   useEffect(() => {
-    if (open) setSelectedSize(currentPublishSize || getPublishSizeDefault());
-  }, [open, currentPublishSize]);
+    if (open) {
+      const base = currentPublishSize || getPublishSizeDefault();
+      if (published && published.variants.length > 0) {
+        const pngSizes = published.variants
+          .filter((v) => v.variant !== "svg")
+          .map((v) => Number(v.variant))
+          .filter((n) => n > 0);
+        setSelectedSizes(pngSizes.length > 0 ? pngSizes : [base]);
+        setIncludeSvg(published.variants.some((v) => v.variant === "svg"));
+      } else {
+        setSelectedSizes([base]);
+        setIncludeSvg(false);
+      }
+    }
+  }, [open, currentPublishSize, published]);
 
   if (!published) {
-    // Not yet published — show publish prompt
+    const variantCount = selectedSizes.length + (includeSvg ? 1 : 0);
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted">
@@ -1013,24 +1044,25 @@ function LogoPublishDialog({
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Publish Logo</h3>
-                <p className="text-xs text-muted-foreground">Make your logo accessible via a permanent public URL.</p>
+                <p className="text-xs text-muted-foreground">Select sizes to publish. Each gets its own CDN URL.</p>
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Publishing renders your logo as a PNG and hosts it on our CDN.
-              You can update the image at any time by saving changes.
-            </p>
-
-            <PublishSizeSelector size={selectedSize} onChange={setSelectedSize} />
+            <VariantMultiSelect
+              selected={selectedSizes}
+              onChange={setSelectedSizes}
+              includeSvg={includeSvg}
+              onSvgChange={setIncludeSvg}
+              label="Sizes to publish"
+            />
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button size="sm" className="h-7 text-xs gap-1.5" onClick={() => onPublish(selectedSize)} disabled={publishing}>
+              <Button size="sm" className="h-7 text-xs gap-1.5" onClick={() => onPublish(selectedSizes, includeSvg)} disabled={publishing || !canPublish}>
                 {publishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
-                {publishing ? "Publishing..." : "Publish"}
+                {publishing ? "Publishing..." : `Publish ${variantCount} variant${variantCount === 1 ? "" : "s"}`}
               </Button>
             </div>
           </div>
@@ -1045,10 +1077,10 @@ function LogoPublishDialog({
       setDefaultAction(action);
     }
     if (action === "update") {
-      onRepublish(selectedSize);
+      onRepublish(selectedSizes, includeSvg);
     } else {
       setNewUrlLoading(true);
-      await onNewUrl(selectedSize);
+      await onNewUrl(selectedSizes, includeSvg);
       setNewUrlLoading(false);
     }
   };
@@ -1058,11 +1090,14 @@ function LogoPublishDialog({
     setDefaultAction(null);
   };
 
-  // Already published — show URLs and options
+  const baseUrl = published.url;
+  const variantUrl = (v: string) =>
+    v === "svg" ? `${baseUrl}?variant=svg` : `${baseUrl}?variant=${v}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <div className="space-y-4 overflow-hidden">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="space-y-4">
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center h-8 w-8 rounded-full bg-green-500/10">
               <Globe className="h-4 w-4 text-green-500" />
@@ -1079,44 +1114,73 @@ function LogoPublishDialog({
             </div>
           </div>
 
-          {/* URL */}
+          {/* Default URL */}
           <div className="space-y-1.5">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Public URL
+              Default URL (largest PNG)
             </div>
             <div className="flex items-center gap-2 min-w-0">
               <code className="text-xs text-foreground font-mono truncate flex-1 min-w-0 bg-muted/50 rounded px-2 py-1">
-                {published.url}
+                {baseUrl}
               </code>
-              <CopyBtn text={published.url} />
-              <a
-                href={published.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1 rounded hover:bg-muted transition-colors shrink-0"
-              >
-                <ExternalLink className="h-3 w-3 text-muted-foreground" />
-              </a>
+              <CopyBtn text={baseUrl} />
             </div>
           </div>
 
-          {/* HTML snippet — hide when save-triggered to keep dialog focused */}
+          {/* Per-variant URLs */}
+          {published.variants.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Variant URLs
+              </div>
+              <div className="rounded-lg border divide-y max-h-48 overflow-y-auto">
+                {published.variants.map((v) => {
+                  const url = variantUrl(v.variant);
+                  return (
+                    <div key={v.variant} className="flex items-center gap-2 px-3 py-2 text-xs">
+                      <span className="shrink-0 w-14 font-mono text-muted-foreground">
+                        {v.variant === "svg" ? "SVG" : `${v.variant}px`}
+                      </span>
+                      <code className="flex-1 min-w-0 truncate font-mono text-foreground/80">{url}</code>
+                      <CopyBtn text={url} />
+                      {onDeleteVariants && (
+                        <button
+                          onClick={() => onDeleteVariants([v.variant])}
+                          className="shrink-0 text-[10px] text-destructive hover:text-destructive/80"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* HTML snippet */}
           {!saveTriggered && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   HTML
                 </div>
-                <CopyBtn text={`<img src="${published.url}" alt="Logo" />`} />
+                <CopyBtn text={`<img src="${baseUrl}" alt="Logo" />`} />
               </div>
               <pre className="text-[11px] font-mono text-foreground bg-muted/50 rounded-md px-3 py-2 overflow-x-auto whitespace-pre">
-{`<img src="${published.url}" alt="Logo" />`}
+{`<img src="${baseUrl}" alt="Logo" />`}
               </pre>
             </div>
           )}
 
-          {/* Size selector */}
-          <PublishSizeSelector size={selectedSize} onChange={setSelectedSize} />
+          {/* Size selector for republish */}
+          <VariantMultiSelect
+            selected={selectedSizes}
+            onChange={setSelectedSizes}
+            includeSvg={includeSvg}
+            onSvgChange={setIncludeSvg}
+            label="Sizes to update"
+          />
 
           {/* Update options */}
           <div className="space-y-1.5">
@@ -1126,18 +1190,18 @@ function LogoPublishDialog({
             <div className="space-y-2">
               <UpdateOptionButton
                 icon={publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <RefreshCw className="h-3.5 w-3.5 shrink-0" />}
-                label="Update image at current URL"
-                description="Re-renders and overwrites the existing image. Cached copies may take up to 1 hour to refresh."
+                label="Update images at current URL"
+                description="Re-renders and overwrites the selected variants. Cached copies may take up to 1 hour to refresh."
                 isDefault={defaultAction === "update"}
-                disabled={publishing}
+                disabled={publishing || !canPublish}
                 onAction={(setAsDefault) => handleAction("update", setAsDefault)}
               />
               <UpdateOptionButton
                 icon={newUrlLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <Link2 className="h-3.5 w-3.5 shrink-0" />}
                 label="Publish at a new URL"
-                description="Generates a fresh URL with the latest image. The old URL will stop working."
+                description="Generates a fresh URL with the latest images. The old URL will stop working."
                 isDefault={defaultAction === "new-url"}
-                disabled={newUrlLoading}
+                disabled={newUrlLoading || !canPublish}
                 onAction={(setAsDefault) => handleAction("new-url", setAsDefault)}
               />
             </div>
@@ -1159,7 +1223,7 @@ function LogoPublishDialog({
               className="h-7 text-xs text-destructive hover:text-destructive"
               onClick={() => { onUnpublish(); onOpenChange(false); }}
             >
-              Unpublish
+              Unpublish all
             </Button>
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
               {saveTriggered ? "Skip" : "Close"}
@@ -1214,31 +1278,80 @@ function UpdateOptionButton({
   );
 }
 
-function PublishSizeSelector({ size, onChange }: { size: number; onChange: (s: number) => void }) {
+function VariantMultiSelect({
+  selected,
+  onChange,
+  includeSvg,
+  onSvgChange,
+  label = "Sizes",
+}: {
+  selected: number[];
+  onChange: (next: number[]) => void;
+  includeSvg?: boolean;
+  onSvgChange?: (v: boolean) => void;
+  label?: string;
+}) {
+  const allSelected = PUBLISH_SIZES.every((p) => selected.includes(p.size));
+  const toggleAll = () => {
+    if (allSelected) onChange([]);
+    else onChange(PUBLISH_SIZES.map((p) => p.size));
+  };
+  const toggle = (size: number) => {
+    onChange(
+      selected.includes(size) ? selected.filter((s) => s !== size) : [...selected, size],
+    );
+  };
+
   return (
-    <div className="space-y-1.5">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Image Size
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </div>
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="text-[10px] text-muted-foreground hover:text-foreground"
+        >
+          {allSelected ? "Deselect all" : "Select all"}
+        </button>
       </div>
       <div className="flex flex-wrap gap-1">
-        {PUBLISH_SIZES.map((p) => (
+        {PUBLISH_SIZES.map((p) => {
+          const active = selected.includes(p.size);
+          return (
+            <button
+              key={p.size}
+              type="button"
+              onClick={() => toggle(p.size)}
+              className={`px-2 py-1 rounded-md text-xs transition-colors border ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "hover:bg-muted border-border/50"
+              }`}
+            >
+              {p.label}
+              {p.tag && (
+                <span className={`ml-1 text-[9px] ${active ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                  {p.tag}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        {onSvgChange && (
           <button
-            key={p.size}
-            onClick={() => onChange(p.size)}
+            type="button"
+            onClick={() => onSvgChange?.(!includeSvg)}
             className={`px-2 py-1 rounded-md text-xs transition-colors border ${
-              size === p.size
+              includeSvg
                 ? "bg-primary text-primary-foreground border-primary"
                 : "hover:bg-muted border-border/50"
             }`}
           >
-            {p.label}
-            {p.tag && (
-              <span className={`ml-1 text-[9px] ${size === p.size ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                {p.tag}
-              </span>
-            )}
+            SVG
           </button>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -1297,6 +1410,7 @@ export function LogoGenerator() {
           id: saved.publishedId!,
           slug: saved.publishedSlug,
           url: `${window.location.origin}/logo/s/${saved.publishedSlug}`,
+          variants: [],
         });
       }
       setInitialLoaded(true);
@@ -1413,7 +1527,7 @@ export function LogoGenerator() {
 
   const [saving, setSaving] = useState(false);
 
-  // Helper: render PNG blob from current config at a given size
+  // Helper: render PNG blob from current config at a given size (legacy single-file)
   const renderPngForm = useCallback(async (size: number = 512) => {
     const blob = await svgToPngBlob(config, size);
     const isWide = config.shape === "wide";
@@ -1425,6 +1539,40 @@ export function LogoGenerator() {
     form.append("config", JSON.stringify(serializeConfig(config)));
     form.append("width", String(w));
     form.append("height", String(h));
+    return form;
+  }, [config]);
+
+  // Helper: render multi-variant FormData
+  const renderMultiVariantForm = useCallback(async (sizes: number[], includeSvg: boolean) => {
+    const isWide = config.shape === "wide";
+    const variants: string[] = [...sizes.map(String)];
+    if (includeSvg) variants.push("svg");
+
+    const form = new FormData();
+    form.append("name", config.text || "Logo");
+    form.append("config", JSON.stringify(serializeConfig(config)));
+    form.append("variants", JSON.stringify(variants));
+
+    // Render PNGs in parallel
+    const pngWork = sizes.map(async (size) => {
+      const blob = await svgToPngBlob(config, size);
+      const w = isWide ? size * 2 : size;
+      form.append(`file-${size}`, blob, `logo-${size}.png`);
+      form.append(`width-${size}`, String(w));
+      form.append(`height-${size}`, String(size));
+    });
+    await Promise.all(pngWork);
+
+    if (includeSvg) {
+      const svgMarkup = buildSvg(config);
+      const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml" });
+      const defaultSize = 512;
+      const svgW = isWide ? defaultSize * 2 : defaultSize;
+      form.append("file-svg", svgBlob, "logo.svg");
+      form.append("width-svg", String(svgW));
+      form.append("height-svg", String(defaultSize));
+    }
+
     return form;
   }, [config]);
 
@@ -1476,7 +1624,7 @@ export function LogoGenerator() {
             if (patchRes.ok) {
               const data = await patchRes.json();
               const newSlug = data.slug as string;
-              const pub: PublishedLogo = { id: existing.publishedId, slug: newSlug, url: `${window.location.origin}/logo/s/${newSlug}` };
+              const pub: PublishedLogo = { id: existing.publishedId, slug: newSlug, url: `${window.location.origin}/logo/s/${newSlug}`, variants: published?.variants ?? [] };
               setPublished(pub);
               setSavedLogos((prev) =>
                 prev.map((l) => l.id === activeLogoId ? { ...l, publishedSlug: newSlug } : l)
@@ -1495,7 +1643,7 @@ export function LogoGenerator() {
       }
     } else {
       // Create new saved logo
-      const id = crypto.randomUUID();
+      const id = uid();
       const saved: SavedLogo = { id, name, config: serialized, createdAt: Date.now() };
       setSavedLogos((prev) => [saved, ...prev]);
       setActiveLogoId(id);
@@ -1510,6 +1658,7 @@ export function LogoGenerator() {
         id: saved.publishedId!,
         slug: saved.publishedSlug,
         url: `${window.location.origin}/logo/s/${saved.publishedSlug}`,
+        variants: [],
       });
     } else {
       setPublished(null);
@@ -1568,8 +1717,13 @@ export function LogoGenerator() {
   }, [downloadOpen]);
 
   // Update published + savedLogos state after a publish/republish
-  const updatePublishedState = useCallback((pubId: string, slug: string, size?: number) => {
-    const pub: PublishedLogo = { id: pubId, slug, url: `${window.location.origin}/logo/s/${slug}` };
+  const updatePublishedState = useCallback((pubId: string, slug: string, size?: number, variants?: PublishedVariant[]) => {
+    const pub: PublishedLogo = {
+      id: pubId,
+      slug,
+      url: `${window.location.origin}/logo/s/${slug}`,
+      variants: variants ?? [],
+    };
     setPublished(pub);
     const patch: Partial<SavedLogo> = { publishedId: pubId, publishedSlug: slug };
     if (size) patch.publishSize = size;
@@ -1578,7 +1732,7 @@ export function LogoGenerator() {
         prev.map((l) => l.id === activeLogoId ? { ...l, ...patch } : l)
       );
     } else {
-      const id = crypto.randomUUID();
+      const id = uid();
       const saved: SavedLogo = {
         id, name: config.text || "Logo", config: serializeConfig(config),
         createdAt: Date.now(), ...patch,
@@ -1588,12 +1742,12 @@ export function LogoGenerator() {
     }
   }, [activeLogoId, config, setSavedLogos]);
 
-  const handlePublish = useCallback(async (size: number) => {
+  const handlePublish = useCallback(async (sizes: number[], includeSvg: boolean) => {
     if (publishing) return;
     setPublishing(true);
     try {
-      setPublishSizeDefault(size);
-      const form = await renderPngForm(size);
+      if (sizes.length > 0) setPublishSizeDefault(sizes[0]);
+      const form = await renderMultiVariantForm(sizes, includeSvg);
       const res = await fetch("/api/proxy/logo/images", {
         method: "POST", credentials: "include", body: form,
       });
@@ -1602,20 +1756,26 @@ export function LogoGenerator() {
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      updatePublishedState(data.id, data.slug, size);
+      const variants: PublishedVariant[] = (data.variants ?? []).map((v: Record<string, unknown>) => ({
+        variant: v.variant as string,
+        width: v.width as number,
+        height: v.height as number,
+        contentType: v.contentType as string,
+      }));
+      updatePublishedState(data.id, data.slug, sizes[0], variants);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to publish");
     } finally {
       setPublishing(false);
     }
-  }, [publishing, renderPngForm, updatePublishedState]);
+  }, [publishing, renderMultiVariantForm, updatePublishedState]);
 
-  const handleRepublish = useCallback(async (size: number) => {
+  const handleRepublish = useCallback(async (sizes: number[], includeSvg: boolean) => {
     if (publishing || !published) return;
     setPublishing(true);
     try {
-      setPublishSizeDefault(size);
-      const form = await renderPngForm(size);
+      if (sizes.length > 0) setPublishSizeDefault(sizes[0]);
+      const form = await renderMultiVariantForm(sizes, includeSvg);
       const res = await fetch(`/api/proxy/logo/images/${published.id}`, {
         method: "PUT", credentials: "include", body: form,
       });
@@ -1623,25 +1783,30 @@ export function LogoGenerator() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-      // Update size in saved logo
+      const data = await res.json();
+      const variants: PublishedVariant[] = (data.variants ?? []).map((v: Record<string, unknown>) => ({
+        variant: v.variant as string,
+        width: v.width as number,
+        height: v.height as number,
+        contentType: v.contentType as string,
+      }));
+      setPublished({ ...published, variants });
       if (activeLogoId) {
         setSavedLogos((prev) =>
-          prev.map((l) => l.id === activeLogoId ? { ...l, publishSize: size } : l)
+          prev.map((l) => l.id === activeLogoId ? { ...l, publishSize: sizes[0] } : l)
         );
       }
-      setPublished({ ...published });
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to update");
     } finally {
       setPublishing(false);
     }
-  }, [publishing, published, renderPngForm, activeLogoId, setSavedLogos]);
+  }, [publishing, published, renderMultiVariantForm, activeLogoId, setSavedLogos]);
 
-  const handleNewUrl = useCallback(async (size: number) => {
+  const handleNewUrl = useCallback(async (sizes: number[], includeSvg: boolean) => {
     if (!published) return;
-    setPublishSizeDefault(size);
-    // 1. Re-upload the image
-    const form = await renderPngForm(size);
+    if (sizes.length > 0) setPublishSizeDefault(sizes[0]);
+    const form = await renderMultiVariantForm(sizes, includeSvg);
     const putRes = await fetch(`/api/proxy/logo/images/${published.id}`, {
       method: "PUT", credentials: "include", body: form,
     });
@@ -1649,7 +1814,6 @@ export function LogoGenerator() {
       alert("Failed to update image");
       return;
     }
-    // 2. Generate a new slug
     const patchRes = await fetch(`/api/proxy/logo/images/${published.id}`, {
       method: "PATCH", credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -1661,8 +1825,14 @@ export function LogoGenerator() {
     }
     const data = await patchRes.json();
     const newSlug = data.slug as string;
-    updatePublishedState(published.id, newSlug, size);
-  }, [published, renderPngForm, updatePublishedState]);
+    const variants: PublishedVariant[] = (data.variants ?? []).map((v: Record<string, unknown>) => ({
+      variant: v.variant as string,
+      width: v.width as number,
+      height: v.height as number,
+      contentType: v.contentType as string,
+    }));
+    updatePublishedState(published.id, newSlug, sizes[0], variants);
+  }, [published, renderMultiVariantForm, updatePublishedState]);
 
   const handleUnpublish = useCallback(async () => {
     if (!published) return;
@@ -1748,7 +1918,7 @@ export function LogoGenerator() {
             <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3" />
           </button>
           {downloadOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border bg-popover p-1.5 shadow-lg">
+            <div className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg border bg-popover p-1.5 shadow-lg">
               <button
                 onClick={() => { handleDownloadSvg(); setDownloadOpen(false); }}
                 className="flex items-center gap-2 w-full rounded-md px-2.5 py-1.5 text-xs hover:bg-muted transition-colors"
@@ -1763,8 +1933,8 @@ export function LogoGenerator() {
                 <Download className="h-3.5 w-3.5" /> Download Favicon
               </button>
               <div className="my-1 h-px bg-border" />
-              <div className="px-2.5 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">PNG</div>
-              <div className="grid grid-cols-2 gap-0.5">
+              <div className="px-2.5 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">PNG — single</div>
+              <div className="grid grid-cols-3 gap-0.5">
                 {SIZE_PRESETS.map((p) => (
                   <button
                     key={p.size}
@@ -1776,6 +1946,43 @@ export function LogoGenerator() {
                   </button>
                 ))}
               </div>
+              <div className="my-1 h-px bg-border" />
+              <button
+                onClick={async () => {
+                  setDownloadOpen(false);
+                  setExporting("zip");
+                  try {
+                    const JSZip = (await import("jszip")).default;
+                    const zip = new JSZip();
+                    const isWide = config.shape === "wide";
+                    const suffix = config.text ? config.text.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase() : "logo";
+                    // Add all PNG sizes
+                    await Promise.all(
+                      SIZE_PRESETS.map(async (p) => {
+                        const blob = await svgToPngBlob(config, p.size);
+                        const w = isWide ? p.size * 2 : p.size;
+                        zip.file(`${suffix}-${w}x${p.size}.png`, blob);
+                      }),
+                    );
+                    // Add SVG
+                    zip.file(`${suffix}.svg`, buildSvg(config));
+                    // Add favicon
+                    const favBlob = await svgToPngBlob(config, 32);
+                    zip.file("favicon.png", favBlob);
+                    const blob = await zip.generateAsync({ type: "blob" });
+                    downloadBlob(blob, `${suffix}-export.zip`);
+                  } catch (e) {
+                    console.error("ZIP export failed", e);
+                  } finally {
+                    setExporting(null);
+                  }
+                }}
+                disabled={exporting === "zip"}
+                className="flex items-center gap-2 w-full rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                {exporting === "zip" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Download ZIP (all sizes + SVG)
+              </button>
             </div>
           )}
         </div>
@@ -2080,6 +2287,23 @@ export function LogoGenerator() {
           onRepublish={handleRepublish}
           onUnpublish={handleUnpublish}
           onNewUrl={handleNewUrl}
+          onDeleteVariants={async (variants) => {
+            if (!published) return;
+            try {
+              const res = await fetch(`/api/proxy/logo/images/${published.id}`, {
+                method: "PATCH", credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ deleteVariants: variants }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const remaining: PublishedVariant[] = (data.variants ?? []).map((v: Record<string, unknown>) => ({
+                  variant: v.variant as string, width: v.width as number, height: v.height as number, contentType: v.contentType as string,
+                }));
+                setPublished({ ...published, variants: remaining });
+              }
+            } catch {}
+          }}
           saveTriggered={publishDialogSaveTriggered}
           currentPublishSize={activeLogoId ? savedLogos.find((l) => l.id === activeLogoId)?.publishSize : undefined}
         />

@@ -248,7 +248,7 @@ func main() {
 				r.Put("/og/collections/{id}", handler.UpdateOgCollection(db))
 				r.Delete("/og/collections/{id}", handler.DeleteOgCollection(db))
 
-				r.Patch("/logo/images/{id}", handler.PatchLogoImage(db))
+				r.Patch("/logo/images/{id}", handler.PatchLogoImage(db, r2))
 			}
 			if r2 != nil && db != nil {
 				r.Post("/logo/images", handler.CreateLogoImage(db, r2))
