@@ -1,19 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 310" width="310" height="310">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 245 245" width="245" height="245">
 <defs>
   <clipPath id="circleClip">
-    <circle cx="155" cy="155" r="155"/>
+    <circle cx="122.5" cy="122.5" r="122.5"/>
   </clipPath>
 </defs>
-  <circle cx="155" cy="155" r="155" fill="#1d546d"/>
+  <circle cx="122.5" cy="122.5" r="122.5" fill="#1d546d"/>
   <text clip-path="url(#circleClip)"
     x="50%"
     y="50%"
     dominant-baseline="central"
     text-anchor="middle"
     fill="#ffffff"
-    font-family="Inter, system-ui, sans-serif"
+    font-family="'IBM Plex Mono', monospace"
     font-weight="700"
     font-size="120"
     letter-spacing="-4"
-  >kim1</text>
+  >K1</text>
 </svg>
