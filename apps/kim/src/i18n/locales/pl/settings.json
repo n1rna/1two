@@ -1,15 +1,15 @@
 {
-  "page_title": "Settings",
-  "page_subtitle": "Life profile",
+  "page_title": "Ustawienia",
+  "page_subtitle": "Profil życia",
 
-  "save_btn": "save",
-  "saving_btn": "saving\u2026",
+  "save_btn": "zapisz",
+  "saving_btn": "zapisuję…",
 
-  "field_timezone": "timezone",
-  "field_wake_time": "wake time",
-  "field_sleep_time": "sleep time",
-  "field_kim_agent": "Kim agent",
+  "field_timezone": "strefa czasowa",
+  "field_wake_time": "pora budzenia",
+  "field_sleep_time": "pora snu",
+  "field_kim_agent": "Agent kim",
 
-  "timezone_placeholder": "e.g. Europe/Berlin",
-  "agent_enabled_label": "proactive scheduling & daily summaries enabled"
+  "timezone_placeholder": "np. Europe/Warsaw",
+  "agent_enabled_label": "proaktywne planowanie i codzienne podsumowania włączone"
 }

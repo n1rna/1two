@@ -1,21 +1,21 @@
 {
-  "status_agent_online": "kim agent \u00b7 online",
+  "status_agent_online": "kim agent · online",
   "status_version": "kim1.ai / v0",
 
-  "pitch": "one conversation. your routines, your meals, your calendar, your workouts. kim pays attention so you don't have to.",
-  "subtitle": "a personal life agent",
+  "pitch": "één gesprek. je routines, je maaltijden, je agenda, je workouts. kim let op zodat jij dat niet hoeft.",
+  "subtitle": "een persoonlijke levensagent",
 
-  "terminal_label": "kim \u2014 live",
+  "terminal_label": "kim — live",
 
-  "step_label": "\u2460 sign in",
-  "heading": "come in.",
-  "body": "kim lives behind a quiet door. sign in with an account you already trust \u2014 we don't do passwords.",
+  "step_label": "① inloggen",
+  "heading": "kom binnen.",
+  "body": "kim zit achter een rustige deur. log in met een account dat je al vertrouwt — wij doen niet aan wachtwoorden.",
 
-  "continue_github": "continue with GitHub",
-  "continue_google": "continue with Google",
+  "continue_github": "doorgaan met GitHub",
+  "continue_google": "doorgaan met Google",
 
-  "divider": "one account, kim + 1tt",
-  "terms": "by continuing you agree to the 1tt.dev terms. your kim profile lives on the same account \u2014 one sign-in covers both.",
+  "divider": "één account, kim + 1tt",
+  "terms": "door verder te gaan ga je akkoord met de 1tt.dev voorwaarden. je kim-profiel leeft op hetzelfde account — één keer inloggen dekt beide.",
 
-  "footer_copyright": "\u00a9 1tt.dev"
+  "footer_copyright": "© 1tt.dev"
 }

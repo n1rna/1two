@@ -1,15 +1,15 @@
 {
-  "page_title": "Settings",
-  "page_subtitle": "Life profile",
+  "page_title": "Instellingen",
+  "page_subtitle": "Levensprofiel",
 
-  "save_btn": "save",
-  "saving_btn": "saving\u2026",
+  "save_btn": "opslaan",
+  "saving_btn": "opslaan…",
 
-  "field_timezone": "timezone",
-  "field_wake_time": "wake time",
-  "field_sleep_time": "sleep time",
-  "field_kim_agent": "Kim agent",
+  "field_timezone": "tijdzone",
+  "field_wake_time": "wektijd",
+  "field_sleep_time": "slaaptijd",
+  "field_kim_agent": "kim agent",
 
-  "timezone_placeholder": "e.g. Europe/Berlin",
-  "agent_enabled_label": "proactive scheduling & daily summaries enabled"
+  "timezone_placeholder": "bijv. Europe/Amsterdam",
+  "agent_enabled_label": "proactieve planning & dagelijkse samenvattingen ingeschakeld"
 }

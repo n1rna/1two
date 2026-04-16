@@ -1,24 +1,24 @@
 {
-  "today_label": "Today, {{date}}",
-  "tomorrow_label": "Tomorrow, {{date}}",
-  "today_btn": "Today",
-  "view_day": "Day",
+  "today_label": "Vandaag, {{date}}",
+  "tomorrow_label": "Morgen, {{date}}",
+  "today_btn": "Vandaag",
+  "view_day": "Dag",
   "view_week": "Week",
-  "summary_btn": "Summary",
-  "summary_show_tooltip": "Show day summary",
-  "summary_hide_tooltip": "Show actual events",
-  "refresh_events_tooltip": "Refresh events",
-  "previous_aria": "Previous",
-  "next_aria": "Next",
+  "summary_btn": "Samenvatting",
+  "summary_show_tooltip": "Toon dagsamenvatting",
+  "summary_hide_tooltip": "Toon daadwerkelijke events",
+  "refresh_events_tooltip": "Events vernieuwen",
+  "previous_aria": "Vorige",
+  "next_aria": "Volgende",
 
-  "no_title": "(No title)",
-  "event_click_hint": "Click to add to Kim \u00b7 \u2318-click to open in Google",
+  "no_title": "(Geen titel)",
+  "event_click_hint": "Klik om aan kim toe te voegen · ⌘-klik om in Google te openen",
 
-  "gcal_not_connected_title": "Google Calendar not connected",
-  "gcal_not_connected_body": "Connect your Google account in Channels to see your events here.",
-  "gcal_go_to_channels": "Go to Channels",
-  "gcal_loading_failed": "Couldn't load events",
+  "gcal_not_connected_title": "Google Calendar niet verbonden",
+  "gcal_not_connected_body": "Verbind je Google-account bij Kanalen om je events hier te zien.",
+  "gcal_go_to_channels": "Ga naar Kanalen",
+  "gcal_loading_failed": "Kon events niet laden",
 
-  "day_summary_heading": "Day summary",
-  "no_summary": "No summary available for this day yet."
+  "day_summary_heading": "Dagsamenvatting",
+  "no_summary": "Nog geen samenvatting beschikbaar voor deze dag."
 }

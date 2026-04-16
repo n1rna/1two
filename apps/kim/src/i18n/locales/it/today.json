@@ -1,21 +1,21 @@
 {
-  "page_title": "Today",
-  "section_actionables": "Actionables",
-  "section_todays_events": "Today's events",
-  "section_active_routines": "Active routines",
-  "section_meals": "meals",
-  "section_gym": "gym",
-  "section_ask_kim": "ask kim",
+  "page_title": "Oggi",
+  "section_actionables": "Da fare",
+  "section_todays_events": "Eventi di oggi",
+  "section_active_routines": "Routine attive",
+  "section_meals": "pasti",
+  "section_gym": "palestra",
+  "section_ask_kim": "chiedi a kim",
 
-  "empty_actionables_title": "Nothing pending",
-  "empty_actionables_hint": "Kim will nudge you when something needs attention.",
-  "empty_events_title": "Nothing scheduled",
-  "empty_routines_title": "No routines yet",
-  "empty_routines_hint": "Open Kim (\u2318K) and ask it to create one.",
+  "empty_actionables_title": "Niente in sospeso",
+  "empty_actionables_hint": "kim ti avviserà quando qualcosa richiede attenzione.",
+  "empty_events_title": "Niente in programma",
+  "empty_routines_title": "Nessuna routine ancora",
+  "empty_routines_hint": "Apri kim (⌘K) e chiedi di crearne una.",
 
-  "all_day": "all day",
+  "all_day": "tutto il giorno",
 
-  "manage_meal_plans": "manage meal plans \u2192",
-  "manage_sessions": "manage sessions \u2192",
-  "ask_kim_hint": "press \u2318K to open Kim on any page."
+  "manage_meal_plans": "gestisci piani alimentari →",
+  "manage_sessions": "gestisci sessioni →",
+  "ask_kim_hint": "premi ⌘K per aprire kim su qualsiasi pagina."
 }

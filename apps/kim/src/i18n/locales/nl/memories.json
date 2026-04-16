@@ -1,17 +1,17 @@
 {
-  "category_preference": "Preference",
-  "category_instruction": "Instruction",
-  "category_fact": "Fact",
-  "category_habit": "Habit",
+  "category_preference": "Voorkeur",
+  "category_instruction": "Instructie",
+  "category_fact": "Feit",
+  "category_habit": "Gewoonte",
 
-  "empty_all": "No memories yet",
-  "empty_filtered": "No {{category}} memories",
+  "empty_all": "Nog geen herinneringen",
+  "empty_filtered": "Geen {{category}}-herinneringen",
 
-  "editor_placeholder": "Write your memory in markdown...",
-  "editor_create": "Create",
-  "editor_save": "Save",
-  "editor_close_title": "Close",
+  "editor_placeholder": "Schrijf je herinnering in markdown...",
+  "editor_create": "Aanmaken",
+  "editor_save": "Opslaan",
+  "editor_close_title": "Sluiten",
 
-  "delete_dialog_title": "Delete Memory",
-  "delete_dialog_body": "Are you sure? This cannot be undone."
+  "delete_dialog_title": "Herinnering verwijderen",
+  "delete_dialog_body": "Weet je het zeker? Dit kan niet ongedaan worden gemaakt."
 }

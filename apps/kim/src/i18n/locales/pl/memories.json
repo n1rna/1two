@@ -1,17 +1,17 @@
 {
-  "category_preference": "Preference",
-  "category_instruction": "Instruction",
-  "category_fact": "Fact",
-  "category_habit": "Habit",
+  "category_preference": "Preferencja",
+  "category_instruction": "Instrukcja",
+  "category_fact": "Fakt",
+  "category_habit": "Nawyk",
 
-  "empty_all": "No memories yet",
-  "empty_filtered": "No {{category}} memories",
+  "empty_all": "Brak wspomnień",
+  "empty_filtered": "Brak wspomnień typu {{category}}",
 
-  "editor_placeholder": "Write your memory in markdown...",
-  "editor_create": "Create",
-  "editor_save": "Save",
-  "editor_close_title": "Close",
+  "editor_placeholder": "Napisz wspomnienie w markdown...",
+  "editor_create": "Utwórz",
+  "editor_save": "Zapisz",
+  "editor_close_title": "Zamknij",
 
-  "delete_dialog_title": "Delete Memory",
-  "delete_dialog_body": "Are you sure? This cannot be undone."
+  "delete_dialog_title": "Usuń wspomnienie",
+  "delete_dialog_body": "Na pewno? Tego nie da się cofnąć."
 }

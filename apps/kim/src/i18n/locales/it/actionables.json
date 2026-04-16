@@ -1,21 +1,21 @@
 {
-  "page_title": "Actionables",
-  "subtitle_with_counts": "{{pendingCount}} pending \u00b7 {{resolvedCount}} resolved",
-  "subtitle_with_pending": "{{pendingCount}} pending",
-  "subtitle_empty": "Things Kim wants you to confirm, decide, or acknowledge",
+  "page_title": "Da fare",
+  "subtitle_with_counts": "{{pendingCount}} in sospeso · {{resolvedCount}} risolti",
+  "subtitle_with_pending": "{{pendingCount}} in sospeso",
+  "subtitle_empty": "Cose che kim vuole che confermi, decidi o prendi nota",
 
-  "select_all_pending_title": "Select all pending",
-  "clear_selection_title": "Clear selection",
+  "select_all_pending_title": "Seleziona tutti in sospeso",
+  "clear_selection_title": "Deseleziona tutto",
 
-  "skip_all": "Skip all",
-  "skip_all_title": "Dismiss every pending actionable",
-  "confirm_skip_all": "Dismiss all {{count}} pending actionable(s)?",
+  "skip_all": "Ignora tutti",
+  "skip_all_title": "Ignora tutti gli elementi in sospeso",
+  "confirm_skip_all": "Ignorare tutti i {{count}} elementi in sospeso?",
 
-  "all_caught_up_title": "All caught up",
-  "all_caught_up_body": "No items need your attention right now. Kim will surface new actionables here as suggestions come up.",
+  "all_caught_up_title": "Tutto in ordine",
+  "all_caught_up_body": "Nessun elemento richiede la tua attenzione adesso. kim farà comparire nuovi elementi qui quando ci saranno suggerimenti.",
 
-  "resolved_section": "Resolved ({{count}})",
+  "resolved_section": "Risolti ({{count}})",
 
-  "select_title": "Select",
-  "deselect_title": "Deselect"
+  "select_title": "Seleziona",
+  "deselect_title": "Deseleziona"
 }

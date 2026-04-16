@@ -1,24 +1,24 @@
 {
-  "today_label": "Today, {{date}}",
-  "tomorrow_label": "Tomorrow, {{date}}",
-  "today_btn": "Today",
-  "view_day": "Day",
-  "view_week": "Week",
-  "summary_btn": "Summary",
-  "summary_show_tooltip": "Show day summary",
-  "summary_hide_tooltip": "Show actual events",
-  "refresh_events_tooltip": "Refresh events",
-  "previous_aria": "Previous",
-  "next_aria": "Next",
+  "today_label": "Heute, {{date}}",
+  "tomorrow_label": "Morgen, {{date}}",
+  "today_btn": "Heute",
+  "view_day": "Tag",
+  "view_week": "Woche",
+  "summary_btn": "Zusammenfassung",
+  "summary_show_tooltip": "Tageszusammenfassung anzeigen",
+  "summary_hide_tooltip": "Tatsächliche Termine anzeigen",
+  "refresh_events_tooltip": "Termine aktualisieren",
+  "previous_aria": "Zurück",
+  "next_aria": "Weiter",
 
-  "no_title": "(No title)",
-  "event_click_hint": "Click to add to Kim \u00b7 \u2318-click to open in Google",
+  "no_title": "(Kein Titel)",
+  "event_click_hint": "Klicken, um zu kim hinzuzufügen · ⌘-Klick, um in Google zu öffnen",
 
-  "gcal_not_connected_title": "Google Calendar not connected",
-  "gcal_not_connected_body": "Connect your Google account in Channels to see your events here.",
-  "gcal_go_to_channels": "Go to Channels",
-  "gcal_loading_failed": "Couldn't load events",
+  "gcal_not_connected_title": "Google Kalender nicht verbunden",
+  "gcal_not_connected_body": "Verbinde dein Google-Konto unter Kanäle, um deine Termine hier zu sehen.",
+  "gcal_go_to_channels": "Zu Kanäle",
+  "gcal_loading_failed": "Termine konnten nicht geladen werden",
 
-  "day_summary_heading": "Day summary",
-  "no_summary": "No summary available for this day yet."
+  "day_summary_heading": "Tageszusammenfassung",
+  "no_summary": "Für diesen Tag ist noch keine Zusammenfassung verfügbar."
 }

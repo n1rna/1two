@@ -1,17 +1,17 @@
 {
-  "category_preference": "Preference",
-  "category_instruction": "Instruction",
-  "category_fact": "Fact",
-  "category_habit": "Habit",
+  "category_preference": "Preferenza",
+  "category_instruction": "Istruzione",
+  "category_fact": "Fatto",
+  "category_habit": "Abitudine",
 
-  "empty_all": "No memories yet",
-  "empty_filtered": "No {{category}} memories",
+  "empty_all": "Nessun ricordo ancora",
+  "empty_filtered": "Nessun ricordo nella categoria {{category}}",
 
-  "editor_placeholder": "Write your memory in markdown...",
-  "editor_create": "Create",
-  "editor_save": "Save",
-  "editor_close_title": "Close",
+  "editor_placeholder": "Scrivi il tuo ricordo in markdown...",
+  "editor_create": "Crea",
+  "editor_save": "Salva",
+  "editor_close_title": "Chiudi",
 
-  "delete_dialog_title": "Delete Memory",
-  "delete_dialog_body": "Are you sure? This cannot be undone."
+  "delete_dialog_title": "Elimina ricordo",
+  "delete_dialog_body": "Sei sicuro? Non si può annullare."
 }

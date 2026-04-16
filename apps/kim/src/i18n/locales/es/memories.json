@@ -1,17 +1,17 @@
 {
-  "category_preference": "Preference",
-  "category_instruction": "Instruction",
-  "category_fact": "Fact",
-  "category_habit": "Habit",
+  "category_preference": "Preferencia",
+  "category_instruction": "Instrucción",
+  "category_fact": "Dato",
+  "category_habit": "Hábito",
 
-  "empty_all": "No memories yet",
-  "empty_filtered": "No {{category}} memories",
+  "empty_all": "Sin memorias aún",
+  "empty_filtered": "Sin memorias de tipo {{category}}",
 
-  "editor_placeholder": "Write your memory in markdown...",
-  "editor_create": "Create",
-  "editor_save": "Save",
-  "editor_close_title": "Close",
+  "editor_placeholder": "Escribe tu memoria en markdown...",
+  "editor_create": "Crear",
+  "editor_save": "Guardar",
+  "editor_close_title": "Cerrar",
 
-  "delete_dialog_title": "Delete Memory",
-  "delete_dialog_body": "Are you sure? This cannot be undone."
+  "delete_dialog_title": "Eliminar Memoria",
+  "delete_dialog_body": "¿Estás seguro? Esto no se puede deshacer."
 }
