@@ -490,6 +490,19 @@ The `n1rna/ee-action` GitHub Action hydrates env files from bundled GitHub secre
     gh_secret: ${{ secrets.ENV_VARS_WEB }}
 ```
 
+### Internationalization (i18n) — Kim App
+
+The kim app (`apps/kim`) is fully internationalized with `react-i18next`. **Every user-visible string must be a translation token** — never hardcode English text in components.
+
+Key rules:
+- Use `useTranslation("namespace")` + `t("key")` in every component.
+- Translation files live at `apps/kim/src/i18n/locales/{locale}/{namespace}.json`.
+- 16 namespaces (common, today, health, channels, etc.) — pick the one matching the feature.
+- Keys are flat `snake_case`: `empty_title`, `ask_kim_prompt`.
+- When adding a new key to `en/*.json`, **add it to all 7 locales** (en, fr, nl, de, es, it, pl) or the completeness test fails.
+- Run `cd apps/kim && bun run test:i18n` to verify.
+- Full docs: `docs/i18n.md`.
+
 ### Important Notes
 
 - `pg` module does NOT work on Cloudflare Workers (no TCP sockets). Use `@neondatabase/serverless` instead (WebSocket-based, drop-in `Pool` replacement).

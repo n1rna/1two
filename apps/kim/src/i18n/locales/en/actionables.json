@@ -1,0 +1,21 @@
+{
+  "page_title": "Actionables",
+  "subtitle_with_counts": "{{pendingCount}} pending \u00b7 {{resolvedCount}} resolved",
+  "subtitle_with_pending": "{{pendingCount}} pending",
+  "subtitle_empty": "Things Kim wants you to confirm, decide, or acknowledge",
+
+  "select_all_pending_title": "Select all pending",
+  "clear_selection_title": "Clear selection",
+
+  "skip_all": "Skip all",
+  "skip_all_title": "Dismiss every pending actionable",
+  "confirm_skip_all": "Dismiss all {{count}} pending actionable(s)?",
+
+  "all_caught_up_title": "All caught up",
+  "all_caught_up_body": "No items need your attention right now. Kim will surface new actionables here as suggestions come up.",
+
+  "resolved_section": "Resolved ({{count}})",
+
+  "select_title": "Select",
+  "deselect_title": "Deselect"
+}

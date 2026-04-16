@@ -21,50 +21,50 @@ import {
   Sun,
   Utensils,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   match?: (path: string) => boolean;
-  /** Optional badge key used to look up a numeric count from the nav state. */
   badgeKey?: "actionables";
 }
 
 const PRIMARY_ITEMS: NavItem[] = [
   {
     href: routes.today,
-    label: "Today",
+    labelKey: "nav_today",
     icon: Sun,
     match: (p) => p === routes.today,
   },
-  { href: routes.actionables, label: "Inbox", icon: CheckSquare, badgeKey: "actionables" },
+  { href: routes.actionables, labelKey: "nav_inbox", icon: CheckSquare, badgeKey: "actionables" },
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [
-  { href: routes.calendar, label: "Calendar", icon: CalendarDays },
+  { href: routes.calendar, labelKey: "nav_calendar", icon: CalendarDays },
   {
     href: routes.health,
-    label: "Health",
+    labelKey: "nav_health",
     icon: Heart,
     match: (p) =>
       p === routes.health ||
       p === routes.healthWeight ||
       p === routes.healthProfile,
   },
-  { href: routes.routines, label: "Routines", icon: Repeat },
-  { href: routes.meals, label: "Meals", icon: Utensils },
-  { href: routes.sessions, label: "Gym", icon: Dumbbell },
-  { href: routes.memories, label: "Memories", icon: Brain },
-  { href: routes.channels, label: "Channels", icon: Radio },
+  { href: routes.routines, labelKey: "nav_routines", icon: Repeat },
+  { href: routes.meals, labelKey: "nav_meals", icon: Utensils },
+  { href: routes.sessions, labelKey: "nav_gym", icon: Dumbbell },
+  { href: routes.memories, labelKey: "nav_memories", icon: Brain },
+  { href: routes.channels, labelKey: "nav_channels", icon: Radio },
 ];
 
 const BOTTOM_ITEMS: NavItem[] = [
-  { href: routes.marketplace(), label: "Market", icon: Store },
-  { href: routes.settings, label: "Settings", icon: Settings },
-  { href: routes.chat, label: "Conversations", icon: MessageSquare },
+  { href: routes.marketplace(), labelKey: "nav_market", icon: Store },
+  { href: routes.settings, labelKey: "nav_settings", icon: Settings },
+  { href: routes.chat, labelKey: "nav_conversations", icon: MessageSquare },
 ];
 
 type NavMode = "compact" | "extended";
@@ -75,6 +75,7 @@ function isActive(item: NavItem, pathname: string): boolean {
 }
 
 export function LifeNav() {
+  const { t } = useTranslation("common");
   const pathname = usePathname();
 
   // Pending actionable count for the Inbox badge. Refetched on pathname
@@ -138,7 +139,7 @@ export function LifeNav() {
       >
         <button
           onClick={toggleMode}
-          title={isExtended ? "Collapse sidebar" : "Expand sidebar"}
+          title={isExtended ? t("collapse_sidebar") : t("expand_sidebar")}
           className="rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-7 w-7 flex items-center justify-center"
         >
           {isExtended ? <PanelLeftClose size={14} /> : <PanelLeft size={14} />}
@@ -167,12 +168,12 @@ export function LifeNav() {
             ? "w-full flex items-center gap-3 px-3 py-2 text-xs"
             : "h-10 w-10 flex items-center justify-center",
         )}
-        title={expanded ? "Show less" : "Show more"}
+        title={expanded ? t("nav_less") : t("nav_more")}
         aria-expanded={expanded}
       >
         <MoreHorizontal size={isExtended ? 16 : 18} />
         {isExtended && (
-          <span className="text-sm">{expanded ? "Less" : "More"}</span>
+          <span className="text-sm">{expanded ? t("nav_less") : t("nav_more")}</span>
         )}
       </button>
 
@@ -230,7 +231,9 @@ function NavButton({
   extended: boolean;
   badgeCounts: Record<"actionables", number>;
 }) {
+  const { t } = useTranslation("common");
   const Icon = item.icon;
+  const label = t(item.labelKey);
   const active = isActive(item, pathname);
   const badge = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
   const showBadge = badge > 0;
@@ -248,7 +251,7 @@ function NavButton({
         )}
       >
         <Icon size={16} />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{label}</span>
         {showBadge && (
           <span
             className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums"
@@ -264,7 +267,7 @@ function NavButton({
   return (
     <Link
       href={item.href}
-      title={showBadge ? `${item.label} (${badge})` : item.label}
+      title={showBadge ? `${label} (${badge})` : label}
       className={cn(
         "group relative h-10 w-10 rounded-md flex items-center justify-center transition-colors",
         active

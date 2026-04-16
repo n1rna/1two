@@ -1,0 +1,17 @@
+{
+  "category_preference": "Preference",
+  "category_instruction": "Instruction",
+  "category_fact": "Fact",
+  "category_habit": "Habit",
+
+  "empty_all": "No memories yet",
+  "empty_filtered": "No {{category}} memories",
+
+  "editor_placeholder": "Write your memory in markdown...",
+  "editor_create": "Create",
+  "editor_save": "Save",
+  "editor_close_title": "Close",
+
+  "delete_dialog_title": "Delete Memory",
+  "delete_dialog_body": "Are you sure? This cannot be undone."
+}

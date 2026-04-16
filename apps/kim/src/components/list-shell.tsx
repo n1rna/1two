@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   title: string;
@@ -18,6 +19,7 @@ interface Props {
  * list pages share identical structure and feel.
  */
 export function ListShell({ title, subtitle, backHref, toolbar, children }: Props) {
+  const { t } = useTranslation("common");
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <header className="shrink-0 sticky top-0 z-10 bg-background/85 backdrop-blur border-b border-border">
@@ -28,7 +30,7 @@ export function ListShell({ title, subtitle, backHref, toolbar, children }: Prop
                 href={backHref}
                 className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground mb-1.5"
               >
-                <ChevronLeft size={12} /> back
+                <ChevronLeft size={12} /> {t("back")}
               </Link>
             )}
             <h1 className="text-2xl font-semibold leading-tight tracking-tight">

@@ -1,0 +1,97 @@
+{
+  "page_title": "Health",
+  "page_subtitle": "Body, fitness, and how you eat",
+  "ask_kim_to_update": "ask kim to update any of these",
+  "weight_log_btn": "Weight log",
+
+  "empty_profile_eyebrow": "nothing set up yet",
+  "empty_profile_title": "let's get kim up to speed.",
+  "empty_profile_body": "Kim will ask a few quick questions about your body, your training, and how you like to eat. Everything lives on one page after that.",
+  "empty_profile_cta": "Start with kim",
+
+  "goal_banner_heading": "your goal right now",
+  "goal_lose_weight": "lose weight",
+  "goal_maintain": "maintain current weight",
+  "goal_gain_weight": "gain weight",
+
+  "section_body_title": "Body",
+  "section_body_subtitle": "Who you are, physically",
+  "section_fitness_title": "Fitness",
+  "section_fitness_subtitle": "How you like to train",
+  "section_diet_title": "Diet & Nutrition",
+  "section_diet_subtitle": "How you eat, what you avoid, the macros",
+
+  "ask_kim": "ask kim",
+  "ask_kim_to_set_up": "ask kim to set it up",
+
+  "body_missing_cta": "Kim needs your body basics before she can tailor calories and training.",
+  "fitness_missing_cta": "Tell kim how you train so she can plan sensible sessions.",
+  "diet_missing_cta": "Kim can build meal plans around your diet type, calorie target, and any foods you want to avoid.",
+
+  "label_weight": "Weight",
+  "label_goal_weight": "Goal weight",
+  "label_height": "Height",
+  "label_age": "Age",
+  "label_gender": "Gender",
+  "label_activity_level": "Activity level",
+  "label_level": "Level",
+  "label_goal": "Goal",
+  "label_days_per_week": "Days / week",
+  "label_session_length": "Session length",
+  "label_equipment": "Equipment",
+  "label_limitations": "Limitations",
+  "label_likes": "Likes",
+  "label_dislikes": "Dislikes",
+  "label_diet_type": "Diet type",
+  "label_target_calories": "Target calories",
+  "label_restrictions": "Restrictions",
+  "label_macros": "macros",
+  "label_computed": "computed",
+
+  "stat_bmi": "BMI",
+  "stat_bmr": "BMR",
+  "stat_tdee": "TDEE",
+  "stat_kcal_day": "kcal/day",
+  "kcal_total": "{{value}} kcal total",
+
+  "weight_display": "{{value}} kg",
+  "height_display": "{{value}} cm",
+  "session_length_display": "{{value}} min",
+  "calories_display": "{{value}} kcal",
+
+  "macro_protein": "Protein",
+  "macro_carbs": "Carbs",
+  "macro_fat": "Fat",
+  "macro_unit": "g",
+
+  "activity_sedentary": "Sedentary",
+  "activity_light": "Lightly active",
+  "activity_moderate": "Moderately active",
+  "activity_active": "Active",
+  "activity_very_active": "Very active",
+
+  "gender_male": "Male",
+  "gender_female": "Female",
+  "gender_other": "Other",
+
+  "diet_type_omnivore": "Omnivore",
+  "diet_type_vegetarian": "Vegetarian",
+  "diet_type_vegan": "Vegan",
+  "diet_type_pescatarian": "Pescatarian",
+  "diet_type_keto": "Keto",
+  "diet_type_paleo": "Paleo",
+  "diet_type_mediterranean": "Mediterranean",
+
+  "diet_goal_lose": "Lose weight",
+  "diet_goal_maintain": "Maintain",
+  "diet_goal_gain": "Gain weight",
+
+  "fitness_level_beginner": "Beginner",
+  "fitness_level_intermediate": "Intermediate",
+  "fitness_level_advanced": "Advanced",
+
+  "bmi_underweight": "Underweight",
+  "bmi_healthy": "Healthy",
+  "bmi_overweight": "Overweight",
+  "bmi_obese": "Obese"
+}

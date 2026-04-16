@@ -12,6 +12,7 @@ Permanent documentation for the 1tt monorepo. Start here.
 | [env-and-secrets.md](./env-and-secrets.md) | The three-tier secret model (local, CI, runtime), adding a new secret |
 | [ee-cli.md](./ee-cli.md) | The `ee` CLI — what it is, key commands, how we use it in this repo (read this if you're touching env vars) |
 | [kim-agent.md](./kim-agent.md) | Kim agent architecture — skills, tools, prompt composition, how to add a new skill |
+| [i18n.md](./i18n.md) | Internationalization — how translations work, adding strings, adding languages, completeness test |
 | [development.md](./development.md) | Local setup, `just` commands, ports, `lvh.me`, what to run for which workflow |
 | [migration-history.md](./migration-history.md) | The 5-stage monorepo split — frozen record of how we got here |
 

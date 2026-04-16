@@ -1,0 +1,15 @@
+{
+  "page_title": "Settings",
+  "page_subtitle": "Life profile",
+
+  "save_btn": "save",
+  "saving_btn": "saving\u2026",
+
+  "field_timezone": "timezone",
+  "field_wake_time": "wake time",
+  "field_sleep_time": "sleep time",
+  "field_kim_agent": "Kim agent",
+
+  "timezone_placeholder": "e.g. Europe/Berlin",
+  "agent_enabled_label": "proactive scheduling & daily summaries enabled"
+}

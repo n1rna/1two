@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   title: string;
@@ -19,9 +20,11 @@ export function PageShell({
   subtitle,
   actions,
   backHref,
-  backLabel = "Back",
+  backLabel,
   children,
 }: Props) {
+  const { t } = useTranslation("common");
+  const resolvedBackLabel = backLabel ?? t("back");
   return (
     <div className="flex flex-col h-full">
       <header className="sticky top-0 z-10 bg-background/85 backdrop-blur border-b border-border px-8 py-5 flex items-end justify-between gap-4">
@@ -31,7 +34,7 @@ export function PageShell({
               href={backHref}
               className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground mb-1.5"
             >
-              <ChevronLeft size={12} /> {backLabel}
+              <ChevronLeft size={12} /> {resolvedBackLabel}
             </Link>
           )}
           <h1 className="text-2xl font-semibold leading-tight tracking-tight">

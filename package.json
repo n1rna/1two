@@ -21,9 +21,15 @@
     "cf:deploy:api": "cd workers/api-container && wrangler deploy"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "@1tt/kim": "./apps/kim",
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   },
   "dependencies": {
-    "jszip": "^3.10.1"
+    "@1tt/kim": "workspace:*",
+    "i18next": "^26.0.5",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "jszip": "^3.10.1",
+    "react-i18next": "^17.0.3"
   }
 }

@@ -1,0 +1,21 @@
+{
+  "page_title": "Today",
+  "section_actionables": "Actionables",
+  "section_todays_events": "Today's events",
+  "section_active_routines": "Active routines",
+  "section_meals": "meals",
+  "section_gym": "gym",
+  "section_ask_kim": "ask kim",
+
+  "empty_actionables_title": "Nothing pending",
+  "empty_actionables_hint": "Kim will nudge you when something needs attention.",
+  "empty_events_title": "Nothing scheduled",
+  "empty_routines_title": "No routines yet",
+  "empty_routines_hint": "Open Kim (\u2318K) and ask it to create one.",
+
+  "all_day": "all day",
+
+  "manage_meal_plans": "manage meal plans \u2192",
+  "manage_sessions": "manage sessions \u2192",
+  "ask_kim_hint": "press \u2318K to open Kim on any page."
+}

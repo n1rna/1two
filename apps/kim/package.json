@@ -7,6 +7,9 @@
     "build": "next build --webpack",
     "start": "next start -p 3001",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:i18n": "vitest run src/i18n/__tests__/completeness.test.ts",
     "cf:build": "ee apply production -c .ee.kim -- opennextjs-cloudflare build",
     "cf:preview": "wrangler dev",
     "cf:deploy": "ee apply production -c .ee.kim -- bash -c 'opennextjs-cloudflare build && wrangler deploy'"
