@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -25,34 +27,108 @@ import {
   getDaySummaries,
   getGCalAuthUrl,
   getGCalStatus,
+  getLifeProfile,
   listGCalEvents,
-  type DayBlock,
   type DaySummary,
   type GCalEvent,
   type GCalStatus,
 } from "@/lib/life";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Timezone context ─────────────────────────────────────────────────────────
 
-function formatEventTime(isoString: string): string {
-  const d = new Date(isoString);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+const browserTz = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+})();
+
+const CalendarTzContext = createContext<string>(browserTz);
+
+function useTz(): string {
+  return useContext(CalendarTzContext);
 }
 
-function formatDayHeader(dateStr: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  const d = new Date(dateStr.length === 10 ? dateStr + "T00:00:00" : dateStr);
-  d.setHours(0, 0, 0, 0);
+/** Returns the year/month/day/hour/minute of `d` as seen in the given timezone. */
+function partsInTz(d: Date, tz: string) {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(d);
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+  // Intl returns "24" for midnight in hour12:false mode — normalise to 0.
+  const rawHour = map.hour === "24" ? "0" : map.hour;
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(rawHour),
+    minute: Number(map.minute),
+  };
+}
 
-  const dayLabel = d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+function dateKeyInTz(d: Date, tz: string): string {
+  const p = partsInTz(d, tz);
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+}
 
-  if (d.getTime() === today.getTime()) return `Today, ${dayLabel}`;
-  if (d.getTime() === tomorrow.getTime()) return `Tomorrow, ${dayLabel}`;
+function hourOfDayInTz(d: Date, tz: string): number {
+  const p = partsInTz(d, tz);
+  return p.hour + p.minute / 60;
+}
+
+function formatEventTime(isoString: string, tz: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: tz,
+  }).format(new Date(isoString));
+}
+
+function formatDayHeader(dateStr: string, tz: string): string {
+  // dateStr is a tz-local YYYY-MM-DD. Compare against today's tz-local key.
+  const todayKey = dateKeyInTz(new Date(), tz);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowKey = dateKeyInTz(tomorrow, tz);
+
+  // Build a Date anchored at noon UTC on that day so toLocaleDateString renders
+  // the correct weekday/month/day regardless of browser zone.
+  const anchor = new Date(`${dateStr}T12:00:00Z`);
+  const dayLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: tz,
+  }).format(anchor);
+
+  if (dateStr === todayKey) return `Today, ${dayLabel}`;
+  if (dateStr === tomorrowKey) return `Tomorrow, ${dayLabel}`;
   return dayLabel;
+}
+
+function formatWeekdayShort(dateStr: string, tz: string): string {
+  const anchor = new Date(`${dateStr}T12:00:00Z`);
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    timeZone: tz,
+  }).format(anchor);
+}
+
+function formatDayNumber(dateStr: string): string {
+  // dateStr is YYYY-MM-DD; the day-of-month digits are literally the last two.
+  return String(Number(dateStr.slice(8, 10)));
 }
 
 // ─── Calendar grid helpers ────────────────────────────────────────────────────
@@ -61,25 +137,19 @@ const CAL_START_HOUR = 0;
 const CAL_END_HOUR = 24;
 const TOTAL_HOURS = CAL_END_HOUR - CAL_START_HOUR;
 
-function toDateKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+/** Step a tz-local YYYY-MM-DD day key by ±N days without drifting across zones. */
+function addDaysToKey(key: string, days: number): string {
+  const base = new Date(`${key}T12:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  return `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, "0")}-${String(base.getUTCDate()).padStart(2, "0")}`;
 }
 
-function isTodayDate(d: Date): boolean {
-  const today = new Date();
-  return (
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  );
+function isTodayKey(key: string, tz: string): boolean {
+  return key === dateKeyInTz(new Date(), tz);
 }
 
-function getEventFraction(isoString: string): number {
-  const d = new Date(isoString);
-  const hours = d.getHours() + d.getMinutes() / 60;
+function getEventFraction(isoString: string, tz: string): number {
+  const hours = hourOfDayInTz(new Date(isoString), tz);
   return (hours - CAL_START_HOUR) / TOTAL_HOURS;
 }
 
@@ -90,16 +160,22 @@ function getDurationFraction(startIso: string, endIso: string): number {
   return Math.max(durationHours / TOTAL_HOURS, 30 / (60 * TOTAL_HOURS));
 }
 
-function getCurrentTimeFraction(): number {
-  const now = new Date();
-  const hours = now.getHours() + now.getMinutes() / 60;
+function getCurrentTimeFraction(tz: string): number {
+  const hours = hourOfDayInTz(new Date(), tz);
   return (hours - CAL_START_HOUR) / TOTAL_HOURS;
 }
 
-function getEventsForDate(events: GCalEvent[], dateKey: string): GCalEvent[] {
+function getEventsForDateKey(
+  events: GCalEvent[],
+  dateKey: string,
+  tz: string,
+): GCalEvent[] {
   return events.filter((ev) => {
-    if (ev.allDay) return ev.start === dateKey || ev.start.slice(0, 10) === dateKey;
-    return ev.start.slice(0, 10) === dateKey;
+    if (ev.allDay) {
+      // allDay events come back as a YYYY-MM-DD string in `start`.
+      return ev.start === dateKey || ev.start.slice(0, 10) === dateKey;
+    }
+    return dateKeyInTz(new Date(ev.start), tz) === dateKey;
   });
 }
 
@@ -110,7 +186,7 @@ type CalView = "day" | "week";
 function CalendarHeader({
   view,
   setView,
-  currentDate,
+  currentKey,
   onPrev,
   onNext,
   onToday,
@@ -121,7 +197,7 @@ function CalendarHeader({
 }: {
   view: CalView;
   setView: (v: CalView) => void;
-  currentDate: Date;
+  currentKey: string;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
@@ -130,15 +206,20 @@ function CalendarHeader({
   showSummary?: boolean;
   onToggleSummary?: () => void;
 }) {
+  const tz = useTz();
   const label = (() => {
     if (view === "day") {
-      return formatDayHeader(toDateKey(currentDate));
+      return formatDayHeader(currentKey, tz);
     }
-    const end = new Date(currentDate);
-    end.setDate(end.getDate() + 6);
-    const startFmt = currentDate.toLocaleDateString([], { month: "short", day: "numeric" });
-    const endFmt = end.toLocaleDateString([], { month: "short", day: "numeric" });
-    return `${startFmt} – ${endFmt}`;
+    const endKey = addDaysToKey(currentKey, 6);
+    const startAnchor = new Date(`${currentKey}T12:00:00Z`);
+    const endAnchor = new Date(`${endKey}T12:00:00Z`);
+    const fmt = new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      timeZone: tz,
+    });
+    return `${fmt.format(startAnchor)} – ${fmt.format(endAnchor)}`;
   })();
 
   return (
@@ -254,7 +335,8 @@ function HourLines({ hourHeight }: { hourHeight: number }) {
 }
 
 function CurrentTimeBar({ hourHeight }: { hourHeight: number }) {
-  const fraction = getCurrentTimeFraction();
+  const tz = useTz();
+  const fraction = getCurrentTimeFraction(tz);
   if (fraction < 0 || fraction > 1) return null;
   const top = fraction * TOTAL_HOURS * hourHeight;
   return (
@@ -438,10 +520,11 @@ function EventBlock({
   totalCols?: number;
   isSummary?: boolean;
 }) {
+  const tz = useTz();
   const { isSelected, toggleSelection, setOpen } = useKim();
   const selected = !isSummary && isSelected("event", ev.id);
 
-  const topFraction = getEventFraction(ev.start);
+  const topFraction = getEventFraction(ev.start, tz);
   const heightFraction = getDurationFraction(ev.start, ev.end);
   const totalPx = TOTAL_HOURS * hourHeight;
   const top = topFraction * totalPx;
@@ -470,7 +553,7 @@ function EventBlock({
   return (
     <div
       onClick={handleClick}
-      title={`${ev.summary || "(No title)"}\n${formatEventTime(ev.start)} – ${formatEventTime(ev.end)}${isSummary ? "" : "\nClick to add to Kim · ⌘-click to open in Google"}`}
+      title={`${ev.summary || "(No title)"}\n${formatEventTime(ev.start, tz)} – ${formatEventTime(ev.end, tz)}${isSummary ? "" : "\nClick to add to Kim · ⌘-click to open in Google"}`}
       className={cn(
         "absolute rounded-md overflow-hidden border-l-[3px] transition-all z-10 cursor-pointer group shadow-sm hover:shadow-md hover:brightness-105",
         color.bg,
@@ -485,7 +568,7 @@ function EventBlock({
         </p>
         {!compact && height > 32 && (
           <p className={cn("text-[9px] leading-tight truncate font-normal opacity-60", color.text)}>
-            {formatEventTime(ev.start)} – {formatEventTime(ev.end)}
+            {formatEventTime(ev.start, tz)} – {formatEventTime(ev.end, tz)}
           </p>
         )}
         {ev.routineName && height > 44 && (
@@ -539,21 +622,21 @@ function AllDayRow({ events }: { events: GCalEvent[]; compact: boolean }) {
 // ─── Day + multi-day views ────────────────────────────────────────────────────
 
 function DayView({
-  date,
+  dateKey,
   events,
   loading,
   isSummary,
 }: {
-  date: Date;
+  dateKey: string;
   events: GCalEvent[];
   loading?: boolean;
   isSummary?: boolean;
 }) {
+  const tz = useTz();
   const hourHeight = 60;
-  const dateKey = toDateKey(date);
-  const dayEvents = getEventsForDate(events, dateKey).filter((e) => !e.allDay);
-  const allDayEvents = getEventsForDate(events, dateKey).filter((e) => e.allDay);
-  const isToday = isTodayDate(date);
+  const dayEvents = getEventsForDateKey(events, dateKey, tz).filter((e) => !e.allDay);
+  const allDayEvents = getEventsForDateKey(events, dateKey, tz).filter((e) => e.allDay);
+  const isToday = isTodayKey(dateKey, tz);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // On mount / when the viewed date changes: scroll to the current time
@@ -563,14 +646,16 @@ function DayView({
     if (!el) return;
     const totalPx = TOTAL_HOURS * hourHeight;
     const fraction = isToday
-      ? getCurrentTimeFraction()
+      ? getCurrentTimeFraction(tz)
       : Math.max(0, (8 - CAL_START_HOUR) / TOTAL_HOURS);
     const clampedFraction = Math.max(0, Math.min(1, fraction));
     // Center the indicator in the viewport when possible.
     const target = clampedFraction * totalPx - el.clientHeight / 2;
     el.scrollTop = Math.max(0, target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateKey, isToday]);
+  }, [dateKey, isToday, tz]);
+
+  const seed = Number(dateKey.slice(8, 10));
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto">
@@ -584,7 +669,7 @@ function DayView({
           <HourLines hourHeight={hourHeight} />
           {isToday && <CurrentTimeBar hourHeight={hourHeight} />}
           {loading ? (
-            <EventSkeletons hourHeight={hourHeight} count={4} seed={date.getDate()} />
+            <EventSkeletons hourHeight={hourHeight} count={4} seed={seed} />
           ) : (
             layoutEvents(dayEvents).map(({ ev, col, totalCols }) => (
               <EventBlock
@@ -605,30 +690,28 @@ function DayView({
 }
 
 function MultiDayView({
-  startDate,
+  startKey,
   days,
   events,
   loading,
   isSummary,
 }: {
-  startDate: Date;
+  startKey: string;
   days: number;
   events: GCalEvent[];
   loading?: boolean;
   isSummary?: boolean;
 }) {
+  const tz = useTz();
   const compact = days > 7;
   const hourHeight = compact ? 36 : 48;
 
-  const columns: Date[] = Array.from({ length: days }, (_, i) => {
-    const d = new Date(startDate);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const columns: string[] = Array.from({ length: days }, (_, i) =>
+    addDaysToKey(startKey, i),
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const weekHasToday = columns.some((d) => isTodayDate(d));
-  const startKey = toDateKey(startDate);
+  const weekHasToday = columns.some((k) => isTodayKey(k, tz));
 
   // Scroll to the current time indicator (centered) on mount and when the
   // week window changes. If the visible week doesn't contain today, scroll
@@ -638,7 +721,7 @@ function MultiDayView({
     if (!el) return;
     const totalPx = TOTAL_HOURS * hourHeight;
     const fraction = weekHasToday
-      ? getCurrentTimeFraction()
+      ? getCurrentTimeFraction(tz)
       : Math.max(0, (8 - CAL_START_HOUR) / TOTAL_HOURS);
     const clamped = Math.max(0, Math.min(1, fraction));
     // The scroll container includes the sticky day-header row, so offset the
@@ -647,17 +730,18 @@ function MultiDayView({
     const target = clamped * totalPx - el.clientHeight / 2 + headerOffset;
     el.scrollTop = Math.max(0, target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startKey, weekHasToday, hourHeight]);
+  }, [startKey, weekHasToday, hourHeight, tz]);
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-auto">
       <div className="flex border-b border-border/40 bg-background sticky top-0 z-30">
         <div className="w-14 shrink-0" />
-        {columns.map((d) => {
-          const isToday = isTodayDate(d);
+        {columns.map((key) => {
+          const isToday = isTodayKey(key, tz);
+          const dayNum = formatDayNumber(key);
           return (
             <div
-              key={toDateKey(d)}
+              key={key}
               className={cn(
                 "flex-1 min-w-0 text-center py-2 border-l border-border/15",
                 isToday && "bg-primary/[0.02]",
@@ -670,7 +754,7 @@ function MultiDayView({
                   "text-muted-foreground/60",
                 )}
               >
-                {d.toLocaleDateString([], { weekday: "short" })}
+                {formatWeekdayShort(key, tz)}
               </div>
               {compact ? (
                 <div
@@ -679,16 +763,16 @@ function MultiDayView({
                     isToday ? "text-primary" : "text-muted-foreground",
                   )}
                 >
-                  {d.getDate()}
+                  {dayNum}
                 </div>
               ) : (
                 <div className="leading-none mt-1 flex items-center justify-center">
                   {isToday ? (
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-                      {d.getDate()}
+                      {dayNum}
                     </span>
                   ) : (
-                    <span className="text-lg font-semibold text-foreground/80">{d.getDate()}</span>
+                    <span className="text-lg font-semibold text-foreground/80">{dayNum}</span>
                   )}
                 </div>
               )}
@@ -697,15 +781,15 @@ function MultiDayView({
         })}
       </div>
 
-      {columns.some((d) => getEventsForDate(events, toDateKey(d)).some((e) => e.allDay)) && (
+      {columns.some((k) => getEventsForDateKey(events, k, tz).some((e) => e.allDay)) && (
         <div className="flex border-b border-border/30">
           <div className="w-14 shrink-0 flex items-center justify-end pr-2">
             <span className="text-[9px] uppercase tracking-wide text-muted-foreground/40">all day</span>
           </div>
-          {columns.map((d) => {
-            const allDay = getEventsForDate(events, toDateKey(d)).filter((e) => e.allDay);
+          {columns.map((key) => {
+            const allDay = getEventsForDateKey(events, key, tz).filter((e) => e.allDay);
             return (
-              <div key={toDateKey(d)} className="flex-1 min-w-0 border-l border-border/15">
+              <div key={key} className="flex-1 min-w-0 border-l border-border/15">
                 <AllDayRow events={allDay} compact={compact} />
               </div>
             );
@@ -715,20 +799,31 @@ function MultiDayView({
 
       <div className="flex relative">
         <TimeGutter hourHeight={hourHeight} />
-        {columns.map((d) => {
-          const dateKey = toDateKey(d);
-          const isToday = isTodayDate(d);
-          const dayEvents = loading ? [] : getEventsForDate(events, dateKey).filter((e) => !e.allDay);
+        {columns.map((key) => {
+          const isToday = isTodayKey(key, tz);
+          const dayEvents = loading
+            ? []
+            : getEventsForDateKey(events, key, tz).filter((e) => !e.allDay);
+          const seedDay = Number(key.slice(8, 10));
+          const seedMonth = Number(key.slice(5, 7));
           return (
             <div
-              key={dateKey}
-              className={cn("flex-1 min-w-0 relative border-l border-border/15", isToday && "bg-primary/[0.02]")}
+              key={key}
+              className={cn(
+                "flex-1 min-w-0 relative border-l border-border/15",
+                isToday && "bg-primary/[0.02]",
+              )}
               style={{ height: TOTAL_HOURS * hourHeight }}
             >
               <HourLines hourHeight={hourHeight} />
               {isToday && <CurrentTimeBar hourHeight={hourHeight} />}
               {loading ? (
-                <EventSkeletons hourHeight={hourHeight} count={2 + (d.getDate() % 3)} compact={compact} seed={d.getDate() * 31 + d.getMonth()} />
+                <EventSkeletons
+                  hourHeight={hourHeight}
+                  count={2 + (seedDay % 3)}
+                  compact={compact}
+                  seed={seedDay * 31 + seedMonth}
+                />
               ) : (
                 layoutEvents(dayEvents).map(({ ev, col, totalCols }) => (
                   <EventBlock
@@ -782,25 +877,33 @@ const BLOCK_TYPE_COLOR_ID: Record<string, string> = {
   errand: "4",
 };
 
-function summaryBlocksToEvents(summaries: DaySummary[]): GCalEvent[] {
+/** Returns a UTC ISO string that, when projected to `tz`, shows the given wall clock time on the given day. */
+function tzWallClockIso(dateKey: string, hh: number, mm: number, tz: string): string {
+  const probe = new Date(
+    `${dateKey}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00Z`,
+  );
+  const proj = partsInTz(probe, tz);
+  const deltaMin = (hh * 60 + mm) - (proj.hour * 60 + proj.minute);
+  return new Date(probe.getTime() + deltaMin * 60_000).toISOString();
+}
+
+function summaryBlocksToEvents(summaries: DaySummary[], tz: string): GCalEvent[] {
   const events: GCalEvent[] = [];
   for (const summary of summaries) {
     if (!summary.blocks || summary.pending) continue;
     for (const block of summary.blocks) {
       const [sh, sm] = block.start.split(":").map(Number);
       const [eh, em] = block.end.split(":").map(Number);
-      const start = new Date(summary.date + "T00:00:00");
-      start.setHours(sh, sm, 0, 0);
-      const end = new Date(summary.date + "T00:00:00");
-      end.setHours(eh, em, 0, 0);
+      const startIso = tzWallClockIso(summary.date, sh, sm, tz);
+      const endIso = tzWallClockIso(summary.date, eh, em, tz);
 
       events.push({
         id: `summary-${summary.date}-${block.start}-${block.type}`,
         summary: block.label,
         description: block.description,
         location: "",
-        start: start.toISOString(),
-        end: end.toISOString(),
+        start: startIso,
+        end: endIso,
         allDay: false,
         status: "confirmed",
         colorId: BLOCK_TYPE_COLOR_ID[block.type] ?? "",
@@ -827,11 +930,13 @@ export function CalendarView() {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<CalView>("day");
-  const [currentDate, setCurrentDate] = useState<Date>(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
+  // User's configured timezone from their life profile. Falls back to the
+  // browser's detected zone until the profile loads (and stays as the
+  // fallback if the profile has no timezone set).
+  const [tz, setTz] = useState<string>(browserTz);
+  const [currentKey, setCurrentKey] = useState<string>(() =>
+    dateKeyInTz(new Date(), browserTz),
+  );
 
   const [summaries, setSummaries] = useState<DaySummary[]>([]);
   const [summariesLoading, setSummariesLoading] = useState(false);
@@ -839,33 +944,54 @@ export function CalendarView() {
 
   const daysToLoad = view === "day" ? 1 : 7;
 
-  const loadEvents = useCallback(async (connected: boolean, startDate: Date, numDays: number) => {
-    if (!connected) return;
-    setEventsLoading(true);
-    try {
-      const fromDate = new Date(startDate);
-      const toDate = new Date(startDate);
-      toDate.setDate(toDate.getDate() + numDays);
-      const from = fromDate.toISOString().slice(0, 10);
-      const to = toDate.toISOString().slice(0, 10);
-      const evs = await listGCalEvents(from, to);
-      setEvents(evs);
-      setEventsEverLoaded(true);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load events");
-    } finally {
-      setEventsLoading(false);
-    }
+  // Load the user's configured timezone once. If the profile has no tz set,
+  // keep the browser fallback so the UI still works.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await getLifeProfile();
+        if (cancelled) return;
+        if (profile.timezone && profile.timezone.trim() !== "") {
+          setTz(profile.timezone);
+          // Re-anchor the viewed day to "today" in the profile's zone so
+          // first render doesn't show yesterday/tomorrow from the browser zone.
+          setCurrentKey(dateKeyInTz(new Date(), profile.timezone));
+        }
+      } catch {
+        /* non-fatal — stay on browser tz */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const loadSummaries = useCallback(async (connected: boolean, startDate: Date) => {
+  const loadEvents = useCallback(
+    async (connected: boolean, startKey: string, numDays: number) => {
+      if (!connected) return;
+      setEventsLoading(true);
+      try {
+        const from = startKey;
+        const to = addDaysToKey(startKey, numDays);
+        const evs = await listGCalEvents(from, to);
+        setEvents(evs);
+        setEventsEverLoaded(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load events");
+      } finally {
+        setEventsLoading(false);
+      }
+    },
+    [],
+  );
+
+  const loadSummaries = useCallback(async (connected: boolean, startKey: string) => {
     if (!connected) return;
     setSummariesLoading(true);
     try {
-      const from = startDate.toISOString().slice(0, 10);
-      const toDate = new Date(startDate);
-      toDate.setDate(toDate.getDate() + 7);
-      const to = toDate.toISOString().slice(0, 10);
+      const from = startKey;
+      const to = addDaysToKey(startKey, 7);
       const result = await getDaySummaries(from, to);
       setSummaries(result);
       setSummariesEverLoaded(true);
@@ -881,16 +1007,14 @@ export function CalendarView() {
       const s = await getGCalStatus();
       setStatus(s);
       if (s.connected) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        await loadEvents(true, today, 1);
+        await loadEvents(true, dateKeyInTz(new Date(), tz), 1);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load calendar status");
     } finally {
       setLoading(false);
     }
-  }, [loadEvents]);
+  }, [loadEvents, tz]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -911,22 +1035,22 @@ export function CalendarView() {
 
   useEffect(() => {
     if (status?.connected) {
-      loadEvents(true, currentDate, daysToLoad);
+      loadEvents(true, currentKey, daysToLoad);
       if (showSummary) {
-        loadSummaries(true, currentDate);
+        loadSummaries(true, currentKey);
       }
     }
-  }, [view, currentDate, status?.connected, daysToLoad, loadEvents, showSummary, loadSummaries]);
+  }, [view, currentKey, status?.connected, daysToLoad, loadEvents, showSummary, loadSummaries]);
 
   useEffect(() => {
     if (!showSummary || !status?.connected) return;
     const hasPending = summaries.some((s) => s.pending);
     if (!hasPending) return;
     const interval = setInterval(() => {
-      loadSummaries(true, currentDate);
+      loadSummaries(true, currentKey);
     }, 10000);
     return () => clearInterval(interval);
-  }, [showSummary, summaries, status?.connected, currentDate, loadSummaries]);
+  }, [showSummary, summaries, status?.connected, currentKey, loadSummaries]);
 
   const handleConnect = async () => {
     setConnecting(true);
@@ -941,23 +1065,13 @@ export function CalendarView() {
   };
 
   const handlePrev = () => {
-    setCurrentDate((d) => {
-      const next = new Date(d);
-      next.setDate(next.getDate() - (view === "day" ? 1 : 7));
-      return next;
-    });
+    setCurrentKey((k) => addDaysToKey(k, -(view === "day" ? 1 : 7)));
   };
   const handleNext = () => {
-    setCurrentDate((d) => {
-      const next = new Date(d);
-      next.setDate(next.getDate() + (view === "day" ? 1 : 7));
-      return next;
-    });
+    setCurrentKey((k) => addDaysToKey(k, view === "day" ? 1 : 7));
   };
   const handleToday = () => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    setCurrentDate(d);
+    setCurrentKey(dateKeyInTz(new Date(), tz));
   };
 
   if (loading || connecting) {
@@ -997,7 +1111,7 @@ export function CalendarView() {
     );
   }
 
-  const displayEvents = showSummary ? summaryBlocksToEvents(summaries) : events;
+  const displayEvents = showSummary ? summaryBlocksToEvents(summaries, tz) : events;
   // Only show the skeleton on the FIRST load. On subsequent refreshes or
   // view changes, keep the current events on screen and let the header's
   // spinner communicate the activity.
@@ -1006,48 +1120,50 @@ export function CalendarView() {
     : eventsLoading && !eventsEverLoaded;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-destructive/20 bg-destructive/5 text-xs text-destructive shrink-0">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          {error}
-        </div>
-      )}
-      <CalendarHeader
-        view={view}
-        setView={setView}
-        currentDate={currentDate}
-        onPrev={handlePrev}
-        onNext={handleNext}
-        onToday={handleToday}
-        onRefresh={() => {
-          if (status?.connected) {
-            loadEvents(true, currentDate, daysToLoad);
-            if (showSummary) loadSummaries(true, currentDate);
-          }
-        }}
-        refreshing={eventsLoading}
-        showSummary={showSummary}
-        onToggleSummary={() => setShowSummary((v) => !v)}
-      />
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        {view === "day" ? (
-          <DayView
-            date={currentDate}
-            events={displayEvents}
-            loading={displayLoading}
-            isSummary={showSummary}
-          />
-        ) : (
-          <MultiDayView
-            startDate={currentDate}
-            days={7}
-            events={displayEvents}
-            loading={displayLoading}
-            isSummary={showSummary}
-          />
+    <CalendarTzContext.Provider value={tz}>
+      <div className="h-full flex flex-col overflow-hidden">
+        {error && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-destructive/20 bg-destructive/5 text-xs text-destructive shrink-0">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {error}
+          </div>
         )}
+        <CalendarHeader
+          view={view}
+          setView={setView}
+          currentKey={currentKey}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          onToday={handleToday}
+          onRefresh={() => {
+            if (status?.connected) {
+              loadEvents(true, currentKey, daysToLoad);
+              if (showSummary) loadSummaries(true, currentKey);
+            }
+          }}
+          refreshing={eventsLoading}
+          showSummary={showSummary}
+          onToggleSummary={() => setShowSummary((v) => !v)}
+        />
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          {view === "day" ? (
+            <DayView
+              dateKey={currentKey}
+              events={displayEvents}
+              loading={displayLoading}
+              isSummary={showSummary}
+            />
+          ) : (
+            <MultiDayView
+              startKey={currentKey}
+              days={7}
+              events={displayEvents}
+              loading={displayLoading}
+              isSummary={showSummary}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </CalendarTzContext.Provider>
   );
 }

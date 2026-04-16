@@ -361,6 +361,7 @@ func main() {
 				r.Post("/life/marketplace/publish", handler.PublishMarketplaceItem(db))
 				r.Get("/life/marketplace", handler.ListMarketplace(db))
 				r.Get("/life/marketplace/mine", handler.ListMyMarketplace(db))
+				r.Get("/life/marketplace/by-source", handler.GetMarketplaceItemBySource(db))
 				r.Get("/life/marketplace/items/{id}", handler.GetMarketplaceItem(db))
 				r.Post("/life/marketplace/items/{id}/versions", handler.RepublishMarketplaceItem(db))
 				r.Delete("/life/marketplace/items/{id}", handler.UnpublishMarketplaceItem(db))

@@ -27,6 +27,7 @@ import {
   KIND_LABELS,
   KIND_COLORS,
 } from "@/lib/marketplace";
+import { routes } from "@/lib/routes";
 
 export function MyMarketplaceItems() {
   const [items, setItems] = useState<MarketplaceItem[]>([]);
@@ -112,7 +113,7 @@ export function MyMarketplaceItems() {
           Open a routine, gym session, or meal plan and use the{" "}
           <strong>Publish to Marketplace</strong> button.
         </p>
-        <Link href="/marketplace">
+        <Link href={routes.marketplace()}>
           <Button size="sm" variant="outline" className="gap-1.5 text-xs mt-1">
             Browse Marketplace
           </Button>
@@ -157,7 +158,7 @@ export function MyMarketplaceItems() {
                 </span>
               </div>
               <Link
-                href={`/m/${item.slug}`}
+                href={routes.marketplaceItem(item.slug)}
                 className="text-sm font-semibold hover:text-primary transition-colors block truncate"
               >
                 {item.title}
@@ -168,7 +169,7 @@ export function MyMarketplaceItems() {
                   {item.fork_count} forks
                 </span>
                 <a
-                  href={`/m/${item.slug}`}
+                  href={routes.marketplaceItem(item.slug)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 hover:text-foreground transition-colors"

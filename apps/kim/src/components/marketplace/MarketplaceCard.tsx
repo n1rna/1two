@@ -5,11 +5,12 @@ import { GitFork, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MarketplaceItem } from "@/lib/marketplace";
 import { KIND_LABELS, KIND_COLORS } from "@/lib/marketplace";
+import { routes } from "@/lib/routes";
 
 export function MarketplaceCard({ item }: { item: MarketplaceItem }) {
   return (
     <Link
-      href={`/m/${item.slug}`}
+      href={routes.marketplaceItem(item.slug)}
       className="group flex flex-col gap-3 rounded-xl border bg-card p-4 hover:border-primary/40 hover:bg-accent/30 transition-colors"
     >
       <div className="flex items-start justify-between gap-2">

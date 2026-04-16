@@ -155,6 +155,11 @@ func ExecuteTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolHealthRemoveExercise(ctx, db, userID, call.FunctionCall.Arguments)
 	case "complete_onboarding":
 		return toolHealthCompleteOnboarding(ctx, db, userID)
+	// ── Life onboarding ──
+	case "update_life_profile":
+		return toolUpdateLifeProfile(ctx, db, userID, args)
+	case "complete_life_onboarding":
+		return toolCompleteLifeOnboarding(ctx, db, userID)
 	// ── Cross-domain fetch tools ──
 	case "get_health_summary":
 		return toolGetHealthSummary(ctx, db, userID)
@@ -1688,6 +1693,59 @@ func toolForkMarketplaceItem(ctx context.Context, db *sql.DB, userID string, arg
 func jsonOK(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// toolUpdateLifeProfile persists basic life profile fields during onboarding
+// (and optionally advances the onboarding_step cursor).
+func toolUpdateLifeProfile(ctx context.Context, db *sql.DB, userID string, args map[string]any) string {
+	// Ensure the row exists.
+	_, _ = db.ExecContext(ctx,
+		`INSERT INTO life_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, userID)
+
+	sets := []string{"updated_at = NOW()"}
+	vals := []any{}
+	idx := 1
+	add := func(col string, val any) {
+		sets = append(sets, fmt.Sprintf("%s = $%d", col, idx))
+		vals = append(vals, val)
+		idx++
+	}
+	if tz, ok := args["timezone"].(string); ok && tz != "" {
+		add("timezone", tz)
+	}
+	if wt, ok := args["wake_time"].(string); ok && wt != "" {
+		add("wake_time", wt)
+	}
+	if st, ok := args["sleep_time"].(string); ok && st != "" {
+		add("sleep_time", st)
+	}
+	if step, ok := args["onboarding_step"].(string); ok && step != "" {
+		add("onboarding_step", step)
+	}
+
+	if len(sets) == 1 {
+		return jsonError("no fields provided")
+	}
+
+	vals = append(vals, userID)
+	q := fmt.Sprintf(`UPDATE life_profiles SET %s WHERE user_id = $%d`, strings.Join(sets, ", "), idx)
+	if _, err := db.ExecContext(ctx, q, vals...); err != nil {
+		log.Printf("life agent: update life profile for %s: %v", userID, err)
+		return jsonError("failed to update profile")
+	}
+	out, _ := json.Marshal(map[string]any{"success": true, "updated": args})
+	return string(out)
+}
+
+// toolCompleteLifeOnboarding marks the user's life onboarding as finished.
+func toolCompleteLifeOnboarding(ctx context.Context, db *sql.DB, userID string) string {
+	if _, err := db.ExecContext(ctx,
+		`UPDATE life_profiles SET onboarded = TRUE, onboarding_step = 'done', updated_at = NOW() WHERE user_id = $1`,
+		userID); err != nil {
+		log.Printf("life agent: complete life onboarding for %s: %v", userID, err)
+		return jsonError("failed to complete onboarding")
+	}
+	return `{"success":true,"onboarded":true}`
 }
 
 func jsonError(msg string) string {

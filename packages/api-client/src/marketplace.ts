@@ -131,6 +131,22 @@ export async function getMarketplaceItem(id: string): Promise<MarketplaceItem> {
   return mpApiFetch<MarketplaceItem>(`/items/${id}`);
 }
 
+/**
+ * Look up the current user's published item for a given source (routine /
+ * session / meal plan). Returns null when nothing is published so callers
+ * can render the "Publish" affordance.
+ */
+export async function getMarketplaceItemBySource(
+  kind: MarketplaceKind,
+  sourceId: string,
+): Promise<MarketplaceItem | null> {
+  const qs = new URLSearchParams({ kind, source_id: sourceId }).toString();
+  const res = await mpApiFetch<{ item: MarketplaceItem | null }>(
+    `/by-source?${qs}`,
+  );
+  return res.item;
+}
+
 export async function forkMarketplaceItem(
   id: string,
   version?: number
@@ -199,6 +215,6 @@ export function kindRoute(
   sourceId: string
 ): string {
   if (kind === "routine") return `/routines/${sourceId}`;
-  if (kind === "gym_session") return `/health/sessions/${sourceId}`;
-  return `/health/meals/${sourceId}`;
+  if (kind === "gym_session") return `/sessions/${sourceId}`;
+  return `/meals/${sourceId}`;
 }

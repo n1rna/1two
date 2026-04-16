@@ -10,6 +10,7 @@ import {
   deleteWeightEntry,
   type WeightEntry,
 } from "@/lib/health";
+import { routes } from "@/lib/routes";
 
 export default function WeightPage() {
   const [entries, setEntries] = useState<WeightEntry[]>([]);
@@ -44,7 +45,7 @@ export default function WeightPage() {
     <PageShell
       title="Weight"
       subtitle="Recent weight entries"
-      backHref="/health"
+      backHref={routes.health}
     >
       <div className="max-w-xl space-y-4">
         <Card>

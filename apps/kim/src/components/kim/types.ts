@@ -6,7 +6,8 @@ export type KimMode =
   | "routines"
   | "meals"
   | "gym"
-  | "health";
+  | "health"
+  | "onboarding";
 
 export type SelectableKind =
   | "routine"
@@ -54,6 +55,7 @@ export const MODE_LABELS: Record<KimMode, string> = {
   meals: "meal plans",
   gym: "gym",
   health: "health",
+  onboarding: "onboarding",
 };
 
 export const MODE_DESCRIPTIONS: Record<KimMode, string> = {
@@ -63,4 +65,5 @@ export const MODE_DESCRIPTIONS: Record<KimMode, string> = {
   meals: "build or adjust meal plans",
   gym: "design or modify gym sessions",
   health: "profile, weight, and macros",
+  onboarding: "first-run onboarding flow",
 };

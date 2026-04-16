@@ -13,6 +13,7 @@ import {
   type GCalEvent,
   type LifeRoutine,
 } from "@/lib/life";
+import { routes } from "@/lib/routes";
 
 export default function LifeDashboard() {
   const [actionables, setActionables] = useState<LifeActionable[]>([]);
@@ -115,7 +116,7 @@ export default function LifeDashboard() {
               {routines.filter((r) => r.active).map((r) => (
                 <Link
                   key={r.id}
-                  href={`/routines/${r.id}`}
+                  href={routes.routine(r.id)}
                   className="border border-border rounded-md px-3 py-3 hover:bg-accent/40 transition-colors"
                 >
                   <div className="font-medium text-sm">{r.name}</div>
@@ -133,7 +134,7 @@ export default function LifeDashboard() {
         <Card>
           <SectionHeading icon={<Utensils size={13} />}>meals</SectionHeading>
           <Link
-            href="/health/meals"
+            href={routes.meals}
             className="block text-sm text-muted-foreground hover:text-foreground"
           >
             manage meal plans →
@@ -142,7 +143,7 @@ export default function LifeDashboard() {
         <Card>
           <SectionHeading icon={<Dumbbell size={13} />}>gym</SectionHeading>
           <Link
-            href="/health/sessions"
+            href={routes.sessions}
             className="block text-sm text-muted-foreground hover:text-foreground"
           >
             manage sessions →

@@ -279,8 +279,26 @@ func upsertEvents(ctx context.Context, db *sql.DB, userID string, items []gcalAP
 	return count, nil
 }
 
+// userTimeLocation returns the *time.Location corresponding to the user's
+// life_profile timezone, falling back to UTC when the profile has no timezone
+// or the value is not a known IANA zone.
+func userTimeLocation(ctx context.Context, db *sql.DB, userID string) *time.Location {
+	var tz sql.NullString
+	if err := db.QueryRowContext(ctx,
+		`SELECT timezone FROM life_profiles WHERE user_id = $1`, userID,
+	).Scan(&tz); err != nil || !tz.Valid || tz.String == "" {
+		return time.UTC
+	}
+	loc, err := time.LoadLocation(tz.String)
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}
+
 // QueryLocalEvents reads cached events and expands recurring events for a date range.
 func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to time.Time) ([]GCalEvent, error) {
+	userLoc := userTimeLocation(ctx, db, userID)
 	// 1. Get non-recurring events in the range
 	rows, err := db.QueryContext(ctx, `
 		SELECT id, summary, description, location, start_time, end_time,
@@ -352,8 +370,10 @@ func QueryLocalEvents(ctx context.Context, db *sql.DB, userID string, from, to t
 			dur = ev.End.Sub(ev.Start)
 		}
 
-		// Expand instances in the requested range
-		instances := expandRRule(rules, ev.Start, dur, from, to)
+		// Expand instances in the requested range. We advance occurrences in
+		// the user's local timezone so wall-clock time stays stable across
+		// DST transitions (Google's RRULE semantics).
+		instances := expandRRule(rules, ev.Start, dur, from, to, userLoc)
 		for _, inst := range instances {
 			events = append(events, GCalEvent{
 				ID:          ev.ID + "_" + inst.Format("20060102T150405Z"),
@@ -453,7 +473,14 @@ func NeedsSync(ctx context.Context, db *sql.DB, userID string, maxAge time.Durat
 
 // expandRRule generates occurrences of a recurring event in [from, to).
 // Supports: FREQ=DAILY, WEEKLY, MONTHLY, YEARLY with INTERVAL, BYDAY, COUNT, UNTIL.
-func expandRRule(rules []string, dtstart time.Time, duration time.Duration, from, to time.Time) []time.Time {
+//
+// `loc` is the user's local timezone; occurrences are advanced in this zone so
+// that wall-clock time is preserved across DST transitions (matching iCalendar /
+// Google Calendar semantics).
+func expandRRule(rules []string, dtstart time.Time, duration time.Duration, from, to time.Time, loc *time.Location) []time.Time {
+	if loc == nil {
+		loc = time.UTC
+	}
 	var instances []time.Time
 
 	for _, rule := range rules {
@@ -491,8 +518,10 @@ func expandRRule(rules []string, dtstart time.Time, duration time.Duration, from
 			byDay = strings.Split(v, ",")
 		}
 
-		// Generate instances
-		cur := dtstart
+		// Advance the cursor in the user's local timezone so `AddDate` steps
+		// calendar days by wall-clock time (not UTC hours) — this is what
+		// keeps an "8am wake-up" at 8am across DST switches.
+		cur := dtstart.In(loc)
 		count := 0
 		maxInstances := 1000 // safety limit
 

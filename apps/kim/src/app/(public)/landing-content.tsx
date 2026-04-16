@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +18,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
+import { routes } from "@/lib/routes";
 
 // ─── Typed transcript (reused style from login page, teal-tinted) ──────────
 
@@ -203,7 +205,7 @@ export function LandingContent() {
 
   useEffect(() => {
     if (!isPending && session) {
-      router.replace("/today");
+      router.replace(routes.today);
     }
   }, [isPending, session, router]);
 
@@ -249,9 +251,18 @@ export function LandingContent() {
         <div className="max-w-6xl mx-auto px-5 sm:px-8 pt-16 md:pt-24 pb-16 grid md:grid-cols-[1.1fr_1fr] gap-10 md:gap-16 items-start">
           {/* copy + CTA */}
           <div className="rise space-y-6 max-w-xl">
-            <div className="inline-flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_10px_rgba(95,149,152,0.9)]" />
-              a personal life agent
+            <div className="flex items-center gap-3">
+              <Image
+                src="/logo.svg"
+                alt="kim"
+                width={44}
+                height={44}
+                priority
+                className="rounded-full shadow-[0_0_30px_-5px_rgba(95,149,152,0.5)]"
+              />
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground">
+                a personal life agent
+              </span>
             </div>
             <h1
               className="text-[64px] md:text-[92px] leading-[0.95] italic tracking-tight"
@@ -270,14 +281,14 @@ export function LandingContent() {
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-3">
               <Link
-                href="/login"
+                href={routes.login()}
                 className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[14px] font-medium text-primary-foreground shadow-[0_12px_32px_-12px_rgba(29,84,109,0.6)] hover:-translate-y-0.5 transition-transform"
               >
                 Sign in and meet kim
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
-                href="/marketplace"
+                href={routes.marketplace()}
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 backdrop-blur px-5 py-3 text-[14px] font-medium hover:bg-card hover:border-foreground/20 transition-colors"
               >
                 <GitFork className="h-4 w-4 text-muted-foreground" />
@@ -443,14 +454,14 @@ export function LandingContent() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Link
-              href="/login"
+              href={routes.login()}
               className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[14px] font-medium text-primary-foreground shadow-[0_12px_32px_-12px_rgba(29,84,109,0.6)] hover:-translate-y-0.5 transition-transform"
             >
               Sign in and meet kim
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link
-              href="/marketplace"
+              href={routes.marketplace()}
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 backdrop-blur px-5 py-3 text-[14px] font-medium hover:bg-card hover:border-foreground/20 transition-colors"
             >
               Browse templates first

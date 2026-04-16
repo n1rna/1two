@@ -9,38 +9,41 @@
 
 :root {
   /* Palette — https://colorhunt.co/palette/061e291d546d5f9598f3f4f4
-     #F3F4F4 near-white · #5F9598 sage teal · #1D546D mid teal · #061E29 deep navy */
-  --background: rgb(243, 244, 244);
-  --foreground: rgb(6, 30, 41);
+     #F3F4F4 near-white · #5F9598 sage teal · #1D546D mid teal · #061E29 deep navy
+     Strategy: neutral warm-grey surfaces in both modes, palette colours
+     reserved for primary/accent/highlights so the theme pops instead of
+     bathing everything in blue. */
+  --background: rgb(250, 250, 249);
+  --foreground: rgb(24, 24, 27);
   --card: rgb(255, 255, 255);
-  --card-foreground: rgb(6, 30, 41);
+  --card-foreground: rgb(24, 24, 27);
   --popover: rgb(255, 255, 255);
-  --popover-foreground: rgb(6, 30, 41);
+  --popover-foreground: rgb(24, 24, 27);
   --primary: rgb(29, 84, 109);
   --primary-foreground: rgb(243, 244, 244);
-  --secondary: rgb(229, 235, 236);
-  --secondary-foreground: rgb(6, 30, 41);
-  --muted: rgb(234, 239, 240);
-  --muted-foreground: rgb(95, 149, 152);
-  --accent: rgb(218, 229, 230);
-  --accent-foreground: rgb(29, 84, 109);
-  --destructive: rgb(191, 60, 62);
-  --destructive-foreground: rgb(243, 244, 244);
-  --border: rgb(213, 222, 224);
-  --input: rgb(213, 222, 224);
+  --secondary: rgb(244, 244, 245);
+  --secondary-foreground: rgb(24, 24, 27);
+  --muted: rgb(244, 244, 245);
+  --muted-foreground: rgb(113, 113, 122);
+  --accent: rgb(95, 149, 152);
+  --accent-foreground: rgb(255, 255, 255);
+  --destructive: rgb(185, 28, 28);
+  --destructive-foreground: rgb(255, 255, 255);
+  --border: rgb(228, 228, 231);
+  --input: rgb(228, 228, 231);
   --ring: rgb(29, 84, 109);
   --chart-1: rgb(29, 84, 109);
   --chart-2: rgb(95, 149, 152);
   --chart-3: rgb(140, 178, 181);
   --chart-4: rgb(177, 204, 206);
   --chart-5: rgb(213, 227, 228);
-  --sidebar: rgb(236, 241, 242);
-  --sidebar-foreground: rgb(6, 30, 41);
+  --sidebar: rgb(250, 250, 249);
+  --sidebar-foreground: rgb(24, 24, 27);
   --sidebar-primary: rgb(29, 84, 109);
   --sidebar-primary-foreground: rgb(243, 244, 244);
-  --sidebar-accent: rgb(218, 229, 230);
-  --sidebar-accent-foreground: rgb(29, 84, 109);
-  --sidebar-border: rgb(213, 222, 224);
+  --sidebar-accent: rgb(95, 149, 152);
+  --sidebar-accent-foreground: rgb(255, 255, 255);
+  --sidebar-border: rgb(228, 228, 231);
   --sidebar-ring: rgb(29, 84, 109);
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
@@ -65,38 +68,40 @@
 }
 
 .dark {
-  /* Deep navy backgrounds, sage-teal as the accessible accent on top */
-  --background: rgb(6, 30, 41);
+  /* Neutral near-black surfaces; sage teal pops as primary, mid teal as
+     accent. No navy tint on backgrounds so the UI reads neutral-and-teal,
+     not "everything is blue". */
+  --background: rgb(10, 10, 11);
   --foreground: rgb(243, 244, 244);
-  --card: rgb(13, 42, 56);
+  --card: rgb(20, 20, 22);
   --card-foreground: rgb(243, 244, 244);
-  --popover: rgb(13, 42, 56);
+  --popover: rgb(20, 20, 22);
   --popover-foreground: rgb(243, 244, 244);
   --primary: rgb(95, 149, 152);
-  --primary-foreground: rgb(6, 30, 41);
-  --secondary: rgb(18, 52, 68);
+  --primary-foreground: rgb(10, 10, 11);
+  --secondary: rgb(28, 28, 31);
   --secondary-foreground: rgb(243, 244, 244);
-  --muted: rgb(16, 46, 60);
-  --muted-foreground: rgb(140, 178, 181);
+  --muted: rgb(28, 28, 31);
+  --muted-foreground: rgb(161, 161, 170);
   --accent: rgb(29, 84, 109);
   --accent-foreground: rgb(243, 244, 244);
   --destructive: rgb(232, 100, 108);
-  --destructive-foreground: rgb(6, 30, 41);
-  --border: rgb(21, 55, 71);
-  --input: rgb(21, 55, 71);
+  --destructive-foreground: rgb(10, 10, 11);
+  --border: rgb(38, 38, 42);
+  --input: rgb(38, 38, 42);
   --ring: rgb(95, 149, 152);
   --chart-1: rgb(95, 149, 152);
   --chart-2: rgb(140, 178, 181);
   --chart-3: rgb(29, 84, 109);
   --chart-4: rgb(177, 204, 206);
-  --chart-5: rgb(21, 55, 71);
-  --sidebar: rgb(4, 22, 32);
+  --chart-5: rgb(38, 38, 42);
+  --sidebar: rgb(10, 10, 11);
   --sidebar-foreground: rgb(243, 244, 244);
   --sidebar-primary: rgb(95, 149, 152);
-  --sidebar-primary-foreground: rgb(6, 30, 41);
+  --sidebar-primary-foreground: rgb(10, 10, 11);
   --sidebar-accent: rgb(29, 84, 109);
   --sidebar-accent-foreground: rgb(243, 244, 244);
-  --sidebar-border: rgb(21, 55, 71);
+  --sidebar-border: rgb(38, 38, 42);
   --sidebar-ring: rgb(95, 149, 152);
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
@@ -227,19 +232,19 @@
    --kim-amber (historically amber) is now the teal accent; the name is kept
    so existing descendant selectors don't need to be renamed. */
 .kim-surface {
-  /* light-mode defaults (airy paper atelier) */
-  --kim-bg: rgb(243, 244, 244);
+  /* light-mode: neutral warm-grey paper with teal accents */
+  --kim-bg: rgb(250, 250, 249);
   --kim-bg-raised: rgb(255, 255, 255);
-  --kim-bg-sunken: rgb(229, 235, 236);
-  --kim-border: rgb(200, 213, 215);
-  --kim-border-strong: rgb(140, 178, 181);
-  --kim-ink: rgb(6, 30, 41);
-  --kim-ink-dim: rgb(29, 84, 109);
-  --kim-ink-faint: rgb(95, 149, 152);
+  --kim-bg-sunken: rgb(244, 244, 245);
+  --kim-border: rgb(228, 228, 231);
+  --kim-border-strong: rgb(161, 161, 170);
+  --kim-ink: rgb(24, 24, 27);
+  --kim-ink-dim: rgb(82, 82, 91);
+  --kim-ink-faint: rgb(161, 161, 170);
   --kim-amber: rgb(29, 84, 109);
-  --kim-amber-soft: rgb(29 84 109 / 0.1);
+  --kim-amber-soft: rgb(29 84 109 / 0.08);
   --kim-amber-dim: rgb(95, 149, 152);
-  --kim-rose: rgb(191, 60, 62);
+  --kim-rose: rgb(185, 28, 28);
   --kim-green: rgb(70, 128, 110);
   color: var(--kim-ink);
   background: var(--kim-bg);
@@ -247,39 +252,40 @@
   background-image:
     radial-gradient(
       circle at 20% 0%,
-      rgb(95 149 152 / 0.18),
+      rgb(95 149 152 / 0.12),
       transparent 55%
     ),
     radial-gradient(
       circle at 100% 100%,
-      rgb(29 84 109 / 0.14),
+      rgb(29 84 109 / 0.08),
       transparent 60%
     );
 }
 
 .dark .kim-surface {
-  --kim-bg: rgb(6, 30, 41);
-  --kim-bg-raised: rgb(13, 42, 56);
-  --kim-bg-sunken: rgb(4, 22, 32);
-  --kim-border: rgb(21, 55, 71);
-  --kim-border-strong: rgb(29, 84, 109);
+  /* dark-mode: neutral near-black ink with teal accents */
+  --kim-bg: rgb(10, 10, 11);
+  --kim-bg-raised: rgb(20, 20, 22);
+  --kim-bg-sunken: rgb(6, 6, 7);
+  --kim-border: rgb(38, 38, 42);
+  --kim-border-strong: rgb(63, 63, 70);
   --kim-ink: rgb(243, 244, 244);
-  --kim-ink-dim: rgb(157, 181, 184);
-  --kim-ink-faint: rgb(95, 149, 152);
+  --kim-ink-dim: rgb(161, 161, 170);
+  --kim-ink-faint: rgb(82, 82, 91);
   --kim-amber: rgb(95, 149, 152);
   --kim-amber-soft: rgb(95 149 152 / 0.14);
   --kim-amber-dim: rgb(63, 116, 120);
-  --kim-rose: rgb(232, 120, 130);
+  --kim-rose: rgb(232, 100, 108);
   --kim-green: rgb(134, 184, 160);
   background-image:
     radial-gradient(
       circle at 20% 0%,
-      rgb(29 84 109 / 0.35),
+      rgb(29 84 109 / 0.25),
       transparent 55%
     ),
     radial-gradient(
       circle at 100% 100%,
-      rgb(13 42 56 / 0.5),
+      rgb(95 149 152 / 0.14),
       transparent 60%
     );
 }

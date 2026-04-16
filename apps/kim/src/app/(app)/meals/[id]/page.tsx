@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Sun, Sandwich, Moon, Cookie } from "lucide-react";
 import { PageShell, Card, EmptyState } from "@/components/page-shell";
 import { ActiveToggle } from "@/components/active-toggle";
+import { PublishControl } from "@/components/marketplace/PublishControl";
 import { Selectable, useKimAutoContext } from "@/components/kim";
 import {
   getMealPlan,
@@ -12,6 +13,7 @@ import {
   type HealthMealPlan,
   type MealItem,
 } from "@/lib/health";
+import { routes } from "@/lib/routes";
 
 type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -146,14 +148,14 @@ export default function MealPlanDetailPage() {
 
   if (err) {
     return (
-      <PageShell title="Meal plan" backHref="/health/meals">
+      <PageShell title="Meal plan" backHref={routes.meals} backLabel="All meal plans">
         <EmptyState title={err} />
       </PageShell>
     );
   }
   if (!plan) {
     return (
-      <PageShell title="Loading…" backHref="/health/meals">
+      <PageShell title="Loading…" backHref={routes.meals} backLabel="All meal plans">
         <div className="h-64 rounded-lg bg-muted animate-pulse" />
       </PageShell>
     );
@@ -173,22 +175,30 @@ export default function MealPlanDetailPage() {
     <PageShell
       title={plan.title}
       subtitle={`${plan.planType || "plan"} · ${plan.dietType || "—"}${targetKcal ? ` · target ${targetKcal} kcal/day` : ""}`}
-      backHref="/health/meals"
+      backHref={routes.meals}
+      backLabel="All meal plans"
       actions={
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            {plan.active ? "Active" : "Inactive"}
-          </span>
-          <ActiveToggle
-            active={plan.active}
-            onChange={toggleActive}
-            stopPropagation={false}
-            label={plan.active ? "Disable meal plan" : "Enable meal plan"}
+        <>
+          <div className="flex items-center gap-2 pr-1">
+            <span className="text-xs text-muted-foreground">
+              {plan.active ? "Active" : "Inactive"}
+            </span>
+            <ActiveToggle
+              active={plan.active}
+              onChange={toggleActive}
+              stopPropagation={false}
+              label={plan.active ? "Disable meal plan" : "Enable meal plan"}
+            />
+          </div>
+          <PublishControl
+            kind="meal_plan"
+            sourceId={plan.id}
+            defaultTitle={plan.title}
           />
-        </div>
+        </>
       }
     >
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5 max-w-5xl">
         <PlanSummary
           totals={planTotals}
           avgCalories={avgCalories}

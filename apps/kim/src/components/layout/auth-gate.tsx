@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import { routes } from "@/lib/routes";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
@@ -14,7 +15,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isPending && !session && !isPublicRoute) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+      router.replace(routes.login({ redirect: pathname }));
     }
   }, [isPending, session, router, pathname, isPublicRoute]);
 

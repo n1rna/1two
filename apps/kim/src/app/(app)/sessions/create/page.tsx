@@ -20,6 +20,7 @@ import {
 } from "@/components/kim";
 import { Button } from "@/components/ui/button";
 import { createHealthSession } from "@/lib/health";
+import { routes } from "@/lib/routes";
 
 const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[] = [
   {
@@ -67,7 +68,7 @@ export default function SessionCreatePage() {
   const onCreated = useCallback(
     (data: Record<string, unknown>) => {
       const id = typeof data.id === "string" ? data.id : null;
-      if (id) router.push(`/health/sessions/${id}`);
+      if (id) router.push(routes.session(id));
     },
     [router],
   );
@@ -82,7 +83,7 @@ export default function SessionCreatePage() {
         difficultyLevel: difficulty,
         estimatedDuration: duration ? Number(duration) : null,
       });
-      router.push(`/health/sessions/${session.id}`);
+      router.push(routes.session(session.id));
     } catch (e) {
       console.error(e);
       setSaving(false);
@@ -93,7 +94,7 @@ export default function SessionCreatePage() {
     <PageShell
       title="New gym session"
       subtitle="Describe the workout — Kim will build it with exercises, sets, and reps"
-      backHref="/health/sessions"
+      backHref={routes.sessions}
     >
       <div className="max-w-2xl space-y-6">
         {/* Hero */}
@@ -203,7 +204,7 @@ export default function SessionCreatePage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => router.push("/health/sessions")}
+                  onClick={() => router.push(routes.sessions)}
                   disabled={saving}
                 >
                   Cancel

@@ -23,14 +23,15 @@ import (
 
 // lifeProfileRecord is the JSON representation of a life_profiles row.
 type lifeProfileRecord struct {
-	UserID       string  `json:"userId"`
-	Timezone     string  `json:"timezone"`
-	WakeTime     *string `json:"wakeTime"`
-	SleepTime    *string `json:"sleepTime"`
-	AgentEnabled bool    `json:"agentEnabled"`
-	Onboarded    bool    `json:"onboarded"`
-	CreatedAt    string  `json:"createdAt"`
-	UpdatedAt    string  `json:"updatedAt"`
+	UserID          string  `json:"userId"`
+	Timezone        string  `json:"timezone"`
+	WakeTime        *string `json:"wakeTime"`
+	SleepTime       *string `json:"sleepTime"`
+	AgentEnabled    bool    `json:"agentEnabled"`
+	Onboarded       bool    `json:"onboarded"`
+	OnboardingStep  *string `json:"onboardingStep"`
+	CreatedAt       string  `json:"createdAt"`
+	UpdatedAt       string  `json:"updatedAt"`
 }
 
 // lifeMemoryRecord is the JSON representation of a life_memories row.
@@ -94,15 +95,15 @@ func GetLifeProfile(db *sql.DB) http.HandlerFunc {
 		}
 
 		const q = `
-			SELECT user_id, timezone, wake_time, sleep_time, agent_enabled, onboarded, created_at, updated_at
+			SELECT user_id, timezone, wake_time, sleep_time, agent_enabled, onboarded, onboarding_step, created_at, updated_at
 			FROM life_profiles WHERE user_id = $1`
 
 		var rec lifeProfileRecord
-		var wakeTime, sleepTime sql.NullString
+		var wakeTime, sleepTime, onboardingStep sql.NullString
 		var createdAt, updatedAt time.Time
 		if err := db.QueryRowContext(r.Context(), q, userID).Scan(
 			&rec.UserID, &rec.Timezone, &wakeTime, &sleepTime,
-			&rec.AgentEnabled, &rec.Onboarded, &createdAt, &updatedAt,
+			&rec.AgentEnabled, &rec.Onboarded, &onboardingStep, &createdAt, &updatedAt,
 		); err != nil {
 			log.Printf("life: get profile for %s: %v", userID, err)
 			http.Error(w, `{"error":"failed to get profile"}`, http.StatusInternalServerError)
@@ -115,6 +116,9 @@ func GetLifeProfile(db *sql.DB) http.HandlerFunc {
 		if sleepTime.Valid {
 			rec.SleepTime = &sleepTime.String
 		}
+		if onboardingStep.Valid {
+			rec.OnboardingStep = &onboardingStep.String
+		}
 		rec.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		rec.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
 
@@ -123,7 +127,7 @@ func GetLifeProfile(db *sql.DB) http.HandlerFunc {
 }
 
 // UpdateLifeProfile handles PUT /life/profile.
-// Updates the user's timezone, wakeTime and sleepTime.
+// Partial update: only fields present in the request body are written.
 func UpdateLifeProfile(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -135,41 +139,77 @@ func UpdateLifeProfile(db *sql.DB) http.HandlerFunc {
 		}
 
 		var req struct {
-			Timezone  string  `json:"timezone"`
-			WakeTime  *string `json:"wakeTime"`
-			SleepTime *string `json:"sleepTime"`
+			Timezone       *string `json:"timezone"`
+			WakeTime       *string `json:"wakeTime"`
+			SleepTime      *string `json:"sleepTime"`
+			AgentEnabled   *bool   `json:"agentEnabled"`
+			OnboardingStep *string `json:"onboardingStep"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
 			return
 		}
 
-		const q = `
-			INSERT INTO life_profiles (user_id, timezone, wake_time, sleep_time, updated_at)
-			VALUES ($1, $2, $3, $4, NOW())
-			ON CONFLICT (user_id) DO UPDATE
-			SET timezone   = EXCLUDED.timezone,
-			    wake_time  = EXCLUDED.wake_time,
-			    sleep_time = EXCLUDED.sleep_time,
-			    updated_at = NOW()
-			RETURNING user_id, timezone, wake_time, sleep_time, agent_enabled, created_at, updated_at`
-
-		tz := req.Timezone
-		if tz == "" {
-			tz = "UTC"
+		// Ensure profile row exists so the subsequent UPDATE has something to hit.
+		if _, err := db.ExecContext(r.Context(),
+			`INSERT INTO life_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+			userID); err != nil {
+			log.Printf("life: ensure profile for %s: %v", userID, err)
+			http.Error(w, `{"error":"failed to initialise profile"}`, http.StatusInternalServerError)
+			return
 		}
 
-		var rec lifeProfileRecord
-		var wakeTime, sleepTime sql.NullString
-		var createdAt, updatedAt time.Time
-		if err := db.QueryRowContext(r.Context(), q,
-			userID, tz, req.WakeTime, req.SleepTime,
-		).Scan(
-			&rec.UserID, &rec.Timezone, &wakeTime, &sleepTime,
-			&rec.AgentEnabled, &createdAt, &updatedAt,
-		); err != nil {
+		sets := []string{"updated_at = NOW()"}
+		vals := []any{}
+		idx := 1
+		add := func(col string, val any) {
+			sets = append(sets, fmt.Sprintf("%s = $%d", col, idx))
+			vals = append(vals, val)
+			idx++
+		}
+		if req.Timezone != nil {
+			tz := *req.Timezone
+			if tz == "" {
+				tz = "UTC"
+			}
+			add("timezone", tz)
+		}
+		if req.WakeTime != nil {
+			add("wake_time", *req.WakeTime)
+		}
+		if req.SleepTime != nil {
+			add("sleep_time", *req.SleepTime)
+		}
+		if req.AgentEnabled != nil {
+			add("agent_enabled", *req.AgentEnabled)
+		}
+		if req.OnboardingStep != nil {
+			add("onboarding_step", *req.OnboardingStep)
+		}
+
+		vals = append(vals, userID)
+		query := fmt.Sprintf(
+			`UPDATE life_profiles SET %s WHERE user_id = $%d`,
+			strings.Join(sets, ", "), idx,
+		)
+		if _, err := db.ExecContext(r.Context(), query, vals...); err != nil {
 			log.Printf("life: update profile for %s: %v", userID, err)
 			http.Error(w, `{"error":"failed to update profile"}`, http.StatusInternalServerError)
+			return
+		}
+
+		// Re-fetch the row.
+		var rec lifeProfileRecord
+		var wakeTime, sleepTime, onboardingStep sql.NullString
+		var createdAt, updatedAt time.Time
+		if err := db.QueryRowContext(r.Context(), `
+			SELECT user_id, timezone, wake_time, sleep_time, agent_enabled, onboarded, onboarding_step, created_at, updated_at
+			FROM life_profiles WHERE user_id = $1`, userID,
+		).Scan(
+			&rec.UserID, &rec.Timezone, &wakeTime, &sleepTime,
+			&rec.AgentEnabled, &rec.Onboarded, &onboardingStep, &createdAt, &updatedAt,
+		); err != nil {
+			http.Error(w, `{"error":"failed to reload profile"}`, http.StatusInternalServerError)
 			return
 		}
 
@@ -178,6 +218,9 @@ func UpdateLifeProfile(db *sql.DB) http.HandlerFunc {
 		}
 		if sleepTime.Valid {
 			rec.SleepTime = &sleepTime.String
+		}
+		if onboardingStep.Valid {
+			rec.OnboardingStep = &onboardingStep.String
 		}
 		rec.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		rec.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)

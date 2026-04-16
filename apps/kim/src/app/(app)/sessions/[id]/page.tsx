@@ -6,6 +6,7 @@ import { Trash2, Plus, Clock, Dumbbell, Activity } from "lucide-react";
 import { PageShell, Card, EmptyState } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { ActiveToggle } from "@/components/active-toggle";
+import { PublishControl } from "@/components/marketplace/PublishControl";
 import { Selectable, useKimAutoContext } from "@/components/kim";
 import {
   getHealthSession,
@@ -16,6 +17,7 @@ import {
   type HealthSession,
   type HealthSessionExercise,
 } from "@/lib/health";
+import { routes } from "@/lib/routes";
 
 const DIFFICULTY_META: Record<string, { label: string; dots: number }> = {
   beginner:     { label: "Beginner",     dots: 1 },
@@ -93,21 +95,21 @@ export default function SessionDetailPage() {
     if (!session) return;
     if (!confirm("Delete this session?")) return;
     await deleteHealthSession(session.id);
-    router.push("/health/sessions");
+    router.push(routes.sessions);
   }
 
   const stats = useMemo(() => computeStats(session?.exercises ?? []), [session?.exercises]);
 
   if (err) {
     return (
-      <PageShell title="Session" backHref="/health/sessions">
+      <PageShell title="Session" backHref={routes.sessions} backLabel="All gym sessions">
         <EmptyState title={err} />
       </PageShell>
     );
   }
   if (!session) {
     return (
-      <PageShell title="Loading…" backHref="/health/sessions">
+      <PageShell title="Loading…" backHref={routes.sessions} backLabel="All gym sessions">
         <div className="h-64 rounded-lg bg-muted animate-pulse" />
       </PageShell>
     );
@@ -120,7 +122,8 @@ export default function SessionDetailPage() {
     <PageShell
       title={session.title}
       subtitle={session.description || undefined}
-      backHref="/health/sessions"
+      backHref={routes.sessions}
+      backLabel="All gym sessions"
       actions={
         <>
           <div className="flex items-center gap-2 pr-1">
@@ -134,6 +137,11 @@ export default function SessionDetailPage() {
               label={session.active ? "Disable session" : "Enable session"}
             />
           </div>
+          <PublishControl
+            kind="gym_session"
+            sourceId={session.id}
+            defaultTitle={session.title}
+          />
           <Button variant="outline" size="sm" onClick={remove}>
             <Trash2 size={13} className="mr-1.5" /> Delete
           </Button>

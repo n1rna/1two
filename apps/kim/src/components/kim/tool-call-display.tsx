@@ -4,6 +4,7 @@ import { AlertCircle, Check, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 import type { ChatEffect, LifeActionable } from "@/lib/life";
 import { InlineChatActionable } from "./inline-actionable";
 import { toolMeta, READ_ONLY_TOOLS } from "./tool-labels";
@@ -88,11 +89,11 @@ export function ToolCallDisplay({
   const memoryLink = effect.tool === "remember" && data ? true : false;
 
   const linkEl = routineId ? (
-    <Link href={`/routines/${routineId}`} className="opacity-60 hover:opacity-100" style={{ color: "var(--kim-amber)" }}>
+    <Link href={routes.routine(routineId)} className="opacity-60 hover:opacity-100" style={{ color: "var(--kim-amber)" }}>
       <ExternalLink className="size-3" />
     </Link>
   ) : memoryLink ? (
-    <Link href="/memories" className="opacity-60 hover:opacity-100" style={{ color: "var(--kim-amber)" }}>
+    <Link href={routes.memories} className="opacity-60 hover:opacity-100" style={{ color: "var(--kim-amber)" }}>
       <ExternalLink className="size-3" />
     </Link>
   ) : calendarLink ? (

@@ -20,6 +20,7 @@ import {
 } from "@/components/kim";
 import { Button } from "@/components/ui/button";
 import { createMealPlan } from "@/lib/health";
+import { routes } from "@/lib/routes";
 
 const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[] = [
   {
@@ -66,7 +67,7 @@ export default function MealPlanCreatePage() {
   const onCreated = useCallback(
     (data: Record<string, unknown>) => {
       const id = typeof data.id === "string" ? data.id : null;
-      if (id) router.push(`/health/meals/${id}`);
+      if (id) router.push(routes.meal(id));
     },
     [router],
   );
@@ -77,7 +78,7 @@ export default function MealPlanCreatePage() {
     setSaving(true);
     try {
       const plan = await createMealPlan({ title: title.trim(), planType });
-      router.push(`/health/meals/${plan.id}`);
+      router.push(routes.meal(plan.id));
     } catch (e) {
       console.error(e);
       setSaving(false);
@@ -88,7 +89,7 @@ export default function MealPlanCreatePage() {
     <PageShell
       title="New meal plan"
       subtitle="Describe what you want — Kim will generate a full plan from your profile"
-      backHref="/health/meals"
+      backHref={routes.meals}
     >
       <div className="max-w-2xl space-y-6">
         {/* Hero */}
@@ -185,7 +186,7 @@ export default function MealPlanCreatePage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => router.push("/health/meals")}
+                  onClick={() => router.push(routes.meals)}
                   disabled={saving}
                 >
                   Cancel

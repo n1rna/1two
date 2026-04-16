@@ -1,21 +1,10 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Activity,
   ArrowRight,
-  Beef,
   Dumbbell,
-  Flame,
-  Heart,
-  Pencil,
   PieChart,
   Scale,
   Sparkles,
@@ -23,63 +12,96 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { ListShell } from "@/components/list-shell";
-import { useKimAutoContext } from "@/components/kim";
+import { useKim, useKimAutoContext } from "@/components/kim";
 import { cn } from "@/lib/utils";
-import {
-  getHealthProfile,
-  updateHealthProfile,
-  type HealthProfile,
-} from "@/lib/health";
+import { getHealthProfile, type HealthProfile } from "@/lib/health";
+import { routes } from "@/lib/routes";
 
-const ACTIVITY_OPTIONS = [
-  { value: "sedentary", label: "Sedentary" },
-  { value: "light", label: "Light" },
-  { value: "moderate", label: "Moderate" },
-  { value: "active", label: "Active" },
-  { value: "very_active", label: "Very active" },
-];
+// ─── Display-side labels ──────────────────────────────────────────────────────
 
-const DIET_TYPE_OPTIONS = [
-  { value: "omnivore", label: "Omnivore" },
-  { value: "vegetarian", label: "Vegetarian" },
-  { value: "vegan", label: "Vegan" },
-  { value: "pescatarian", label: "Pescatarian" },
-  { value: "keto", label: "Keto" },
-  { value: "paleo", label: "Paleo" },
-  { value: "mediterranean", label: "Mediterranean" },
-];
+const ACTIVITY_LABELS: Record<string, string> = {
+  sedentary: "Sedentary",
+  light: "Lightly active",
+  moderate: "Moderately active",
+  active: "Active",
+  very_active: "Very active",
+};
 
-const DIET_GOAL_OPTIONS = [
-  { value: "lose", label: "Lose weight" },
-  { value: "maintain", label: "Maintain" },
-  { value: "gain", label: "Gain weight" },
-];
+const GENDER_LABELS: Record<string, string> = {
+  male: "Male",
+  female: "Female",
+  other: "Other",
+};
 
-const GENDER_OPTIONS = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "other", label: "Other" },
-];
+const DIET_TYPE_LABELS: Record<string, string> = {
+  omnivore: "Omnivore",
+  vegetarian: "Vegetarian",
+  vegan: "Vegan",
+  pescatarian: "Pescatarian",
+  keto: "Keto",
+  paleo: "Paleo",
+  mediterranean: "Mediterranean",
+};
+
+const DIET_GOAL_LABELS: Record<string, string> = {
+  lose: "Lose weight",
+  maintain: "Maintain",
+  gain: "Gain weight",
+};
+
+const FITNESS_LEVEL_LABELS: Record<string, string> = {
+  beginner: "Beginner",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+};
 
 function bmiCategory(bmi: number): { label: string; color: string } {
-  if (bmi < 18.5) return { label: "Underweight", color: "text-sky-600 dark:text-sky-400" };
-  if (bmi < 25) return { label: "Healthy", color: "text-emerald-600 dark:text-emerald-400" };
-  if (bmi < 30) return { label: "Overweight", color: "text-teal-600 dark:text-teal-400" };
+  if (bmi < 18.5)
+    return { label: "Underweight", color: "text-sky-600 dark:text-sky-400" };
+  if (bmi < 25)
+    return { label: "Healthy", color: "text-emerald-600 dark:text-emerald-400" };
+  if (bmi < 30)
+    return { label: "Overweight", color: "text-amber-600 dark:text-amber-400" };
   return { label: "Obese", color: "text-rose-600 dark:text-rose-400" };
 }
+
+// ─── Completeness heuristics ─────────────────────────────────────────────────
+// Each section is "set up" when the essential fields are filled.
+
+function bodyComplete(p: HealthProfile | null): boolean {
+  if (!p) return false;
+  return (
+    p.weightKg != null &&
+    p.heightCm != null &&
+    p.age != null &&
+    !!p.gender &&
+    !!p.activityLevel
+  );
+}
+
+function fitnessComplete(p: HealthProfile | null): boolean {
+  if (!p) return false;
+  return !!p.fitnessLevel && !!p.fitnessGoal && p.daysPerWeek > 0;
+}
+
+function dietComplete(p: HealthProfile | null): boolean {
+  if (!p) return false;
+  return !!p.dietGoal && !!p.dietType && p.targetCalories != null;
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HealthDashboard() {
   const [profile, setProfile] = useState<HealthProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [savingField, setSavingField] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { askKim } = useKim();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setProfile(await getHealthProfile());
     } catch {
-      // profile may not exist yet
+      // no profile yet
     } finally {
       setLoading(false);
     }
@@ -89,8 +111,7 @@ export default function HealthDashboard() {
     load();
   }, [load]);
 
-  // Auto-add the full profile into Kim's context so the agent can reference
-  // it when the user asks to update anything.
+  // Surface the full profile to Kim so any agent question has it in context.
   useKimAutoContext(
     profile
       ? {
@@ -102,35 +123,10 @@ export default function HealthDashboard() {
       : null,
   );
 
-  const save = useCallback(
-    async (fieldName: string, patch: Partial<HealthProfile>) => {
-      if (!profile) return;
-      setSavingField(fieldName);
-      setError(null);
-      try {
-        const updated = await updateHealthProfile({ ...profile, ...patch });
-        setProfile(updated);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to save");
-      } finally {
-        setSavingField(null);
-      }
-    },
-    [profile],
-  );
-
-  const totalMacroKcal = useMemo(() => {
-    if (!profile) return 0;
-    const p = (profile.proteinG ?? 0) * 4;
-    const c = (profile.carbsG ?? 0) * 4;
-    const f = (profile.fatG ?? 0) * 9;
-    return p + c + f;
-  }, [profile]);
-
   return (
     <ListShell
       title="Health"
-      subtitle="Nutrition targets, body stats, and fitness preferences"
+      subtitle="Body, fitness, and how you eat"
       toolbar={
         <>
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1">
@@ -139,7 +135,7 @@ export default function HealthDashboard() {
           </span>
           <div className="flex-1" />
           <Link
-            href="/health/weight"
+            href={routes.healthWeight}
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
           >
             <Scale className="h-3.5 w-3.5" />
@@ -148,52 +144,19 @@ export default function HealthDashboard() {
         </>
       }
     >
-      <div className="px-6 py-5 max-w-5xl mx-auto space-y-5">
-        {error && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {error}
-          </div>
-        )}
-
+      <div className="px-8 py-6 space-y-5">
         {loading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-40 rounded-xl border bg-card animate-pulse" />
-            ))}
-          </div>
+          <LoadingGrid />
         ) : !profile ? (
-          <div className="py-16 text-center">
-            <p className="text-sm text-muted-foreground">No profile yet.</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Ask Kim to set it up — she'll ask a few quick questions.
-            </p>
-          </div>
+          <EmptyProfile askKim={askKim} />
         ) : (
           <>
-            {/* Goal banner */}
             <GoalBanner profile={profile} />
-
-            {/* Body + Nutrition */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <BodySection
-                profile={profile}
-                savingField={savingField}
-                onSave={save}
-              />
-              <NutritionSection
-                profile={profile}
-                savingField={savingField}
-                onSave={save}
-                totalMacroKcal={totalMacroKcal}
-              />
+              <BodyCard profile={profile} askKim={askKim} />
+              <FitnessCard profile={profile} askKim={askKim} />
             </div>
-
-            {/* Fitness preferences */}
-            <FitnessSection
-              profile={profile}
-              savingField={savingField}
-              onSave={save}
-            />
+            <DietCard profile={profile} askKim={askKim} />
           </>
         )}
       </div>
@@ -201,39 +164,82 @@ export default function HealthDashboard() {
   );
 }
 
-// ─── Goal banner ──────────────────────────────────────────────────────────────
+// ─── Loading + empty ─────────────────────────────────────────────────────────
+
+function LoadingGrid() {
+  return (
+    <div className="space-y-5">
+      <div className="h-24 rounded-xl border bg-card animate-pulse" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="h-64 rounded-xl border bg-card animate-pulse" />
+        <div className="h-64 rounded-xl border bg-card animate-pulse" />
+      </div>
+      <div className="h-56 rounded-xl border bg-card animate-pulse" />
+    </div>
+  );
+}
+
+function EmptyProfile({ askKim }: { askKim: (m: string) => void }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-card/40 px-8 py-16 text-center space-y-4">
+      <div className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
+        <Sparkles className="h-3 w-3" />
+        nothing set up yet
+      </div>
+      <h2
+        className="text-3xl italic leading-tight"
+        style={{ fontFamily: "var(--font-display), Georgia, serif" }}
+      >
+        let&apos;s get kim up to speed.
+      </h2>
+      <p className="text-sm text-muted-foreground max-w-md mx-auto">
+        Kim will ask a few quick questions about your body, your training, and
+        how you like to eat. Everything lives on one page after that.
+      </p>
+      <button
+        onClick={() =>
+          askKim(
+            "Help me set up my health profile. Walk me through my body info, fitness preferences, and diet in that order.",
+          )
+        }
+        className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+      >
+        Start with kim
+        <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+// ─── Goal banner ─────────────────────────────────────────────────────────────
 
 function GoalBanner({ profile }: { profile: HealthProfile }) {
   const current = profile.weightKg ?? 0;
   const goal = profile.goalWeightKg ?? 0;
   const diff = goal - current;
   const hasGoal = goal > 0 && current > 0;
-  const direction =
+  const direction: "lose" | "maintain" | "gain" =
     profile.dietGoal === "lose"
       ? "lose"
       : profile.dietGoal === "gain"
         ? "gain"
         : "maintain";
-  const directionColor =
-    direction === "lose"
-      ? "text-sky-600 dark:text-sky-400"
-      : direction === "gain"
-        ? "text-teal-600 dark:text-teal-400"
-        : "text-emerald-600 dark:text-emerald-400";
+  const directionLabel =
+    direction === "maintain"
+      ? "maintain current weight"
+      : direction === "lose"
+        ? "lose weight"
+        : "gain weight";
 
   return (
     <section className="rounded-xl border border-border bg-card px-6 py-5">
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
-        <Heart className="h-3 w-3" />
-        diet goal
+        <Sparkles className="h-3 w-3 text-primary" />
+        your goal right now
       </div>
       <div className="flex items-baseline flex-wrap gap-x-4 gap-y-1">
-        <span className={cn("text-xl font-semibold tracking-tight", directionColor)}>
-          {direction === "maintain"
-            ? "maintain current weight"
-            : direction === "lose"
-              ? "lose weight"
-              : "gain weight"}
+        <span className="text-xl font-semibold tracking-tight text-primary">
+          {directionLabel}
         </span>
         {hasGoal && (
           <span className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
@@ -241,7 +247,7 @@ function GoalBanner({ profile }: { profile: HealthProfile }) {
             <ArrowRight className="h-3 w-3" />
             <span className="font-mono">{goal.toFixed(1)} kg</span>
             {Math.abs(diff) > 0.05 && (
-              <span className={cn("text-xs", directionColor)}>
+              <span className="text-xs">
                 ({diff > 0 ? "+" : ""}
                 {diff.toFixed(1)} kg)
               </span>
@@ -249,345 +255,128 @@ function GoalBanner({ profile }: { profile: HealthProfile }) {
           </span>
         )}
       </div>
-      {profile.dietType && (
-        <div className="mt-2 text-xs text-muted-foreground">
-          on a <span className="text-foreground font-medium">{profile.dietType}</span> diet
-          {profile.dietaryRestrictions?.length > 0 && (
-            <>
-              {" "}· restrictions:{" "}
-              <span className="text-foreground">
-                {profile.dietaryRestrictions.join(", ")}
-              </span>
-            </>
-          )}
-        </div>
-      )}
     </section>
   );
 }
 
-// ─── Body section ─────────────────────────────────────────────────────────────
+// ─── Card chrome ─────────────────────────────────────────────────────────────
 
-function BodySection({
-  profile,
-  savingField,
-  onSave,
-}: {
-  profile: HealthProfile;
-  savingField: string | null;
-  onSave: (field: string, patch: Partial<HealthProfile>) => void;
-}) {
-  const cat = profile.bmi ? bmiCategory(profile.bmi) : null;
-  return (
-    <section className="rounded-xl border border-border bg-card">
-      <SectionHeader icon={<UserIcon className="h-3.5 w-3.5" />}>body</SectionHeader>
-      <div className="px-5 py-3 space-y-0">
-        <InlineNumber
-          label="Weight"
-          unit="kg"
-          value={profile.weightKg}
-          saving={savingField === "weightKg"}
-          onSave={(v) => onSave("weightKg", { weightKg: v })}
-        />
-        <InlineNumber
-          label="Goal weight"
-          unit="kg"
-          value={profile.goalWeightKg}
-          saving={savingField === "goalWeightKg"}
-          onSave={(v) => onSave("goalWeightKg", { goalWeightKg: v })}
-        />
-        <InlineNumber
-          label="Height"
-          unit="cm"
-          value={profile.heightCm}
-          saving={savingField === "heightCm"}
-          onSave={(v) => onSave("heightCm", { heightCm: v })}
-        />
-        <InlineNumber
-          label="Age"
-          value={profile.age}
-          saving={savingField === "age"}
-          onSave={(v) => onSave("age", { age: v == null ? null : Math.round(v) })}
-        />
-        <InlineSelect
-          label="Gender"
-          value={profile.gender ?? ""}
-          options={GENDER_OPTIONS}
-          saving={savingField === "gender"}
-          onSave={(v) => onSave("gender", { gender: v })}
-        />
-        <InlineSelect
-          label="Activity level"
-          value={profile.activityLevel ?? ""}
-          options={ACTIVITY_OPTIONS}
-          saving={savingField === "activityLevel"}
-          onSave={(v) => onSave("activityLevel", { activityLevel: v })}
-        />
-      </div>
-
-      {/* Derived stats */}
-      {(profile.bmi || profile.bmr || profile.tdee) && (
-        <div className="border-t px-5 py-3">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
-            computed
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Stat
-              label="BMI"
-              value={profile.bmi ? profile.bmi.toFixed(1) : "—"}
-              subtext={cat?.label}
-              subtextColor={cat?.color}
-            />
-            <Stat
-              label="BMR"
-              value={profile.bmr ? Math.round(profile.bmr).toString() : "—"}
-              subtext="kcal/day"
-            />
-            <Stat
-              label="TDEE"
-              value={profile.tdee ? Math.round(profile.tdee).toString() : "—"}
-              subtext="kcal/day"
-            />
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ─── Nutrition section ────────────────────────────────────────────────────────
-
-function NutritionSection({
-  profile,
-  savingField,
-  onSave,
-  totalMacroKcal,
-}: {
-  profile: HealthProfile;
-  savingField: string | null;
-  onSave: (field: string, patch: Partial<HealthProfile>) => void;
-  totalMacroKcal: number;
-}) {
-  const p = profile.proteinG ?? 0;
-  const c = profile.carbsG ?? 0;
-  const f = profile.fatG ?? 0;
-  const pKcal = p * 4;
-  const cKcal = c * 4;
-  const fKcal = f * 9;
-  const total = totalMacroKcal || 1;
-  const pPct = Math.round((pKcal / total) * 100);
-  const cPct = Math.round((cKcal / total) * 100);
-  const fPct = 100 - pPct - cPct;
-
-  return (
-    <section className="rounded-xl border border-border bg-card">
-      <SectionHeader icon={<UtensilsCrossed className="h-3.5 w-3.5" />}>
-        nutrition
-      </SectionHeader>
-      <div className="px-5 py-3 space-y-0">
-        <InlineSelect
-          label="Diet type"
-          value={profile.dietType ?? ""}
-          options={DIET_TYPE_OPTIONS}
-          saving={savingField === "dietType"}
-          onSave={(v) => onSave("dietType", { dietType: v })}
-        />
-        <InlineSelect
-          label="Goal"
-          value={profile.dietGoal ?? "maintain"}
-          options={DIET_GOAL_OPTIONS}
-          saving={savingField === "dietGoal"}
-          onSave={(v) => onSave("dietGoal", { dietGoal: v })}
-        />
-        <InlineNumber
-          label="Target calories"
-          unit="kcal"
-          value={profile.targetCalories}
-          saving={savingField === "targetCalories"}
-          onSave={(v) =>
-            onSave("targetCalories", {
-              targetCalories: v == null ? null : Math.round(v),
-            })
-          }
-        />
-        <InlineTags
-          label="Restrictions"
-          value={profile.dietaryRestrictions ?? []}
-          placeholder="e.g. dairy-free, gluten-free"
-          saving={savingField === "dietaryRestrictions"}
-          onSave={(tags) => onSave("dietaryRestrictions", { dietaryRestrictions: tags })}
-        />
-      </div>
-
-      {/* Macros with visual bar */}
-      <div className="border-t px-5 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1">
-            <PieChart className="h-3 w-3" /> macros
-          </div>
-          <div className="text-[10px] text-muted-foreground font-mono">
-            {totalMacroKcal} kcal total
-          </div>
-        </div>
-
-        {totalMacroKcal > 0 ? (
-          <div className="h-2 rounded-full overflow-hidden flex mb-3 bg-muted">
-            <div
-              className="bg-rose-500/80"
-              style={{ width: `${pPct}%` }}
-              title={`Protein ${pPct}%`}
-            />
-            <div
-              className="bg-teal-500/80"
-              style={{ width: `${cPct}%` }}
-              title={`Carbs ${cPct}%`}
-            />
-            <div
-              className="bg-sky-500/80"
-              style={{ width: `${Math.max(fPct, 0)}%` }}
-              title={`Fat ${fPct}%`}
-            />
-          </div>
-        ) : (
-          <div className="h-2 rounded-full bg-muted mb-3" />
-        )}
-
-        <div className="grid grid-cols-3 gap-2">
-          <MacroField
-            label="Protein"
-            value={p}
-            unit="g"
-            pct={pPct}
-            color="bg-rose-500/80"
-            saving={savingField === "proteinG"}
-            onSave={(v) => onSave("proteinG", { proteinG: v == null ? null : Math.round(v) })}
-          />
-          <MacroField
-            label="Carbs"
-            value={c}
-            unit="g"
-            pct={cPct}
-            color="bg-teal-500/80"
-            saving={savingField === "carbsG"}
-            onSave={(v) => onSave("carbsG", { carbsG: v == null ? null : Math.round(v) })}
-          />
-          <MacroField
-            label="Fat"
-            value={f}
-            unit="g"
-            pct={Math.max(fPct, 0)}
-            color="bg-sky-500/80"
-            saving={savingField === "fatG"}
-            onSave={(v) => onSave("fatG", { fatG: v == null ? null : Math.round(v) })}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Fitness section ──────────────────────────────────────────────────────────
-
-function FitnessSection({
-  profile,
-  savingField,
-  onSave,
-}: {
-  profile: HealthProfile;
-  savingField: string | null;
-  onSave: (field: string, patch: Partial<HealthProfile>) => void;
-}) {
-  return (
-    <section className="rounded-xl border border-border bg-card">
-      <SectionHeader icon={<Dumbbell className="h-3.5 w-3.5" />}>
-        fitness
-      </SectionHeader>
-      <div className="grid grid-cols-1 md:grid-cols-2">
-        <div className="px-5 py-3">
-          <InlineText
-            label="Fitness level"
-            value={profile.fitnessLevel ?? ""}
-            placeholder="beginner / intermediate / advanced"
-            saving={savingField === "fitnessLevel"}
-            onSave={(v) => onSave("fitnessLevel", { fitnessLevel: v })}
-          />
-          <InlineText
-            label="Goal"
-            value={profile.fitnessGoal ?? ""}
-            placeholder="e.g. strength, hypertrophy, endurance"
-            saving={savingField === "fitnessGoal"}
-            onSave={(v) => onSave("fitnessGoal", { fitnessGoal: v })}
-          />
-          <InlineNumber
-            label="Days/week"
-            value={profile.daysPerWeek}
-            saving={savingField === "daysPerWeek"}
-            onSave={(v) =>
-              onSave("daysPerWeek", { daysPerWeek: v == null ? 0 : Math.round(v) })
-            }
-          />
-          <InlineNumber
-            label="Session length"
-            unit="min"
-            value={profile.preferredDurationMin}
-            saving={savingField === "preferredDurationMin"}
-            onSave={(v) =>
-              onSave("preferredDurationMin", {
-                preferredDurationMin: v == null ? 0 : Math.round(v),
-              })
-            }
-          />
-        </div>
-        <div className="px-5 py-3 md:border-l border-t md:border-t-0">
-          <InlineTags
-            label="Equipment"
-            value={profile.availableEquipment ?? []}
-            placeholder="e.g. dumbbells, barbell, bench"
-            saving={savingField === "availableEquipment"}
-            onSave={(tags) => onSave("availableEquipment", { availableEquipment: tags })}
-          />
-          <InlineTags
-            label="Limitations"
-            value={profile.physicalLimitations ?? []}
-            placeholder="injuries, joint issues, etc."
-            saving={savingField === "physicalLimitations"}
-            onSave={(tags) => onSave("physicalLimitations", { physicalLimitations: tags })}
-          />
-          <InlineTags
-            label="Likes"
-            value={profile.workoutLikes ?? []}
-            placeholder="exercises you enjoy"
-            saving={savingField === "workoutLikes"}
-            onSave={(tags) => onSave("workoutLikes", { workoutLikes: tags })}
-          />
-          <InlineTags
-            label="Dislikes"
-            value={profile.workoutDislikes ?? []}
-            placeholder="exercises to avoid"
-            saving={savingField === "workoutDislikes"}
-            onSave={(tags) => onSave("workoutDislikes", { workoutDislikes: tags })}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Reusable section chrome ──────────────────────────────────────────────────
-
-function SectionHeader({
-  icon,
-  children,
-}: {
+interface SectionCardProps {
   icon: ReactNode;
+  title: string;
+  subtitle: string;
+  complete: boolean;
+  onEdit: () => void;
   children: ReactNode;
+}
+
+function SectionCard({
+  icon,
+  title,
+  subtitle,
+  complete,
+  onEdit,
+  children,
+}: SectionCardProps) {
+  return (
+    <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-border">
+        <div className="min-w-0 flex items-start gap-3">
+          <div className="mt-0.5 h-8 w-8 shrink-0 rounded-md bg-muted text-primary flex items-center justify-center">
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold tracking-tight">
+                {title}
+              </h2>
+              {!complete && (
+                <span className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  incomplete
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {subtitle}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onEdit}
+          className="shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+        >
+          <Sparkles className="h-3 w-3" />
+          ask kim
+        </button>
+      </header>
+      <div className="p-5 space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function MissingCta({
+  message,
+  onEdit,
+}: {
+  message: string;
+  onEdit: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 px-5 py-3 border-b">
-      <span className="text-primary">{icon}</span>
-      <h2 className="text-base font-semibold leading-tight tracking-tight">
-        {children}
-      </h2>
+    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center">
+      <p className="text-sm text-muted-foreground mb-3">{message}</p>
+      <button
+        onClick={onEdit}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:opacity-80 transition-opacity"
+      >
+        <Sparkles className="h-3 w-3" />
+        ask kim to set it up
+        <ArrowRight className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+function DataRow({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+}) {
+  const empty =
+    value == null || value === "" || (Array.isArray(value) && value.length === 0);
+  return (
+    <div className="flex items-center justify-between gap-4 py-2 border-b border-border/40 last:border-0">
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-sm text-right",
+          mono && "font-mono",
+          empty && "text-muted-foreground/50 italic",
+        )}
+      >
+        {empty ? "not set" : value}
+      </span>
+    </div>
+  );
+}
+
+function Tags({ values }: { values: string[] }) {
+  if (!values?.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1 justify-end">
+      {values.map((t) => (
+        <span
+          key={t}
+          className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-foreground/80"
+        >
+          {t}
+        </span>
+      ))}
     </div>
   );
 }
@@ -595,341 +384,401 @@ function SectionHeader({
 function Stat({
   label,
   value,
-  subtext,
-  subtextColor,
+  sub,
+  subColor,
 }: {
   label: string;
   value: string;
-  subtext?: string;
-  subtextColor?: string;
+  sub?: string;
+  subColor?: string;
 }) {
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+    <div className="rounded-md bg-muted/40 px-3 py-2">
+      <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </div>
-      <div className="font-mono text-lg mt-0.5">{value}</div>
-      {subtext && (
-        <div className={cn("text-[10px]", subtextColor ?? "text-muted-foreground")}>
-          {subtext}
+      <div className="font-mono text-base mt-0.5">{value}</div>
+      {sub && (
+        <div className={cn("text-[10px] mt-0.5", subColor ?? "text-muted-foreground")}>
+          {sub}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Inline editable fields ───────────────────────────────────────────────────
+// ─── Body card ───────────────────────────────────────────────────────────────
 
-function FieldRow({
-  label,
-  saving,
-  children,
+function BodyCard({
+  profile,
+  askKim,
 }: {
-  label: string;
-  saving: boolean;
-  children: ReactNode;
+  profile: HealthProfile;
+  askKim: (m: string) => void;
 }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-2 border-b border-border/50 last:border-0">
-      <span className="text-xs uppercase tracking-wider text-muted-foreground w-32 shrink-0">
-        {label}
-      </span>
-      <div className="flex-1 min-w-0 flex items-center justify-end gap-2">
-        {children}
-        {saving && (
-          <span className="text-[10px] text-muted-foreground italic">
-            saving…
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+  const complete = bodyComplete(profile);
+  const cat = profile.bmi ? bmiCategory(profile.bmi) : null;
 
-function InlineNumber({
-  label,
-  unit,
-  value,
-  saving,
-  onSave,
-}: {
-  label: string;
-  unit?: string;
-  value: number | null | undefined;
-  saving: boolean;
-  onSave: (v: number | null) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value == null ? "" : String(value));
-
-  useEffect(() => {
-    if (!editing) setDraft(value == null ? "" : String(value));
-  }, [value, editing]);
-
-  const commit = () => {
-    setEditing(false);
-    const n = draft === "" ? null : Number(draft);
-    if (n !== value) onSave(n);
-  };
+  const edit = () =>
+    askKim(
+      "I want to update my body info — things like weight, goal weight, height, age, gender, or activity level. Ask me whichever of these need changing.",
+    );
 
   return (
-    <FieldRow label={label} saving={saving}>
-      {editing ? (
-        <input
-          type="number"
-          value={draft}
-          autoFocus
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          className="w-24 text-right font-mono text-sm bg-transparent border-b border-primary focus:outline-none"
+    <SectionCard
+      icon={<UserIcon className="h-4 w-4" />}
+      title="Body"
+      subtitle="Who you are, physically"
+      complete={complete}
+      onEdit={edit}
+    >
+      {!complete && !profile.weightKg && !profile.heightCm ? (
+        <MissingCta
+          message="Kim needs your body basics before she can tailor calories and training."
+          onEdit={edit}
         />
       ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="group inline-flex items-center gap-1 text-right"
-        >
-          <span className="font-mono text-sm">
-            {value != null && value !== 0 ? value : "—"}
-          </span>
-          {unit && (
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {unit}
-            </span>
-          )}
-          <Pencil className="h-2.5 w-2.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
-        </button>
+        <div className="space-y-0">
+          <DataRow
+            label="Weight"
+            value={
+              profile.weightKg != null
+                ? `${profile.weightKg.toFixed(1)} kg`
+                : null
+            }
+            mono
+          />
+          <DataRow
+            label="Goal weight"
+            value={
+              profile.goalWeightKg != null && profile.goalWeightKg > 0
+                ? `${profile.goalWeightKg.toFixed(1)} kg`
+                : null
+            }
+            mono
+          />
+          <DataRow
+            label="Height"
+            value={
+              profile.heightCm != null ? `${profile.heightCm.toFixed(0)} cm` : null
+            }
+            mono
+          />
+          <DataRow label="Age" value={profile.age ?? null} mono />
+          <DataRow
+            label="Gender"
+            value={profile.gender ? GENDER_LABELS[profile.gender] ?? profile.gender : null}
+          />
+          <DataRow
+            label="Activity level"
+            value={
+              profile.activityLevel
+                ? ACTIVITY_LABELS[profile.activityLevel] ?? profile.activityLevel
+                : null
+            }
+          />
+        </div>
       )}
-    </FieldRow>
+
+      {(profile.bmi || profile.bmr || profile.tdee) && (
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+            computed
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Stat
+              label="BMI"
+              value={profile.bmi ? profile.bmi.toFixed(1) : "—"}
+              sub={cat?.label}
+              subColor={cat?.color}
+            />
+            <Stat
+              label="BMR"
+              value={profile.bmr ? Math.round(profile.bmr).toString() : "—"}
+              sub="kcal/day"
+            />
+            <Stat
+              label="TDEE"
+              value={profile.tdee ? Math.round(profile.tdee).toString() : "—"}
+              sub="kcal/day"
+            />
+          </div>
+        </div>
+      )}
+    </SectionCard>
   );
 }
 
-function InlineText({
-  label,
-  value,
-  placeholder,
-  saving,
-  onSave,
+// ─── Fitness card ────────────────────────────────────────────────────────────
+
+function FitnessCard({
+  profile,
+  askKim,
 }: {
-  label: string;
-  value: string;
-  placeholder?: string;
-  saving: boolean;
-  onSave: (v: string) => void;
+  profile: HealthProfile;
+  askKim: (m: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
+  const complete = fitnessComplete(profile);
+  const hasAnyFitness =
+    !!profile.fitnessLevel ||
+    !!profile.fitnessGoal ||
+    profile.daysPerWeek > 0 ||
+    (profile.availableEquipment ?? []).length > 0;
 
-  useEffect(() => {
-    if (!editing) setDraft(value);
-  }, [value, editing]);
-
-  const commit = () => {
-    setEditing(false);
-    if (draft !== value) onSave(draft);
-  };
+  const edit = () =>
+    askKim(
+      "I want to update my fitness preferences — things like training level, goal, how many days a week I train, session length, available equipment, or any limitations. Ask me whichever of these need changing.",
+    );
 
   return (
-    <FieldRow label={label} saving={saving}>
-      {editing ? (
-        <input
-          type="text"
-          value={draft}
-          autoFocus
-          placeholder={placeholder}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          className="flex-1 text-right text-sm bg-transparent border-b border-primary focus:outline-none"
+    <SectionCard
+      icon={<Dumbbell className="h-4 w-4" />}
+      title="Fitness"
+      subtitle="How you like to train"
+      complete={complete}
+      onEdit={edit}
+    >
+      {!hasAnyFitness ? (
+        <MissingCta
+          message="Tell kim how you train so she can plan sensible sessions."
+          onEdit={edit}
         />
       ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="group inline-flex items-center gap-1 text-right"
-        >
-          <span className="text-sm">
-            {value || <span className="text-muted-foreground italic">not set</span>}
-          </span>
-          <Pencil className="h-2.5 w-2.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
-        </button>
+        <>
+          <div className="space-y-0">
+            <DataRow
+              label="Level"
+              value={
+                profile.fitnessLevel
+                  ? FITNESS_LEVEL_LABELS[profile.fitnessLevel] ??
+                    profile.fitnessLevel
+                  : null
+              }
+            />
+            <DataRow
+              label="Goal"
+              value={profile.fitnessGoal || null}
+            />
+            <DataRow
+              label="Days / week"
+              value={profile.daysPerWeek > 0 ? profile.daysPerWeek : null}
+              mono
+            />
+            <DataRow
+              label="Session length"
+              value={
+                profile.preferredDurationMin > 0
+                  ? `${profile.preferredDurationMin} min`
+                  : null
+              }
+              mono
+            />
+          </div>
+          <div className="space-y-0">
+            <DataRow
+              label="Equipment"
+              value={<Tags values={profile.availableEquipment ?? []} />}
+            />
+            <DataRow
+              label="Limitations"
+              value={<Tags values={profile.physicalLimitations ?? []} />}
+            />
+            <DataRow
+              label="Likes"
+              value={<Tags values={profile.workoutLikes ?? []} />}
+            />
+            <DataRow
+              label="Dislikes"
+              value={<Tags values={profile.workoutDislikes ?? []} />}
+            />
+          </div>
+        </>
       )}
-    </FieldRow>
+    </SectionCard>
   );
 }
 
-function InlineSelect({
-  label,
-  value,
-  options,
-  saving,
-  onSave,
+// ─── Diet & Nutrition card ───────────────────────────────────────────────────
+
+function DietCard({
+  profile,
+  askKim,
 }: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  saving: boolean;
-  onSave: (v: string) => void;
+  profile: HealthProfile;
+  askKim: (m: string) => void;
 }) {
-  const current = options.find((o) => o.value === value);
-  return (
-    <FieldRow label={label} saving={saving}>
-      <select
-        value={value}
-        onChange={(e) => onSave(e.target.value)}
-        className="text-right text-sm bg-transparent focus:outline-none cursor-pointer hover:text-primary transition-colors"
-      >
-        {!current && <option value="">— select —</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </FieldRow>
-  );
-}
+  const complete = dietComplete(profile);
+  const p = profile.proteinG ?? 0;
+  const c = profile.carbsG ?? 0;
+  const f = profile.fatG ?? 0;
+  const totalMacroKcal = useMemo(() => p * 4 + c * 4 + f * 9, [p, c, f]);
+  const pKcal = p * 4;
+  const cKcal = c * 4;
+  const fKcal = f * 9;
+  const total = totalMacroKcal || 1;
+  const pPct = Math.round((pKcal / total) * 100);
+  const cPct = Math.round((cKcal / total) * 100);
+  const fPct = Math.max(0, 100 - pPct - cPct);
+  const hasMacros = totalMacroKcal > 0;
+  const hasRestrictions = (profile.dietaryRestrictions ?? []).length > 0;
 
-function InlineTags({
-  label,
-  value,
-  placeholder,
-  saving,
-  onSave,
-}: {
-  label: string;
-  value: string[];
-  placeholder?: string;
-  saving: boolean;
-  onSave: (v: string[]) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value.join(", "));
+  const edit = () =>
+    askKim(
+      "I want to update how I eat — diet type, goal, target calories, macros, restrictions, allergies, or preferences. Ask me whichever of these need changing.",
+    );
 
-  useEffect(() => {
-    if (!editing) setDraft(value.join(", "));
-  }, [value, editing]);
-
-  const commit = () => {
-    setEditing(false);
-    const tags = draft
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    if (JSON.stringify(tags) !== JSON.stringify(value)) onSave(tags);
-  };
+  const anyDietField =
+    !!profile.dietType ||
+    !!profile.dietGoal ||
+    profile.targetCalories != null ||
+    hasMacros ||
+    hasRestrictions;
 
   return (
-    <FieldRow label={label} saving={saving}>
-      {editing ? (
-        <input
-          type="text"
-          value={draft}
-          autoFocus
-          placeholder={placeholder}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          className="flex-1 text-right text-sm bg-transparent border-b border-primary focus:outline-none"
+    <SectionCard
+      icon={<UtensilsCrossed className="h-4 w-4" />}
+      title="Diet & Nutrition"
+      subtitle="How you eat, what you avoid, the macros"
+      complete={complete}
+      onEdit={edit}
+    >
+      {!anyDietField ? (
+        <MissingCta
+          message="Kim can build meal plans around your diet type, calorie target, and any foods you want to avoid."
+          onEdit={edit}
         />
       ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="group flex flex-wrap gap-1 justify-end items-center"
-        >
-          {value.length === 0 ? (
-            <span className="text-sm text-muted-foreground italic">none</span>
-          ) : (
-            value.map((tag) => (
-              <span
-                key={tag}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
-              >
-                {tag}
-              </span>
-            ))
-          )}
-          <Pencil className="h-2.5 w-2.5 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
-        </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left column — preferences */}
+          <div className="space-y-0">
+            <DataRow
+              label="Diet type"
+              value={
+                profile.dietType
+                  ? DIET_TYPE_LABELS[profile.dietType] ?? profile.dietType
+                  : null
+              }
+            />
+            <DataRow
+              label="Goal"
+              value={
+                profile.dietGoal
+                  ? DIET_GOAL_LABELS[profile.dietGoal] ?? profile.dietGoal
+                  : null
+              }
+            />
+            <DataRow
+              label="Target calories"
+              value={
+                profile.targetCalories != null
+                  ? `${profile.targetCalories.toLocaleString()} kcal`
+                  : null
+              }
+              mono
+            />
+            <DataRow
+              label="Restrictions"
+              value={<Tags values={profile.dietaryRestrictions ?? []} />}
+            />
+          </div>
+
+          {/* Right column — macro breakdown */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-1.5">
+                <PieChart className="h-3 w-3 text-primary" /> macros
+              </div>
+              <div className="text-[10px] text-muted-foreground font-mono">
+                {hasMacros ? `${totalMacroKcal} kcal total` : "not set"}
+              </div>
+            </div>
+
+            <div
+              className={cn(
+                "h-2 rounded-full overflow-hidden flex mb-3",
+                hasMacros ? "" : "bg-muted",
+              )}
+            >
+              {hasMacros && (
+                <>
+                  <div
+                    className="bg-rose-500/80"
+                    style={{ width: `${pPct}%` }}
+                    title={`Protein ${pPct}%`}
+                  />
+                  <div
+                    className="bg-teal-500/80"
+                    style={{ width: `${cPct}%` }}
+                    title={`Carbs ${cPct}%`}
+                  />
+                  <div
+                    className="bg-sky-500/80"
+                    style={{ width: `${fPct}%` }}
+                    title={`Fat ${fPct}%`}
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <MacroReadout
+                label="Protein"
+                value={p}
+                pct={pPct}
+                color="bg-rose-500/80"
+              />
+              <MacroReadout
+                label="Carbs"
+                value={c}
+                pct={cPct}
+                color="bg-teal-500/80"
+              />
+              <MacroReadout
+                label="Fat"
+                value={f}
+                pct={fPct}
+                color="bg-sky-500/80"
+              />
+            </div>
+          </div>
+        </div>
       )}
-    </FieldRow>
+    </SectionCard>
   );
 }
 
-function MacroField({
+function MacroReadout({
   label,
   value,
-  unit,
   pct,
   color,
-  saving,
-  onSave,
 }: {
   label: string;
   value: number;
-  unit: string;
   pct: number;
   color: string;
-  saving: boolean;
-  onSave: (v: number | null) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(String(value));
-
-  useEffect(() => {
-    if (!editing) setDraft(String(value));
-  }, [value, editing]);
-
-  const commit = () => {
-    setEditing(false);
-    const n = draft === "" ? null : Number(draft);
-    if (n !== value) onSave(n);
-  };
-
+  const empty = value <= 0;
   return (
-    <div className="rounded-lg border border-border/60 px-3 py-2 bg-background/40">
+    <div className="rounded-md border border-border/60 px-3 py-2 bg-background/40">
       <div className="flex items-center gap-1.5 mb-1">
         <span className={cn("h-2 w-2 rounded-full", color)} />
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
       </div>
-      {editing ? (
-        <input
-          type="number"
-          value={draft}
-          autoFocus
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          className="w-full font-mono text-lg bg-transparent border-b border-primary focus:outline-none"
-        />
+      {empty ? (
+        <div className="text-sm text-muted-foreground/50 italic">—</div>
       ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="group flex items-baseline gap-1 w-full text-left"
-        >
-          <span className="font-mono text-lg">{value}</span>
-          <span className="text-[10px] text-muted-foreground">{unit}</span>
+        <div className="flex items-baseline gap-1">
+          <span className="font-mono text-base">{value}</span>
+          <span className="text-[10px] text-muted-foreground">g</span>
           <span className="ml-auto text-[10px] text-muted-foreground">
             {pct}%
           </span>
-        </button>
-      )}
-      {saving && (
-        <div className="text-[9px] text-muted-foreground italic mt-0.5">saving…</div>
+        </div>
       )}
     </div>
   );
 }
+

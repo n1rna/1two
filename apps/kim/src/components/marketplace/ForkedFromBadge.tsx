@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { GitFork } from "lucide-react";
 import { getMarketplaceItem } from "@/lib/marketplace";
+import { routes } from "@/lib/routes";
 
 export function ForkedFromBadge({ mpId }: { mpId: string }) {
   const [slug, setSlug] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export function ForkedFromBadge({ mpId }: { mpId: string }) {
 
   return (
     <Link
-      href={`/m/${slug}`}
+      href={routes.marketplaceItem(slug)}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"

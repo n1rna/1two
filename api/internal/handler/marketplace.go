@@ -181,6 +181,48 @@ func ListMyMarketplace(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// GetMarketplaceItemBySource handles GET /life/marketplace/by-source?kind=X&source_id=Y.
+// Returns the current user's published item (with its version list) if one exists
+// for that source, or `{"item":null}` when nothing is published.
+func GetMarketplaceItemBySource(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		kind := r.URL.Query().Get("kind")
+		sourceID := r.URL.Query().Get("source_id")
+		if kind == "" || sourceID == "" {
+			http.Error(w, `{"error":"kind and source_id are required"}`, http.StatusBadRequest)
+			return
+		}
+
+		item, err := life.GetItemBySource(r.Context(), db, userID, kind, sourceID)
+		if err != nil {
+			log.Printf("marketplace: by-source %s/%s for %s: %v", kind, sourceID, userID, err)
+			http.Error(w, `{"error":"failed to look up item"}`, http.StatusInternalServerError)
+			return
+		}
+		if item == nil {
+			json.NewEncoder(w).Encode(map[string]any{"item": nil})
+			return
+		}
+
+		versions, err := life.ListVersions(r.Context(), db, item.ID)
+		if err != nil {
+			log.Printf("marketplace: list versions %s: %v", item.ID, err)
+		} else {
+			item.Versions = versions
+		}
+
+		json.NewEncoder(w).Encode(map[string]any{"item": item})
+	}
+}
+
 // GetMarketplaceItem handles GET /life/marketplace/items/{id}.
 func GetMarketplaceItem(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

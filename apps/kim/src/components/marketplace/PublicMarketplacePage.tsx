@@ -19,8 +19,8 @@ import {
   type MarketplaceItem,
   KIND_LABELS,
   KIND_COLORS,
-  kindRoute,
 } from "@/lib/marketplace";
+import { marketplaceForkDestination, routes } from "@/lib/routes";
 import { PublicItemView } from "./PublicItemView";
 
 export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
@@ -46,15 +46,14 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
 
   const handleFork = async () => {
     if (!loggedIn) {
-      const next = encodeURIComponent(`/m/${item.slug}?fork=1`);
-      router.push(`/login?redirect=${next}`);
+      router.push(routes.login({ redirect: `${routes.marketplaceItem(item.slug)}?fork=1` }));
       return;
     }
     setForking(true);
     setForkError(null);
     try {
       const result = await forkMarketplaceItem(item.id, selectedVersion);
-      router.push(kindRoute(result.kind, result.source_id));
+      router.push(marketplaceForkDestination(result.kind, result.source_id));
     } catch (e) {
       setForkError(e instanceof Error ? e.message : "Fork failed.");
     } finally {
@@ -66,7 +65,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
     <div className="max-w-6xl mx-auto px-5 sm:px-8 py-10">
       <div className="mb-6">
         <Link
-          href="/marketplace"
+          href={routes.marketplace()}
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3 w-3" />

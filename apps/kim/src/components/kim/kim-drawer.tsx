@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useKim } from "./kim-provider";
+import { routes } from "@/lib/routes";
 import { MODE_LABELS, type KimMode } from "./types";
 import { KimMessageList } from "./kim-message-list";
 import { commandsForMode } from "./slash-commands";
@@ -496,7 +497,7 @@ export function KimDrawer() {
         >
           <span>⌘K toggle · ⇧enter newline</span>
           <Link
-            href="/chat"
+            href={routes.chat}
             className="hover:text-[var(--kim-amber)]"
             onClick={() => setOpen(false)}
           >

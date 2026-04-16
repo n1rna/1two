@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { routes } from "@/lib/routes";
 import {
   Dialog,
   DialogContent,
@@ -334,7 +335,7 @@ export function RoutinesView() {
           </button>
           <div className="flex-1" />
           <Link
-            href="/marketplace?kind=routine"
+            href={routes.marketplace({ kind: "routine" })}
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
             title="Browse routine templates from the community"
           >
@@ -345,7 +346,7 @@ export function RoutinesView() {
             size="sm"
             variant="outline"
             className="gap-1.5 text-xs h-7"
-            onClick={() => router.push("/routines/create")}
+            onClick={() => router.push(routes.routineNew)}
           >
             <Plus className="h-3.5 w-3.5" />
             New Routine
@@ -355,7 +356,7 @@ export function RoutinesView() {
     >
       <div>
         {error && (
-          <div className="flex items-center gap-2 mx-4 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="flex items-center gap-2 mx-3 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             {error}
             <button onClick={() => { setError(null); load(); }} className="ml-auto text-xs underline">Retry</button>
@@ -390,13 +391,13 @@ export function RoutinesView() {
                 size="sm"
                 variant="outline"
                 className="gap-1.5 text-xs"
-                onClick={() => router.push("/routines/create")}
+                onClick={() => router.push(routes.routineNew)}
               >
                 <Plus className="h-3.5 w-3.5" />
                 New Routine
               </Button>
               <Link
-                href="/marketplace?kind=routine"
+                href={routes.marketplace({ kind: "routine" })}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
               >
                 <Store className="h-3.5 w-3.5" />
@@ -414,7 +415,7 @@ export function RoutinesView() {
                 routine={routine}
                 onDelete={setConfirmDeleteId}
                 onToggleActive={handleToggleActive}
-                onOpen={(id) => router.push(`/routines/${id}`)}
+                onOpen={(id) => router.push(routes.routine(id))}
               />
             ))}
           </ListRows>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Github } from "lucide-react";
 import { useSession, signIn } from "@/lib/auth-client";
@@ -215,17 +216,14 @@ export function LoginContent() {
         {/* wordmark + pitch */}
         <div className="relative mt-16 md:mt-20">
           <div className="rise">
-            <div
-              className="flex items-baseline gap-3 leading-none"
-              style={{ fontFamily: "var(--font-display), Georgia, serif" }}
-            >
-              <span className="italic text-[112px] md:text-[156px] text-zinc-50 tracking-tight">
-                kim
-              </span>
-              <span className="italic text-3xl md:text-4xl text-teal-300/90">
-                .
-              </span>
-            </div>
+            <Image
+              src="/logo.svg"
+              alt="kim"
+              width={140}
+              height={140}
+              priority
+              className="rounded-full shadow-[0_0_80px_-10px_rgba(95,149,152,0.55)]"
+            />
           </div>
           <p
             className="rise mt-6 max-w-md text-[15px] leading-relaxed text-zinc-400"

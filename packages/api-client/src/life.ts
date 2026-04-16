@@ -9,6 +9,7 @@ export interface LifeProfile {
   sleepTime: string | null;
   agentEnabled: boolean;
   onboarded: boolean;
+  onboardingStep: string | null;
   createdAt: string;
   updatedAt: string;
 }

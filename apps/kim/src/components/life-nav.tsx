@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { listLifeActionables } from "@/lib/life";
 import {
   Brain,
   CalendarDays,
@@ -21,46 +22,49 @@ import {
   Utensils,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   match?: (path: string) => boolean;
+  /** Optional badge key used to look up a numeric count from the nav state. */
+  badgeKey?: "actionables";
 }
 
 const PRIMARY_ITEMS: NavItem[] = [
   {
-    href: "/today",
+    href: routes.today,
     label: "Today",
     icon: Sun,
-    match: (p) => p === "/today",
+    match: (p) => p === routes.today,
   },
-  { href: "/actionables", label: "Inbox", icon: CheckSquare },
+  { href: routes.actionables, label: "Inbox", icon: CheckSquare, badgeKey: "actionables" },
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: routes.calendar, label: "Calendar", icon: CalendarDays },
   {
-    href: "/health",
+    href: routes.health,
     label: "Health",
     icon: Heart,
     match: (p) =>
-      p === "/health" ||
-      p === "/health/weight" ||
-      p === "/health/profile",
+      p === routes.health ||
+      p === routes.healthWeight ||
+      p === routes.healthProfile,
   },
-  { href: "/routines", label: "Routines", icon: Repeat },
-  { href: "/health/meals", label: "Meals", icon: Utensils },
-  { href: "/health/sessions", label: "Gym", icon: Dumbbell },
-  { href: "/memories", label: "Memories", icon: Brain },
-  { href: "/channels", label: "Channels", icon: Radio },
+  { href: routes.routines, label: "Routines", icon: Repeat },
+  { href: routes.meals, label: "Meals", icon: Utensils },
+  { href: routes.sessions, label: "Gym", icon: Dumbbell },
+  { href: routes.memories, label: "Memories", icon: Brain },
+  { href: routes.channels, label: "Channels", icon: Radio },
 ];
 
 const BOTTOM_ITEMS: NavItem[] = [
-  { href: "/marketplace", label: "Market", icon: Store },
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/chat", label: "Conversations", icon: MessageSquare },
+  { href: routes.marketplace(), label: "Market", icon: Store },
+  { href: routes.settings, label: "Settings", icon: Settings },
+  { href: routes.chat, label: "Conversations", icon: MessageSquare },
 ];
 
 type NavMode = "compact" | "extended";
@@ -72,6 +76,28 @@ function isActive(item: NavItem, pathname: string): boolean {
 
 export function LifeNav() {
   const pathname = usePathname();
+
+  // Pending actionable count for the Inbox badge. Refetched on pathname
+  // change (so it updates after the user resolves/dismisses items) and on
+  // a 60s interval as a fallback for Kim-generated actionables.
+  const [pendingActionables, setPendingActionables] = useState(0);
+  const refreshBadges = useCallback(async () => {
+    try {
+      const list = await listLifeActionables("pending");
+      setPendingActionables(list.length);
+    } catch {
+      /* non-fatal — badge simply won't update */
+    }
+  }, []);
+  useEffect(() => {
+    void refreshBadges();
+  }, [refreshBadges, pathname]);
+  useEffect(() => {
+    const id = setInterval(() => void refreshBadges(), 60_000);
+    return () => clearInterval(id);
+  }, [refreshBadges]);
+
+  const badgeCounts = { actionables: pendingActionables } as const;
 
   const [mode, setMode] = useState<NavMode>("compact");
   useEffect(() => {
@@ -127,6 +153,7 @@ export function LifeNav() {
             item={item}
             pathname={pathname}
             extended={isExtended}
+            badgeCounts={badgeCounts}
           />
         ))}
       </div>
@@ -135,10 +162,7 @@ export function LifeNav() {
       <button
         onClick={() => setExpanded((e) => !e)}
         className={cn(
-          "mt-1 rounded-md transition-colors",
-          expanded
-            ? "bg-accent text-accent-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          "mt-1 rounded-md transition-colors text-muted-foreground hover:bg-muted hover:text-foreground",
           isExtended
             ? "w-full flex items-center gap-3 px-3 py-2 text-xs"
             : "h-10 w-10 flex items-center justify-center",
@@ -166,6 +190,7 @@ export function LifeNav() {
               item={item}
               pathname={pathname}
               extended={isExtended}
+              badgeCounts={badgeCounts}
             />
           ))}
         </div>
@@ -186,6 +211,7 @@ export function LifeNav() {
             item={item}
             pathname={pathname}
             extended={isExtended}
+            badgeCounts={badgeCounts}
           />
         ))}
       </div>
@@ -197,13 +223,18 @@ function NavButton({
   item,
   pathname,
   extended,
+  badgeCounts,
 }: {
   item: NavItem;
   pathname: string;
   extended: boolean;
+  badgeCounts: Record<"actionables", number>;
 }) {
   const Icon = item.icon;
   const active = isActive(item, pathname);
+  const badge = item.badgeKey ? badgeCounts[item.badgeKey] : 0;
+  const showBadge = badge > 0;
+  const badgeLabel = badge > 99 ? "99+" : String(badge);
 
   if (extended) {
     return (
@@ -218,6 +249,14 @@ function NavButton({
       >
         <Icon size={16} />
         <span className="truncate">{item.label}</span>
+        {showBadge && (
+          <span
+            className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold tabular-nums"
+            aria-label={`${badge} pending`}
+          >
+            {badgeLabel}
+          </span>
+        )}
       </Link>
     );
   }
@@ -225,15 +264,23 @@ function NavButton({
   return (
     <Link
       href={item.href}
-      title={item.label}
+      title={showBadge ? `${item.label} (${badge})` : item.label}
       className={cn(
-        "group h-10 w-10 rounded-md flex items-center justify-center transition-colors",
+        "group relative h-10 w-10 rounded-md flex items-center justify-center transition-colors",
         active
           ? "bg-accent text-accent-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       <Icon size={18} />
+      {showBadge && (
+        <span
+          className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-semibold tabular-nums ring-2 ring-sidebar"
+          aria-label={`${badge} pending`}
+        >
+          {badgeLabel}
+        </span>
+      )}
     </Link>
   );
 }

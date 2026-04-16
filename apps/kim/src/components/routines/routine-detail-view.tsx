@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, Code2, Edit2, Loader2, Upload } from "lucide-react";
+import { Code2, Edit2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PublishDialog } from "@/components/marketplace/PublishDialog";
+import { PageShell, EmptyState } from "@/components/page-shell";
+import { ActiveToggle } from "@/components/active-toggle";
+import { PublishControl } from "@/components/marketplace/PublishControl";
 import { ForkedFromBadge } from "@/components/marketplace/ForkedFromBadge";
 import { useKimAutoContext } from "@/components/kim";
 import {
@@ -12,6 +13,7 @@ import {
   updateLifeRoutine,
   type LifeRoutine,
 } from "@/lib/life";
+import { routes } from "@/lib/routes";
 import { formatSchedule } from "./routines-view";
 import { RoutineConfigForm } from "./routine-config-form";
 import { RoutineConfigReadonly } from "./routine-config-readonly";
@@ -55,7 +57,6 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [publishOpen, setPublishOpen] = useState(false);
 
   // Draft state while editing. Seeded from routine on load/cancel.
   const [name, setName] = useState("");
@@ -164,60 +165,70 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
     return routine ? asValues(routine.config) : {};
   }, [editing, configValues, routine]);
 
+  const toggleActive = useCallback(
+    async (next: boolean) => {
+      if (!routine) return;
+      try {
+        const updated = await updateLifeRoutine(routine.id, { active: next });
+        setRoutine(updated);
+      } catch (e) {
+        setError(String(e));
+      }
+    },
+    [routine],
+  );
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
+      <PageShell title="Loading…" backHref={routes.routines} backLabel="All routines">
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      </PageShell>
     );
   }
 
   if (error || !routine) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-8">
-        <AlertCircle className="h-8 w-8 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground">{error ?? "Routine not found"}</p>
-        <Button variant="ghost" size="sm" onClick={load}>
-          Retry
-        </Button>
-      </div>
+      <PageShell title="Routine" backHref={routes.routines} backLabel="All routines">
+        <EmptyState
+          title={error ?? "Routine not found"}
+          hint="Return to the list and try again."
+        />
+      </PageShell>
     );
   }
 
+  const displayName = editing ? name : routine.name;
+  const scheduleSummary = formatSchedule(routine.schedule);
+
   return (
-    <div className="max-w-3xl mx-auto px-5 py-5 space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1 min-w-0">
-          {editing ? (
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="text-xl font-semibold bg-transparent border-b border-primary/50 focus:outline-none focus:border-primary w-full"
-            />
-          ) : (
-            <h2 className="text-xl font-semibold text-foreground">{routine.name}</h2>
-          )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-muted-foreground">
+    <PageShell
+      title={displayName}
+      subtitle={scheduleSummary || undefined}
+      backHref={routes.routines}
+      backLabel="All routines"
+      actions={
+        <>
+          <div className="flex items-center gap-2 pr-1">
+            <span className="text-xs text-muted-foreground">
               {routine.active ? "Active" : "Inactive"}
             </span>
+            <ActiveToggle
+              active={routine.active}
+              onChange={toggleActive}
+              stopPropagation={false}
+              label={routine.active ? "Disable routine" : "Enable routine"}
+            />
           </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
           {editing ? (
             <>
-              <Button
-                size="sm"
-                className="h-7 text-xs"
-                onClick={handleSave}
-                disabled={saving}
-              >
+              <Button size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
+                variant="outline"
                 onClick={() => {
                   setEditing(false);
                   setSchemaEditorOpen(false);
@@ -231,26 +242,37 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
             <>
               <Button
                 size="sm"
-                variant="ghost"
-                className="h-7 text-xs gap-1"
+                variant="outline"
+                className="gap-1.5"
                 onClick={() => setEditing(true)}
               >
                 <Edit2 className="h-3 w-3" /> Edit
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs gap-1"
-                onClick={() => setPublishOpen(true)}
-              >
-                <Upload className="h-3 w-3" /> Publish
-              </Button>
+              <PublishControl
+                kind="routine"
+                sourceId={routine.id}
+                defaultTitle={routine.name}
+              />
             </>
           )}
-        </div>
-      </div>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-5 max-w-5xl">
+        {routine.forkedFromMpId && <ForkedFromBadge mpId={routine.forkedFromMpId} />}
 
-      {routine.forkedFromMpId && <ForkedFromBadge mpId={routine.forkedFromMpId} />}
+        {editing && (
+          <section className="rounded-xl border bg-card px-5 py-4">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              Name
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1.5 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+          </section>
+        )}
 
       {/* Description */}
       <section className="rounded-xl border bg-card px-5 py-4">
@@ -362,14 +384,8 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
         <p>Created: {relativeTime(routine.createdAt)}</p>
       </div>
 
-      <PublishDialog
-        open={publishOpen}
-        onOpenChange={setPublishOpen}
-        kind="routine"
-        sourceId={routine.id}
-        defaultTitle={routine.name}
-      />
-    </div>
+      </div>
+    </PageShell>
   );
 }
 

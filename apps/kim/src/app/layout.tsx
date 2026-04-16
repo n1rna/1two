@@ -59,6 +59,15 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   alternates: { canonical: SITE_URL },
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/logo-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: [{ url: "/logo-180x180.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/logo-48x48.png",
+  },
 };
 
 export const viewport: Viewport = {

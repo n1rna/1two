@@ -20,27 +20,27 @@ interface Props {
 export function ListShell({ title, subtitle, backHref, toolbar, children }: Props) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <header className="shrink-0 border-b">
-        <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-4">
+      <header className="shrink-0 sticky top-0 z-10 bg-background/85 backdrop-blur border-b border-border">
+        <div className="px-8 pt-5 pb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
             {backHref && (
               <Link
                 href={backHref}
-                className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground mb-1"
+                className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground mb-1.5"
               >
-                <ChevronLeft size={11} /> back
+                <ChevronLeft size={12} /> back
               </Link>
             )}
-            <h1 className="text-xl font-semibold leading-tight tracking-tight">
+            <h1 className="text-2xl font-semibold leading-tight tracking-tight">
               {title}
             </h1>
             {subtitle && (
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+              <p className="text-sm text-muted-foreground mt-1.5">{subtitle}</p>
             )}
           </div>
         </div>
         {toolbar && (
-          <div className="flex items-center gap-2 px-4 py-2 border-t">
+          <div className="flex items-center gap-2 px-8 py-2.5 border-t border-border">
             {toolbar}
           </div>
         )}
@@ -51,8 +51,10 @@ export function ListShell({ title, subtitle, backHref, toolbar, children }: Prop
 }
 
 /**
- * Dense list container — matches routines row spacing.
+ * Dense list container. Rows go flush edge-to-edge (no horizontal gutter)
+ * so the list reads like a Gmail/Mailbox-style feed, while content-heavy
+ * pages (health, channels, today) keep their own px-8 gutter.
  */
 export function ListRows({ children }: { children: ReactNode }) {
-  return <div className="px-2 py-1.5">{children}</div>;
+  return <div className="px-3 py-2">{children}</div>;
 }

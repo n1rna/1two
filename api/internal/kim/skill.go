@@ -228,6 +228,19 @@ func DefaultRegistry() *SkillRegistry {
 		FocusPrompt: "The user is on the gym sessions page. Prefer create_session / update_session / add_exercise_to_session / remove_exercise_from_session. Use the user's fitness profile below.",
 	})
 
+	// Onboarding — active when the user is on the onboarding flow.
+	// Health tools are also included so Kim can save the health profile
+	// inline during onboarding without the user leaving the flow.
+	r.Register(&Skill{
+		ID:          "onboarding",
+		Name:        "First-run onboarding",
+		Prompt:      loadSkillPrompt("onboarding.md"),
+		Tools:       append(onboardingTools(), healthTools()...),
+		Categories:  []string{"onboarding"},
+		Priority:    50,
+		FocusPrompt: "The user is in first-run onboarding. Follow the onboarding skill exactly: one topic at a time, warm and brief, persist answers with update_life_profile / update_health_profile / remember, advance onboarding_step as you go, and only call complete_life_onboarding after the user confirms they're done.",
+	})
+
 	// Admin tools (always available, no prompt — just tools)
 	r.Register(&Skill{
 		ID:       "admin",

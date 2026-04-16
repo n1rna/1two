@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { WifiOff, RefreshCw, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { routes } from "@/lib/routes";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -76,7 +77,7 @@ export function ServiceError({
             </button>
           )}
           <Link
-            href="/"
+            href={routes.home}
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />

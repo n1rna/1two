@@ -8,6 +8,7 @@ import {
   updateHealthProfile,
   type HealthProfile,
 } from "@/lib/health";
+import { routes } from "@/lib/routes";
 
 export default function HealthProfilePage() {
   const [profile, setProfile] = useState<HealthProfile | null>(null);
@@ -42,7 +43,7 @@ export default function HealthProfilePage() {
 
   if (loading) {
     return (
-      <PageShell title="Profile" backHref="/health">
+      <PageShell title="Profile" backHref={routes.health}>
         <div className="h-64 rounded-lg bg-muted animate-pulse" />
       </PageShell>
     );
@@ -52,7 +53,7 @@ export default function HealthProfilePage() {
     <PageShell
       title="Profile"
       subtitle="Used by Kim to tailor meals and workouts"
-      backHref="/health"
+      backHref={routes.health}
       actions={
         <Button size="sm" onClick={save} disabled={saving}>
           {saving ? "saving…" : "save"}

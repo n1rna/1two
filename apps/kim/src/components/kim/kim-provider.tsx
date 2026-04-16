@@ -82,6 +82,7 @@ interface KimStateExtra {
 const KimCtx = createContext<(KimState & KimStateExtra & KimActions) | null>(null);
 
 const MODE_BY_PATH: Array<[RegExp, KimMode]> = [
+  [/^\/onboarding/, "onboarding"],
   [/^\/routines/, "routines"],
   [/^\/calendar/, "calendar"],
   [/^\/health\/meals/, "meals"],
@@ -230,6 +231,14 @@ export function KimProvider({ children }: { children: ReactNode }) {
   // Exit explicit selection mode on nav but keep the actual selection.
   useEffect(() => {
     setSelectionMode(false);
+  }, [pathname]);
+
+  // Force-open the drawer during first-run onboarding so Kim is always visible
+  // alongside the stepper.
+  useEffect(() => {
+    if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+      setOpen(true);
+    }
   }, [pathname]);
 
   // Restore drawer width

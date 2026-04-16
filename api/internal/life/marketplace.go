@@ -483,6 +483,22 @@ func ListMine(ctx context.Context, db *sql.DB, userID string) ([]ItemSummary, er
 	return items, rows.Err()
 }
 
+// GetItemBySource returns the (currently published) marketplace item
+// authored by userID whose source_id matches. Returns nil, nil when nothing
+// is found so callers can render an empty "not published" state.
+func GetItemBySource(ctx context.Context, db *sql.DB, userID, kind, sourceID string) (*ItemDetail, error) {
+	q := itemDetailSelect + ` WHERE m.source_id = $1 AND m.author_id = $2 AND m.kind = $3 AND m.unpublished_at IS NULL`
+	it, err := scanItemDetail(ctx, db, q, sourceID, userID, kind)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	// Do NOT increment view_count — this is the author introspecting their own item.
+	return it, nil
+}
+
 func scanItemDetail(ctx context.Context, db *sql.DB, q string, args ...any) (*ItemDetail, error) {
 	var it ItemDetail
 	var publishedAt, updatedAt time.Time

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, LogOut } from "lucide-react";
 import { useSession, signOut } from "@/lib/auth-client";
+import { routes } from "@/lib/routes";
 
 export function PublicUserMenu() {
   const { data: session, isPending } = useSession();
@@ -27,10 +28,9 @@ export function PublicUserMenu() {
   }
 
   if (!session) {
-    const redirect = encodeURIComponent(pathname || "/");
     return (
       <Link
-        href={`/login?redirect=${redirect}`}
+        href={routes.login({ redirect: pathname || routes.home })}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card hover:bg-accent hover:border-foreground/20 transition-colors text-xs font-medium"
       >
         Sign in
@@ -46,7 +46,7 @@ export function PublicUserMenu() {
   return (
     <div ref={menuRef} className="flex items-center gap-2">
       <Link
-        href="/today"
+        href={routes.today}
         className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-border text-xs font-medium hover:bg-accent hover:border-foreground/20 transition-colors"
       >
         Go to Kim
@@ -83,14 +83,14 @@ export function PublicUserMenu() {
             </div>
             <div className="p-1 space-y-0.5">
               <Link
-                href="/marketplace/mine"
+                href={routes.marketplaceMine}
                 onClick={() => setOpen(false)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
               >
                 My published items
               </Link>
               <Link
-                href="/today"
+                href={routes.today}
                 onClick={() => setOpen(false)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors sm:hidden"
               >

@@ -11,6 +11,7 @@ import {
   Target,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
+import { routes } from "@/lib/routes";
 import {
   useKim,
   useKimForm,
@@ -91,7 +92,7 @@ export default function RoutineCreatePage() {
     setSaving(true);
     try {
       const created = await createLifeRoutine(routineFormToPayload(form));
-      router.push(`/routines/${created.id}`);
+      router.push(routes.routine(created.id));
     } catch (e) {
       console.error(e);
       setSaving(false);
@@ -102,7 +103,7 @@ export default function RoutineCreatePage() {
     <PageShell
       title="New routine"
       subtitle="Describe it to Kim — she'll draft the form for you to review"
-      backHref="/routines"
+      backHref={routes.routines}
     >
       <div className="max-w-2xl space-y-6">
         {/* Hero — agent-first */}
@@ -174,7 +175,7 @@ export default function RoutineCreatePage() {
                 value={form}
                 onChange={setForm}
                 onSubmit={submit}
-                onCancel={() => router.push("/routines")}
+                onCancel={() => router.push(routes.routines)}
                 saving={saving}
                 submitLabel="Create routine"
               />

@@ -515,6 +515,26 @@ func marketplaceTools() []llms.Tool {
 	}
 }
 
+func onboardingTools() []llms.Tool {
+	return []llms.Tool{
+		{Type: "function", Function: &llms.FunctionDefinition{
+			Name:        "update_life_profile",
+			Description: "Save the user's basic life profile fields during onboarding (timezone, wake time, sleep time). Also used to advance the onboarding step.",
+			Parameters: map[string]any{"type": "object", "properties": map[string]any{
+				"timezone":        map[string]any{"type": "string", "description": "IANA timezone, e.g. 'Europe/Berlin'."},
+				"wake_time":       map[string]any{"type": "string", "description": "Typical wake time as HH:MM (24h)."},
+				"sleep_time":      map[string]any{"type": "string", "description": "Typical bedtime as HH:MM (24h)."},
+				"onboarding_step": map[string]any{"type": "string", "description": "Current onboarding step id to persist: one of 'welcome','basics','rhythm','meals','work','health','memories','done'."},
+			}},
+		}},
+		{Type: "function", Function: &llms.FunctionDefinition{
+			Name:        "complete_life_onboarding",
+			Description: "Mark onboarding as complete. Call only after the user has confirmed they're done AND the key steps (basics, rhythm, health) have been covered.",
+			Parameters:  map[string]any{"type": "object", "properties": map[string]any{}},
+		}},
+	}
+}
+
 func adminTools() []llms.Tool {
 	return []llms.Tool{
 		{Type: "function", Function: &llms.FunctionDefinition{

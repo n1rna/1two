@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ListShell, ListRows } from "@/components/list-shell";
+import { routes } from "@/lib/routes";
 import { ActiveToggle } from "@/components/active-toggle";
 import { SelectCheckbox } from "@/components/kim";
 import {
@@ -88,7 +89,7 @@ export default function MealPlansPage() {
           </button>
           <div className="flex-1" />
           <Link
-            href="/marketplace?kind=meal_plan"
+            href={routes.marketplace({ kind: "meal_plan" })}
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
             title="Browse meal plan templates"
           >
@@ -99,7 +100,7 @@ export default function MealPlansPage() {
             size="sm"
             variant="outline"
             className="gap-1.5 text-xs h-7"
-            onClick={() => router.push("/health/meals/create")}
+            onClick={() => router.push(routes.mealNew)}
           >
             <Plus className="h-3.5 w-3.5" />
             New Plan
@@ -109,7 +110,7 @@ export default function MealPlansPage() {
     >
       <div>
         {error && (
-          <div className="flex items-center gap-2 mx-4 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="flex items-center gap-2 mx-3 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             {error}
             <button onClick={load} className="ml-auto text-xs underline">
@@ -150,13 +151,13 @@ export default function MealPlansPage() {
                 size="sm"
                 variant="outline"
                 className="gap-1.5 text-xs"
-                onClick={() => router.push("/health/meals/create")}
+                onClick={() => router.push(routes.mealNew)}
               >
                 <Plus className="h-3.5 w-3.5" />
                 New Plan
               </Button>
               <Link
-                href="/marketplace?kind=meal_plan"
+                href={routes.marketplace({ kind: "meal_plan" })}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
               >
                 <Store className="h-3.5 w-3.5" />
@@ -172,7 +173,7 @@ export default function MealPlansPage() {
               <MealPlanRow
                 key={p.id}
                 plan={p}
-                onOpen={() => router.push(`/health/meals/${p.id}`)}
+                onOpen={() => router.push(routes.meal(p.id))}
                 onToggleActive={(next) => setActive(p.id, next)}
                 onDelete={() => remove(p.id)}
               />
