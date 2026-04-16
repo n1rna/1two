@@ -10,6 +10,7 @@ import {
 } from "@/lib/marketplace";
 import { PublishDialog } from "./PublishDialog";
 import { PublishedStatsDialog } from "./PublishedStatsDialog";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   kind: MarketplaceKind;
@@ -31,6 +32,7 @@ export function PublishControl({
   defaultTitle,
   onChange,
 }: Props) {
+  const { t } = useTranslation("marketplace");
   const [item, setItem] = useState<MarketplaceItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -84,10 +86,10 @@ export function PublishControl({
           variant="outline"
           className="gap-1.5 border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
           onClick={() => setStatsOpen(true)}
-          title="View marketplace stats"
+          title={t("stats_view_marketplace")}
         >
           <Globe className="h-3 w-3" />
-          Published · v{item.current_version}
+          {t("published_pill", { version: item.current_version })}
         </Button>
         <PublishedStatsDialog
           open={statsOpen}
@@ -114,7 +116,7 @@ export function PublishControl({
         onClick={() => setPublishOpen(true)}
       >
         <Upload className="h-3 w-3" />
-        Publish
+        {t("publish", { ns: "common" })}
       </Button>
       <PublishDialog
         open={publishOpen}

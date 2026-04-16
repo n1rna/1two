@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createHealthSession } from "@/lib/health";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[] = [
   {
@@ -56,6 +57,7 @@ const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[
 ];
 
 export default function SessionCreatePage() {
+  const { t } = useTranslation("sessions");
   const router = useRouter();
   const { askKim, setOpen } = useKim();
   const [manualOpen, setManualOpen] = useState(false);
@@ -92,8 +94,8 @@ export default function SessionCreatePage() {
 
   return (
     <PageShell
-      title="New gym session"
-      subtitle="Describe the workout — Kim will build it with exercises, sets, and reps"
+      title={t("create_title")}
+      subtitle={t("create_subtitle")}
       backHref={routes.sessions}
     >
       <div className="max-w-2xl space-y-6">
@@ -104,12 +106,10 @@ export default function SessionCreatePage() {
             className="text-3xl leading-[1.1] italic max-w-xl"
             style={{ fontFamily: "var(--font-display), Georgia, serif" }}
           >
-            Describe the workout — Kim will program it.
+            {t("create_hero_heading")}
           </h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-lg leading-relaxed">
-            Kim reads your fitness level, goals, equipment, and limitations
-            then generates a full session with exercises, sets, reps, and
-            rest.
+            {t("create_hero_body")}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -129,7 +129,7 @@ export default function SessionCreatePage() {
               className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground"
               style={{ fontFamily: "var(--font-geist-mono), ui-monospace, monospace" }}
             >
-              or press ⌘K
+              {t("or_press_cmd_k", { ns: "common" })}
             </span>
           </div>
         </section>
@@ -137,7 +137,7 @@ export default function SessionCreatePage() {
         {/* Divider */}
         <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           <div className="flex-1 border-t border-border/60" />
-          <span>or start from an empty session</span>
+          <span>{t("create_divider_or")}</span>
           <div className="flex-1 border-t border-border/60" />
         </div>
 
@@ -148,9 +148,9 @@ export default function SessionCreatePage() {
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card/50 hover:bg-card transition-colors"
           >
             <div className="text-left">
-              <div className="text-sm font-medium">Empty session</div>
+              <div className="text-sm font-medium">{t("create_empty_session_title")}</div>
               <div className="text-xs text-muted-foreground">
-                Create a blank session — add exercises yourself or with Kim later
+                {t("create_empty_session_hint")}
               </div>
             </div>
             <ChevronDown
@@ -162,12 +162,12 @@ export default function SessionCreatePage() {
             <div className="mt-4 rounded-xl border bg-card p-6 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Title
+                  {t("create_field_title")}
                 </label>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Upper A — push focus"
+                  placeholder={t("create_title_placeholder")}
                   className="w-full rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
@@ -175,7 +175,7 @@ export default function SessionCreatePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Difficulty
+                    {t("create_field_difficulty")}
                   </label>
                   <select
                     value={difficulty}
@@ -189,7 +189,7 @@ export default function SessionCreatePage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Duration (min)
+                    {t("create_field_duration")}
                   </label>
                   <input
                     type="number"
@@ -214,7 +214,7 @@ export default function SessionCreatePage() {
                   onClick={submitManual}
                   disabled={!title.trim() || saving}
                 >
-                  {saving ? "Creating…" : "Create empty session"}
+                  {saving ? t("creating", { ns: "common" }) : t("create_submit")}
                 </Button>
               </div>
             </div>

@@ -32,6 +32,7 @@ import {
   updateLifeRoutine,
   type LifeRoutine,
 } from "@/lib/life";
+import { useTranslation } from "react-i18next";
 
 const DAYS_OF_WEEK = [
   { value: "monday", short: "Mon" },
@@ -216,6 +217,7 @@ function RoutineCard({
   onToggleActive: (id: string, active: boolean) => void;
   onOpen: (id: string) => void;
 }) {
+  const { t } = useTranslation("routines");
   return (
     <div
       className={cn(
@@ -255,7 +257,7 @@ function RoutineCard({
         <ActiveToggle
           active={routine.active}
           onChange={(next) => onToggleActive(routine.id, next)}
-          label={routine.active ? "Pause routine" : "Resume routine"}
+          label={routine.active ? t("pause_routine") : t("resume_routine")}
         />
 
         <button
@@ -273,6 +275,7 @@ function RoutineCard({
 // ─── Top-level view ──────────────────────────────────────────────────────────
 
 export function RoutinesView() {
+  const { t } = useTranslation("routines");
   const router = useRouter();
   const [routines, setRoutines] = useState<LifeRoutine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -318,11 +321,11 @@ export function RoutinesView() {
 
   return (
     <ListShell
-      title="Routines"
+      title={t("list_title")}
       subtitle={
         routines.length > 0
-          ? `${activeCount} active · ${routines.length} total`
-          : "Recurring habits Kim helps you keep"
+          ? t("list_subtitle_with_count", { activeCount, totalCount: routines.length })
+          : t("list_subtitle_empty")
       }
       toolbar={
         <>
@@ -337,10 +340,10 @@ export function RoutinesView() {
           <Link
             href={routes.marketplace({ kind: "routine" })}
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
-            title="Browse routine templates from the community"
+            title={t("browse_templates_tooltip")}
           >
             <Store className="h-3.5 w-3.5" />
-            Browse Templates
+            {t("browse_templates", { ns: "common" })}
           </Link>
           <Button
             size="sm"
@@ -349,7 +352,7 @@ export function RoutinesView() {
             onClick={() => router.push(routes.routineNew)}
           >
             <Plus className="h-3.5 w-3.5" />
-            New Routine
+            {t("new_routine", { ns: "common" })}
           </Button>
         </>
       }
@@ -381,9 +384,9 @@ export function RoutinesView() {
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
             <Repeat className="h-10 w-10 text-muted-foreground/20" />
             <div>
-              <p className="text-sm font-medium text-muted-foreground">No routines yet</p>
+              <p className="text-sm font-medium text-muted-foreground">{t("empty_title")}</p>
               <p className="text-xs text-muted-foreground/60 mt-1">
-                Create one from scratch, let Kim draft it, or fork a community template.
+                {t("empty_hint")}
               </p>
             </div>
             <div className="flex items-center gap-2 mt-1">
@@ -425,10 +428,10 @@ export function RoutinesView() {
       <Dialog open={!!confirmDeleteId} onOpenChange={() => setConfirmDeleteId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete Routine</DialogTitle>
+            <DialogTitle>{t("delete_dialog_title")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete this routine? This cannot be undone.
+            {t("delete_dialog_body")}
           </p>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>

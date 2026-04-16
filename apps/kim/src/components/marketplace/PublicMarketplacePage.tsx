@@ -22,8 +22,10 @@ import {
 } from "@/lib/marketplace";
 import { marketplaceForkDestination, routes } from "@/lib/routes";
 import { PublicItemView } from "./PublicItemView";
+import { useTranslation } from "react-i18next";
 
 export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
+  const { t } = useTranslation("marketplace");
   const { data: session, isPending } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,7 +57,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
       const result = await forkMarketplaceItem(item.id, selectedVersion);
       router.push(marketplaceForkDestination(result.kind, result.source_id));
     } catch (e) {
-      setForkError(e instanceof Error ? e.message : "Fork failed.");
+      setForkError(e instanceof Error ? e.message : t("fork_error"));
     } finally {
       setForking(false);
     }
@@ -69,7 +71,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3 w-3" />
-          Back to marketplace
+          {t("back_to_marketplace")}
         </Link>
       </div>
 
@@ -87,7 +89,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
                 {KIND_LABELS[item.kind]}
               </span>
               <span className="text-xs text-muted-foreground">
-                by {item.author.name}
+                {t("by_author", { name: item.author.name })}
               </span>
             </div>
             <h1
@@ -123,12 +125,12 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
           <div className="lg:hidden rounded-xl border border-border/80 bg-muted/20 p-5 flex flex-col gap-3">
             <div>
               <p className="text-sm font-medium">
-                {loggedIn ? "Add this to your life" : "Fork this template"}
+                {loggedIn ? t("fork_add_to_life_prompt") : t("fork_template_prompt")}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {loggedIn
-                  ? "Kim will create your own editable copy."
-                  : "Sign in and kim will create your own editable copy."}
+                  ? t("fork_logged_in_hint")
+                  : t("fork_logged_out_hint")}
               </p>
             </div>
             <Button
@@ -143,7 +145,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
               ) : (
                 <LogIn className="h-4 w-4" />
               )}
-              {loggedIn ? "Add to my Life" : "Sign in to fork"}
+              {loggedIn ? t("fork_add_to_life") : t("fork_sign_in")}
             </Button>
             {forkError && (
               <p className="text-xs text-destructive">{forkError}</p>
@@ -157,7 +159,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
             {/* Author */}
             <div className="space-y-0.5">
               <p className="text-[10px] text-muted-foreground uppercase tracking-[0.16em] font-mono">
-                Author
+                {t("sidebar_author")}
               </p>
               <p className="text-sm font-medium">{item.author.name}</p>
             </div>
@@ -210,7 +212,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
             {loggedIn && versions.length > 1 && (
               <div className="space-y-1.5">
                 <label className="text-[10px] text-muted-foreground uppercase tracking-[0.16em] font-mono block">
-                  Fork version
+                  {t("fork_version_label")}
                 </label>
                 <select
                   value={selectedVersion ?? item.current_version}
@@ -240,7 +242,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
               ) : (
                 <LogIn className="h-3.5 w-3.5" />
               )}
-              {loggedIn ? "Add to my Life" : "Sign in to fork"}
+              {loggedIn ? t("fork_add_to_life") : t("fork_sign_in")}
             </Button>
 
             {forkError && (
@@ -249,8 +251,7 @@ export function PublicMarketplacePage({ item }: { item: MarketplaceItem }) {
 
             {!loggedIn && (
               <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
-                Reading is free. Sign in to fork a template into your own
-                kim-managed life.
+                {t("fork_reading_free")}
               </p>
             )}
           </div>

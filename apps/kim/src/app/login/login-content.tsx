@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Github } from "lucide-react";
 import { useSession, signIn } from "@/lib/auth-client";
+import { useTranslation } from "react-i18next";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -149,6 +150,7 @@ function Caret() {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function LoginContent() {
+  const { t } = useTranslation("login");
   const { data: session, isPending } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -208,9 +210,9 @@ export function LoginContent() {
         <header className="relative flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.22em] text-zinc-500">
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
-            <span>kim agent · online</span>
+            <span>{t("status_agent_online")}</span>
           </div>
-          <span className="hidden sm:block">kim1.ai / v0</span>
+          <span className="hidden sm:block">{t("status_version")}</span>
         </header>
 
         {/* wordmark + pitch */}
@@ -229,15 +231,14 @@ export function LoginContent() {
             className="rise mt-6 max-w-md text-[15px] leading-relaxed text-zinc-400"
             style={{ animationDelay: "120ms" }}
           >
-            one conversation. your routines, your meals, your calendar,
-            your workouts. kim pays attention so you don't have to.
+            {t("pitch")}
           </p>
           <div
             className="rise mt-5 flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.22em] text-zinc-600"
             style={{ animationDelay: "180ms" }}
           >
             <span className="h-px w-6 bg-zinc-700" />
-            a personal life agent
+            {t("subtitle")}
           </div>
         </div>
 
@@ -253,7 +254,7 @@ export function LoginContent() {
               <span className="h-2 w-2 rounded-full bg-zinc-700" />
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-600">
-              kim — live
+              {t("terminal_label")}
             </span>
           </div>
           <div className="p-5 min-h-[260px]">
@@ -263,7 +264,7 @@ export function LoginContent() {
 
         {/* footer */}
         <footer className="relative mt-10 md:mt-14 flex items-center justify-between text-[10.5px] font-mono uppercase tracking-[0.22em] text-zinc-600">
-          <span>© 1tt.dev</span>
+          <span>{t("footer_copyright")}</span>
           <a
             href="https://1tt.dev"
             target="_blank"
@@ -287,17 +288,16 @@ export function LoginContent() {
         <div className="relative w-full max-w-[360px]">
           <div className="rise">
             <div className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-zinc-600 mb-5">
-              ① sign in
+              {t("step_label")}
             </div>
             <h1
               className="text-5xl md:text-[54px] leading-[1.05] italic text-zinc-50"
               style={{ fontFamily: "var(--font-display), Georgia, serif" }}
             >
-              come in.
+              {t("heading")}
             </h1>
             <p className="mt-4 text-[14px] leading-relaxed text-zinc-400">
-              kim lives behind a quiet door. sign in with an account you
-              already trust — we don't do passwords.
+              {t("body")}
             </p>
           </div>
 
@@ -314,7 +314,7 @@ export function LoginContent() {
             >
               <Github className="h-4 w-4 text-zinc-300 shrink-0" />
               <span className="text-[13.5px] text-zinc-200 flex-1">
-                continue with GitHub
+                {t("continue_github")}
               </span>
               <span className="font-mono text-[10px] text-zinc-600 group-hover:text-teal-400/90 transition-colors">
                 →
@@ -329,7 +329,7 @@ export function LoginContent() {
             >
               <GoogleIcon className="h-4 w-4 shrink-0" />
               <span className="text-[13.5px] text-zinc-200 flex-1">
-                continue with Google
+                {t("continue_google")}
               </span>
               <span className="font-mono text-[10px] text-zinc-600 group-hover:text-teal-400/90 transition-colors">
                 →
@@ -342,7 +342,7 @@ export function LoginContent() {
             style={{ animationDelay: "220ms" }}
           >
             <span className="h-px flex-1 bg-zinc-800" />
-            <span>one account, kim + 1tt</span>
+            <span>{t("divider")}</span>
             <span className="h-px flex-1 bg-zinc-800" />
           </div>
 
@@ -350,8 +350,7 @@ export function LoginContent() {
             className="rise mt-6 text-[11px] leading-relaxed text-zinc-500"
             style={{ animationDelay: "280ms" }}
           >
-            by continuing you agree to the 1tt.dev terms. your kim profile
-            lives on the same account — one sign-in covers both.
+            {t("terms")}
           </p>
         </div>
       </section>

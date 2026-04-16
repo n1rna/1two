@@ -1288,6 +1288,7 @@ func toolHealthCreateSession(ctx context.Context, db *sql.DB, userID, args strin
 		Description  string               `json:"description"`
 		Active       *bool                `json:"active"`
 		MuscleGroups []string             `json:"target_muscle_groups"`
+		Equipment    []string             `json:"equipment"`
 		Duration     int                  `json:"estimated_duration"`
 		Difficulty   string               `json:"difficulty_level"`
 		Exercises    []healthExerciseInput `json:"exercises"`
@@ -1308,10 +1309,12 @@ func toolHealthCreateSession(ctx context.Context, db *sql.DB, userID, args strin
 
 	id := uuid.NewString()
 	if _, err := db.ExecContext(ctx,
-		`INSERT INTO health_sessions (id,user_id,title,description,active,target_muscle_groups,estimated_duration,difficulty_level)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		`INSERT INTO health_sessions (id,user_id,title,description,active,target_muscle_groups,equipment,estimated_duration,difficulty_level)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		id, userID, params.Title, params.Description, active,
-		health.StringSliceToPgArray(params.MuscleGroups), params.Duration, params.Difficulty); err != nil {
+		health.StringSliceToPgArray(params.MuscleGroups),
+		health.StringSliceToPgArray(params.Equipment),
+		params.Duration, params.Difficulty); err != nil {
 		log.Printf("life agent: create health session: %v", err)
 		return jsonError("failed to create session")
 	}
@@ -1328,6 +1331,7 @@ func toolHealthUpdateSession(ctx context.Context, db *sql.DB, userID, args strin
 		Description  *string  `json:"description"`
 		Active       *bool    `json:"active"`
 		MuscleGroups []string `json:"target_muscle_groups"`
+		Equipment    []string `json:"equipment"`
 		Duration     *int     `json:"estimated_duration"`
 		Difficulty   *string  `json:"difficulty_level"`
 	}
@@ -1358,6 +1362,9 @@ func toolHealthUpdateSession(ctx context.Context, db *sql.DB, userID, args strin
 	}
 	if params.MuscleGroups != nil {
 		add("target_muscle_groups", health.StringSliceToPgArray(params.MuscleGroups))
+	}
+	if params.Equipment != nil {
+		add("equipment", health.StringSliceToPgArray(params.Equipment))
 	}
 	if params.Duration != nil {
 		add("estimated_duration", *params.Duration)

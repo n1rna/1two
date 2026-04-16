@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check, Copy } from "lucide-react";
 import type { KimMessage } from "./types";
+import { useTranslation } from "react-i18next";
 
 export function MessageBubble({
   msg,
@@ -13,6 +14,7 @@ export function MessageBubble({
   msg: KimMessage;
   children?: React.ReactNode;
 }) {
+  const { t } = useTranslation("kim");
   const isUser = msg.role === "user";
   const [copied, setCopied] = useState(false);
   const time = new Date(msg.createdAt).toLocaleTimeString([], {
@@ -41,7 +43,7 @@ export function MessageBubble({
               className="text-[10px] kim-mono uppercase tracking-[0.18em]"
               style={{ color: "var(--kim-ink-faint)" }}
             >
-              you
+              {t("bubble_you")}
             </span>
           </div>
           <div
@@ -95,7 +97,7 @@ export function MessageBubble({
             onClick={copy}
             className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-all"
             style={{ color: "var(--kim-ink-faint)" }}
-            title="Copy message"
+            title={t("bubble_copy_message")}
           >
             {copied ? <Check className="h-2.5 w-2.5" style={{ color: "var(--kim-green)" }} /> : <Copy className="h-2.5 w-2.5" />}
           </button>

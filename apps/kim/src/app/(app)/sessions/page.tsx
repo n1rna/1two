@@ -23,6 +23,7 @@ import {
   updateHealthSession,
   type HealthSession,
 } from "@/lib/health";
+import { useTranslation } from "react-i18next";
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   beginner: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
@@ -37,6 +38,7 @@ function difficultyColor(level?: string): string {
 type ActiveFilter = "all" | "active" | "inactive";
 
 export default function SessionsPage() {
+  const { t } = useTranslation("sessions");
   const router = useRouter();
   const [sessions, setSessions] = useState<HealthSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +65,7 @@ export default function SessionsPage() {
   }, [filter]);
 
   async function remove(id: string) {
-    if (!confirm("Delete this session?")) return;
+    if (!confirm(t("confirm_delete"))) return;
     await deleteHealthSession(id);
     setSessions((cur) => cur.filter((s) => s.id !== id));
   }
@@ -76,11 +78,11 @@ export default function SessionsPage() {
 
   return (
     <ListShell
-      title="Gym sessions"
+      title={t("list_title")}
       subtitle={
         sessions.length > 0
-          ? `${activeCount} active · ${sessions.length} total`
-          : "Workout programs Kim builds with you"
+          ? t("list_subtitle_with_count", { activeCount, totalCount: sessions.length })
+          : t("list_subtitle_empty")
       }
       toolbar={
         <>
@@ -96,18 +98,18 @@ export default function SessionsPage() {
             onChange={(e) => setFilter(e.target.value as ActiveFilter)}
             className="text-xs bg-background border border-border rounded-md px-2 h-7"
           >
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="all">{t("filter_all")}</option>
+            <option value="active">{t("filter_active")}</option>
+            <option value="inactive">{t("filter_inactive")}</option>
           </select>
           <div className="flex-1" />
           <Link
             href={routes.marketplace({ kind: "gym_session" })}
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
-            title="Browse gym session templates"
+            title={t("browse_templates_tooltip")}
           >
             <Store className="h-3.5 w-3.5" />
-            Browse Templates
+            {t("browse_templates", { ns: "common" })}
           </Link>
           <Button
             size="sm"
@@ -116,7 +118,7 @@ export default function SessionsPage() {
             onClick={() => router.push(routes.sessionNew)}
           >
             <Plus className="h-3.5 w-3.5" />
-            New Session
+            {t("new_session", { ns: "common" })}
           </Button>
         </>
       }
@@ -152,11 +154,10 @@ export default function SessionsPage() {
             <Dumbbell className="h-10 w-10 text-muted-foreground/20" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                No sessions yet
+                {t("empty_title")}
               </p>
               <p className="text-xs text-muted-foreground/60 mt-1">
-                Create one from scratch, let Kim program one, or fork a
-                community template.
+                {t("empty_hint")}
               </p>
             </div>
             <div className="flex items-center gap-2 mt-1">
@@ -209,6 +210,7 @@ function SessionRow({
   onToggleActive: (active: boolean) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation("sessions");
   const color = difficultyColor(session.difficultyLevel);
   return (
     <div
@@ -259,7 +261,7 @@ function SessionRow({
         <ActiveToggle
           active={session.active}
           onChange={onToggleActive}
-          label={session.active ? "Disable session" : "Enable session"}
+          label={session.active ? t("disable_session") : t("enable_session")}
         />
         <button
           onClick={(e) => {

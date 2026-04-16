@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 // ─── Typed transcript (reused style from login page, teal-tinted) ──────────
 
@@ -200,6 +201,7 @@ const FEATURES: {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export function LandingContent() {
+  const { t } = useTranslation("landing");
   const { data: session, isPending } = useSession();
   const router = useRouter();
 
@@ -261,30 +263,28 @@ export function LandingContent() {
                 className="rounded-full shadow-[0_0_30px_-5px_rgba(95,149,152,0.5)]"
               />
               <span className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground">
-                a personal life agent
+                {t("tagline")}
               </span>
             </div>
             <h1
               className="text-[64px] md:text-[92px] leading-[0.95] italic tracking-tight"
               style={{ fontFamily: "var(--font-display), Georgia, serif" }}
             >
-              kim runs the
+              {t("hero_heading_line1")}
               <br />
-              <span className="text-primary">boring parts,</span>
+              <span className="text-primary">{t("hero_heading_line2")}</span>
               <br />
-              so you don&apos;t.
+              {t("hero_heading_line3")}
             </h1>
             <p className="text-[15px] leading-relaxed text-muted-foreground max-w-md">
-              One conversation. Routines, meals, gym sessions, your
-              calendar, and a short daily review. kim pays attention to the
-              small stuff so you have room for the rest.
+              {t("hero_body")}
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-3">
               <Link
                 href={routes.login()}
                 className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[14px] font-medium text-primary-foreground shadow-[0_12px_32px_-12px_rgba(29,84,109,0.6)] hover:-translate-y-0.5 transition-transform"
               >
-                Sign in and meet kim
+                {t("hero_cta_sign_in")}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
@@ -292,12 +292,12 @@ export function LandingContent() {
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 backdrop-blur px-5 py-3 text-[14px] font-medium hover:bg-card hover:border-foreground/20 transition-colors"
               >
                 <GitFork className="h-4 w-4 text-muted-foreground" />
-                Browse community templates
+                {t("hero_cta_browse")}
               </Link>
             </div>
             <div className="flex items-center gap-3 pt-2 text-[10.5px] font-mono uppercase tracking-[0.2em] text-muted-foreground/70">
               <span className="h-px w-8 bg-border" />
-              no passwords · github or google · free while in beta
+              {t("hero_footnote")}
             </div>
           </div>
 
@@ -314,7 +314,7 @@ export function LandingContent() {
                   <span className="h-2 w-2 rounded-full bg-muted-foreground/30" />
                 </div>
                 <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70">
-                  kim — live
+                  {t("transcript_terminal_label")}
                 </span>
               </div>
               <div className="p-5 min-h-[280px]">
@@ -323,7 +323,7 @@ export function LandingContent() {
             </div>
             <div className="absolute -bottom-3 -right-3 hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/30 bg-background text-[10px] font-mono uppercase tracking-[0.18em] text-primary">
               <Sparkles className="h-3 w-3" />
-              agent online
+              {t("agent_online_badge")}
             </div>
           </div>
         </div>
@@ -336,21 +336,19 @@ export function LandingContent() {
             <div className="space-y-3 max-w-xl">
               <div className="inline-flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
                 <span className="h-px w-6 bg-border" />
-                the surface kim operates on
+                {t("features_eyebrow")}
               </div>
               <h2
                 className="text-3xl md:text-4xl italic leading-[1.08] tracking-tight"
                 style={{ fontFamily: "var(--font-display), Georgia, serif" }}
               >
-                one agent,
+                {t("features_heading_line1")}
                 <br />
-                <span className="text-muted-foreground">many small loops.</span>
+                <span className="text-muted-foreground">{t("features_heading_line2")}</span>
               </h2>
             </div>
             <p className="text-sm text-muted-foreground md:max-w-sm leading-relaxed">
-              kim uses purpose-built tools for each domain, not a giant
-              generic prompt. Each loop is small, testable, and yours to
-              edit.
+              {t("features_body")}
             </p>
           </div>
 
@@ -388,10 +386,10 @@ export function LandingContent() {
               className="text-3xl md:text-4xl italic leading-[1.08] tracking-tight"
               style={{ fontFamily: "var(--font-display), Georgia, serif" }}
             >
-              talk to kim like a person.
+              {t("how_it_works_heading")}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Three steps, no configuration forest.
+              {t("how_it_works_subheading")}
             </p>
           </div>
 
@@ -440,31 +438,30 @@ export function LandingContent() {
         <div className="max-w-4xl mx-auto px-5 sm:px-8 py-20 md:py-28 text-center space-y-6">
           <div className="inline-flex items-center gap-2 text-[10.5px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            it only gets better the more you use it
+            {t("final_cta_eyebrow")}
           </div>
           <h2
             className="text-4xl md:text-6xl italic leading-[1.02] tracking-tight"
             style={{ fontFamily: "var(--font-display), Georgia, serif" }}
           >
-            meet kim.
+            {t("final_cta_heading")}
           </h2>
           <p className="text-sm md:text-base text-muted-foreground max-w-md mx-auto">
-            Sign in in one click. Kim will ask a few questions to understand
-            you, then get out of the way.
+            {t("final_cta_body")}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <Link
               href={routes.login()}
               className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-[14px] font-medium text-primary-foreground shadow-[0_12px_32px_-12px_rgba(29,84,109,0.6)] hover:-translate-y-0.5 transition-transform"
             >
-              Sign in and meet kim
+              {t("final_cta_sign_in")}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link
               href={routes.marketplace()}
               className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 backdrop-blur px-5 py-3 text-[14px] font-medium hover:bg-card hover:border-foreground/20 transition-colors"
             >
-              Browse templates first
+              {t("final_cta_browse")}
             </Link>
           </div>
         </div>

@@ -14,8 +14,10 @@ import {
   type LifeRoutine,
 } from "@/lib/life";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 export default function LifeDashboard() {
+  const { t } = useTranslation("today");
   const [actionables, setActionables] = useState<LifeActionable[]>([]);
   const [events, setEvents] = useState<GCalEvent[]>([]);
   const [routines, setRoutines] = useState<LifeRoutine[]>([]);
@@ -43,14 +45,14 @@ export default function LifeDashboard() {
   });
 
   return (
-    <PageShell title="Today" subtitle={dayLabel}>
+    <PageShell title={t("page_title")} subtitle={dayLabel}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2">
-          <SectionHeading icon={<Sun size={13} />}>Actionables</SectionHeading>
+          <SectionHeading icon={<Sun size={13} />}>{t("section_actionables")}</SectionHeading>
           {loading ? (
             <Skeleton rows={2} />
           ) : actionables.length === 0 ? (
-            <EmptyState title="Nothing pending" hint="Kim will nudge you when something needs attention." />
+            <EmptyState title={t("empty_actionables_title")} hint={t("empty_actionables_hint")} />
           ) : (
             <ul className="flex flex-col gap-2">
               {actionables.slice(0, 6).map((a) => (
@@ -77,19 +79,19 @@ export default function LifeDashboard() {
 
         <Card>
           <SectionHeading icon={<CalendarDays size={13} />}>
-            Today's events
+            {t("section_todays_events")}
           </SectionHeading>
           {loading ? (
             <Skeleton rows={3} />
           ) : events.length === 0 ? (
-            <EmptyState title="Nothing scheduled" />
+            <EmptyState title={t("empty_events_title")} />
           ) : (
             <ul className="flex flex-col gap-2">
               {events.slice(0, 8).map((e) => (
                 <li key={e.id} className="border border-border rounded-md px-3 py-2">
                   <div className="text-xs text-muted-foreground font-mono">
                     {e.allDay
-                      ? "all day"
+                      ? t("all_day")
                       : new Date(e.start).toLocaleTimeString(undefined, {
                           hour: "numeric",
                           minute: "2-digit",
@@ -103,13 +105,13 @@ export default function LifeDashboard() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <SectionHeading icon={<Repeat size={13} />}>Active routines</SectionHeading>
+          <SectionHeading icon={<Repeat size={13} />}>{t("section_active_routines")}</SectionHeading>
           {loading ? (
             <Skeleton rows={2} />
           ) : routines.length === 0 ? (
             <EmptyState
-              title="No routines yet"
-              hint="Open Kim (⌘K) and ask it to create one."
+              title={t("empty_routines_title")}
+              hint={t("empty_routines_hint")}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -132,27 +134,27 @@ export default function LifeDashboard() {
         </Card>
 
         <Card>
-          <SectionHeading icon={<Utensils size={13} />}>meals</SectionHeading>
+          <SectionHeading icon={<Utensils size={13} />}>{t("section_meals")}</SectionHeading>
           <Link
             href={routes.meals}
             className="block text-sm text-muted-foreground hover:text-foreground"
           >
-            manage meal plans →
+            {t("manage_meal_plans")}
           </Link>
         </Card>
         <Card>
-          <SectionHeading icon={<Dumbbell size={13} />}>gym</SectionHeading>
+          <SectionHeading icon={<Dumbbell size={13} />}>{t("section_gym")}</SectionHeading>
           <Link
             href={routes.sessions}
             className="block text-sm text-muted-foreground hover:text-foreground"
           >
-            manage sessions →
+            {t("manage_sessions")}
           </Link>
         </Card>
         <Card>
-          <SectionHeading icon={<Plus size={13} />}>ask kim</SectionHeading>
+          <SectionHeading icon={<Plus size={13} />}>{t("section_ask_kim")}</SectionHeading>
           <p className="text-sm text-muted-foreground">
-            press ⌘K to open Kim on any page.
+            {t("ask_kim_hint")}
           </p>
         </Card>
       </div>

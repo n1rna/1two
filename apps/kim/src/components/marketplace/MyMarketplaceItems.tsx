@@ -28,8 +28,10 @@ import {
   KIND_COLORS,
 } from "@/lib/marketplace";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 export function MyMarketplaceItems() {
+  const { t } = useTranslation("marketplace");
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,15 +109,14 @@ export function MyMarketplaceItems() {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
         <p className="text-sm font-medium text-muted-foreground">
-          Nothing published yet.
+          {t("mine_title")}
         </p>
         <p className="text-xs text-muted-foreground/60">
-          Open a routine, gym session, or meal plan and use the{" "}
-          <strong>Publish to Marketplace</strong> button.
+          <span dangerouslySetInnerHTML={{ __html: t("mine_hint") }} />
         </p>
         <Link href={routes.marketplace()}>
           <Button size="sm" variant="outline" className="gap-1.5 text-xs mt-1">
-            Browse Marketplace
+            {t("mine_browse")}
           </Button>
         </Link>
       </div>
@@ -126,7 +127,7 @@ export function MyMarketplaceItems() {
     <>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-muted-foreground">
-          {items.length} published
+          {t("mine_published_count", { count: items.length })}
         </span>
         <button
           onClick={load}
@@ -192,7 +193,7 @@ export function MyMarketplaceItems() {
                 }}
               >
                 <Plus className="h-3 w-3" />
-                New version
+                {t("new_version", { ns: "common" })}
               </Button>
               <button
                 onClick={() => setConfirmDeleteId(item.id)}
@@ -218,11 +219,10 @@ export function MyMarketplaceItems() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Unpublish from Marketplace</DialogTitle>
+            <DialogTitle>{t("unpublish_dialog_title")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will remove the template from the marketplace. Existing forks
-            will not be affected.
+            {t("unpublish_dialog_body")}
           </p>
           <DialogFooter>
             <Button
@@ -259,19 +259,19 @@ export function MyMarketplaceItems() {
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Publish New Version</DialogTitle>
+            <DialogTitle>{t("new_version_dialog_title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Changelog{" "}
-                <span className="font-normal opacity-60">(optional)</span>
+                {t("new_version_changelog_label")}{" "}
+                <span className="font-normal opacity-60">{t("new_version_changelog_optional")}</span>
               </label>
               <input
                 type="text"
                 value={changelog}
                 onChange={(e) => setChangelog(e.target.value)}
-                placeholder="What changed?"
+                placeholder={t("new_version_changelog_placeholder")}
                 className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
               />
             </div>
@@ -296,7 +296,7 @@ export function MyMarketplaceItems() {
               {republishing ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                "Publish Version"
+                t("new_version_submit")
               )}
             </Button>
           </DialogFooter>

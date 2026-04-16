@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import {
   getLifeProfile,
@@ -31,20 +32,23 @@ type StepId =
   | "memories"
   | "done";
 
-const STEPS: { id: StepId; title: string; subtitle: string }[] = [
-  { id: "welcome",  title: "Welcome",          subtitle: "Meet Kim" },
-  { id: "basics",   title: "The basics",       subtitle: "Your timezone" },
-  { id: "rhythm",   title: "Daily rhythm",     subtitle: "Wake and sleep" },
-  { id: "meals",    title: "Meals",            subtitle: "When you eat" },
-  { id: "work",     title: "Work & commute",   subtitle: "How your day flows" },
-  { id: "health",   title: "Health profile",   subtitle: "Diet and goals" },
-  { id: "memories", title: "Anything else",    subtitle: "What should Kim remember" },
-  { id: "done",     title: "All set",          subtitle: "Kim is ready" },
-];
+function getSteps(t: (k: string) => string): { id: StepId; title: string; subtitle: string }[] {
+  return [
+    { id: "welcome",  title: t("step_welcome_title"),  subtitle: t("step_welcome_subtitle") },
+    { id: "basics",   title: t("step_basics_title"),    subtitle: t("step_basics_subtitle") },
+    { id: "rhythm",   title: t("step_rhythm_title"),    subtitle: t("step_rhythm_subtitle") },
+    { id: "meals",    title: t("step_meals_title"),     subtitle: t("step_meals_subtitle") },
+    { id: "work",     title: t("step_work_title"),      subtitle: t("step_work_subtitle") },
+    { id: "health",   title: t("step_health_title"),    subtitle: t("step_health_subtitle") },
+    { id: "memories", title: t("step_memories_title"),   subtitle: t("step_memories_subtitle") },
+    { id: "done",     title: t("step_done_title"),      subtitle: t("step_done_subtitle") },
+  ];
+}
 
+const STEP_IDS: StepId[] = ["welcome", "basics", "rhythm", "meals", "work", "health", "memories", "done"];
 function stepIndex(id: StepId | null | undefined): number {
   if (!id) return 0;
-  const i = STEPS.findIndex((s) => s.id === id);
+  const i = STEP_IDS.indexOf(id);
   return i < 0 ? 0 : i;
 }
 
@@ -68,33 +72,40 @@ const COMMON_TIMEZONES = [
   "Pacific/Auckland",
 ];
 
-const DIET_TYPES = [
-  { value: "balanced",      label: "Balanced" },
-  { value: "mediterranean", label: "Mediterranean" },
-  { value: "high_protein",  label: "High protein" },
-  { value: "low_carb",      label: "Low carb" },
-  { value: "keto",          label: "Keto" },
-  { value: "paleo",         label: "Paleo" },
-  { value: "vegan",         label: "Vegan" },
-];
+function getDietTypes(t: (k: string) => string) {
+  return [
+    { value: "balanced",      label: t("health_diet_balanced") },
+    { value: "mediterranean", label: t("health_diet_mediterranean") },
+    { value: "high_protein",  label: t("health_diet_high_protein") },
+    { value: "low_carb",      label: t("health_diet_low_carb") },
+    { value: "keto",          label: t("health_diet_keto") },
+    { value: "paleo",         label: t("health_diet_paleo") },
+    { value: "vegan",         label: t("health_diet_vegan") },
+  ];
+}
 
-const DIET_GOALS = [
-  { value: "lose",     label: "Lose weight" },
-  { value: "maintain", label: "Maintain" },
-  { value: "gain",     label: "Gain" },
-];
+function getDietGoals(t: (k: string) => string) {
+  return [
+    { value: "lose",     label: t("health_goal_lose") },
+    { value: "maintain", label: t("health_goal_maintain") },
+    { value: "gain",     label: t("health_goal_gain") },
+  ];
+}
 
-const ACTIVITY_LEVELS = [
-  { value: "sedentary",   label: "Sedentary" },
-  { value: "light",       label: "Light" },
-  { value: "moderate",    label: "Moderate" },
-  { value: "active",      label: "Active" },
-  { value: "very_active", label: "Very active" },
-];
+function getActivityLevels(t: (k: string) => string) {
+  return [
+    { value: "sedentary",   label: t("health_activity_sedentary") },
+    { value: "light",       label: t("health_activity_light") },
+    { value: "moderate",    label: t("health_activity_moderate") },
+    { value: "active",      label: t("health_activity_active") },
+    { value: "very_active", label: t("health_activity_very_active") },
+  ];
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
+  const { t } = useTranslation("onboarding");
   const router = useRouter();
   const { setMode, askKim } = useKim();
 
@@ -216,12 +227,13 @@ export default function OnboardingPage() {
     );
   }, [loading, greeted, profile, askKim]);
 
+  const STEPS = getSteps(t);
   const idx = stepIndex(current);
 
   if (loading || !profile) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Loading onboarding…
+        {t("loading")}
       </div>
     );
   }
@@ -231,14 +243,13 @@ export default function OnboardingPage() {
       <header className="shrink-0 border-b border-border px-8 py-5">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          First-run setup · {Math.min(idx + 1, STEPS.length)} of {STEPS.length}
+          {t("header_eyebrow", { current: Math.min(idx + 1, STEPS.length), total: STEPS.length })}
         </div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-          Let's get Kim set up for you
+          {t("header_title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-          Fill things in on the left, or just chat with Kim on the right — she'll
-          fill the forms for you as you talk. Takes about two minutes.
+          {t("header_body")}
         </p>
       </header>
 
@@ -381,16 +392,14 @@ function StepBody({
 }
 
 function WelcomeStep({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation("onboarding");
   return (
     <div className="pt-3">
       <p className="text-sm text-muted-foreground">
-        Kim is a personal agent that plans your days, nudges your habits, and
-        helps you cook and train. The next few steps are just so Kim can be
-        useful from day one — no long forms, no lectures. You can fill things
-        in here or talk to Kim on the right.
+        {t("welcome_body")}
       </p>
       <div className="mt-4">
-        <PrimaryButton onClick={onNext}>Let's go</PrimaryButton>
+        <PrimaryButton onClick={onNext}>{t("welcome_cta")}</PrimaryButton>
       </div>
     </div>
   );
@@ -403,6 +412,7 @@ function BasicsStep({
   profile: LifeProfile;
   onSave: (tz: string) => Promise<void>;
 }) {
+  const { t } = useTranslation("onboarding");
   const detected = useMemo(() => {
     try {
       return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -420,16 +430,16 @@ function BasicsStep({
 
   return (
     <div className="pt-3 space-y-3">
-      <Field label="Timezone">
+      <Field label={t("basics_timezone_label")}>
         <select
           value={tz}
           onChange={(e) => setTz(e.target.value)}
           className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
         >
-          {options.map((t) => (
-            <option key={t} value={t}>
-              {t}
-              {t === detected ? " (detected)" : ""}
+          {options.map((tzOpt) => (
+            <option key={tzOpt} value={tzOpt}>
+              {tzOpt}
+              {tzOpt === detected ? t("basics_detected_suffix") : ""}
             </option>
           ))}
         </select>
@@ -446,7 +456,7 @@ function BasicsStep({
             }
           }}
         >
-          {saving ? "Saving…" : "Save & continue"}
+          {saving ? t("saving", { ns: "common" }) : t("save_and_continue")}
         </PrimaryButton>
       </div>
     </div>
@@ -460,6 +470,7 @@ function RhythmStep({
   profile: LifeProfile;
   onSave: (wake: string, sleep: string) => Promise<void>;
 }) {
+  const { t } = useTranslation("onboarding");
   const [wake, setWake] = useState(profile.wakeTime ?? "07:00");
   const [sleep, setSleep] = useState(profile.sleepTime ?? "23:00");
   const [saving, setSaving] = useState(false);
@@ -467,7 +478,7 @@ function RhythmStep({
   return (
     <div className="pt-3 space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Wake time">
+        <Field label={t("rhythm_wake_time_label")}>
           <input
             type="time"
             value={wake}
@@ -475,7 +486,7 @@ function RhythmStep({
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           />
         </Field>
-        <Field label="Bedtime">
+        <Field label={t("rhythm_bedtime_label")}>
           <input
             type="time"
             value={sleep}
@@ -496,7 +507,7 @@ function RhythmStep({
             }
           }}
         >
-          {saving ? "Saving…" : "Save & continue"}
+          {saving ? t("saving", { ns: "common" }) : t("save_and_continue")}
         </PrimaryButton>
       </div>
     </div>
@@ -504,6 +515,7 @@ function RhythmStep({
 }
 
 function MealsStep({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation("onboarding");
   const [breakfast, setBreakfast] = useState("");
   const [lunch, setLunch] = useState("");
   const [dinner, setDinner] = useState("");
@@ -530,11 +542,10 @@ function MealsStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="pt-3 space-y-3">
       <p className="text-xs text-muted-foreground">
-        Rough times are fine — Kim just needs a sense of your day. Leave any
-        field blank if it doesn't apply.
+        {t("meals_hint")}
       </p>
       <div className="grid grid-cols-3 gap-3">
-        <Field label="Breakfast">
+        <Field label={t("meals_breakfast_label")}>
           <input
             type="time"
             value={breakfast}
@@ -542,7 +553,7 @@ function MealsStep({ onNext }: { onNext: () => void }) {
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           />
         </Field>
-        <Field label="Lunch">
+        <Field label={t("meals_lunch_label")}>
           <input
             type="time"
             value={lunch}
@@ -550,7 +561,7 @@ function MealsStep({ onNext }: { onNext: () => void }) {
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           />
         </Field>
-        <Field label="Dinner">
+        <Field label={t("meals_dinner_label")}>
           <input
             type="time"
             value={dinner}
@@ -559,22 +570,22 @@ function MealsStep({ onNext }: { onNext: () => void }) {
           />
         </Field>
       </div>
-      <Field label="Main meal of the day">
+      <Field label={t("meals_main_meal_label")}>
         <select
           value={main}
           onChange={(e) => setMain(e.target.value as typeof main)}
           className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
         >
-          <option value="">— pick one —</option>
-          <option value="breakfast">Breakfast</option>
-          <option value="lunch">Lunch</option>
-          <option value="dinner">Dinner</option>
+          <option value="">{t("meals_pick_one")}</option>
+          <option value="breakfast">{t("meals_breakfast_label")}</option>
+          <option value="lunch">{t("meals_lunch_label")}</option>
+          <option value="dinner">{t("meals_dinner_label")}</option>
         </select>
       </Field>
       <div className="flex justify-between items-center">
         <SkipButton onSkip={onNext} disabled={saving} />
         <PrimaryButton disabled={saving} onClick={submit}>
-          {saving ? "Saving…" : "Save & continue"}
+          {saving ? t("saving", { ns: "common" }) : t("save_and_continue")}
         </PrimaryButton>
       </div>
     </div>
@@ -582,6 +593,7 @@ function MealsStep({ onNext }: { onNext: () => void }) {
 }
 
 function WorkStep({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation("onboarding");
   const [role, setRole] = useState("");
   const [location, setLocation] = useState<"remote" | "hybrid" | "onsite" | "">("");
   const [commute, setCommute] = useState("");
@@ -608,39 +620,39 @@ function WorkStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="pt-3 space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="What you do">
+        <Field label={t("work_what_you_do_label")}>
           <input
             value={role}
             onChange={(e) => setRole(e.target.value)}
-            placeholder="e.g. Software engineer"
+            placeholder={t("work_what_you_do_placeholder")}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           />
         </Field>
-        <Field label="Where">
+        <Field label={t("work_where_label")}>
           <select
             value={location}
             onChange={(e) => setLocation(e.target.value as typeof location)}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           >
-            <option value="">— pick one —</option>
-            <option value="remote">Remote</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="onsite">Onsite</option>
+            <option value="">{t("meals_pick_one")}</option>
+            <option value="remote">{t("work_remote")}</option>
+            <option value="hybrid">{t("work_hybrid")}</option>
+            <option value="onsite">{t("work_onsite")}</option>
           </select>
         </Field>
-        <Field label="Typical hours">
+        <Field label={t("work_typical_hours_label")}>
           <input
             value={hours}
             onChange={(e) => setHours(e.target.value)}
-            placeholder="e.g. 9–18"
+            placeholder={t("work_typical_hours_placeholder")}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           />
         </Field>
-        <Field label="Commute (if any)">
+        <Field label={t("work_commute_label")}>
           <input
             value={commute}
             onChange={(e) => setCommute(e.target.value)}
-            placeholder="e.g. 30 min each way"
+            placeholder={t("work_commute_placeholder")}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           />
         </Field>
@@ -648,7 +660,7 @@ function WorkStep({ onNext }: { onNext: () => void }) {
       <div className="flex justify-between items-center">
         <SkipButton onSkip={onNext} disabled={saving} />
         <PrimaryButton disabled={saving} onClick={submit}>
-          {saving ? "Saving…" : "Save & continue"}
+          {saving ? t("saving", { ns: "common" }) : t("save_and_continue")}
         </PrimaryButton>
       </div>
     </div>
@@ -662,6 +674,7 @@ function HealthStep({
   health: HealthProfile | null;
   onSave: (patch: Partial<HealthProfile>) => Promise<void>;
 }) {
+  const { t } = useTranslation("onboarding");
   const [dietType, setDietType] = useState(health?.dietType || "balanced");
   const [dietGoal, setDietGoal] = useState(health?.dietGoal || "maintain");
   const [activityLevel, setActivityLevel] = useState(
@@ -693,57 +706,57 @@ function HealthStep({
   return (
     <div className="pt-3 space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Diet type">
+        <Field label={t("health_diet_type_label")}>
           <select
             value={dietType}
             onChange={(e) => setDietType(e.target.value)}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           >
-            {DIET_TYPES.map((d) => (
+            {getDietTypes(t).map((d) => (
               <option key={d.value} value={d.value}>
                 {d.label}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Goal">
+        <Field label={t("health_goal_label")}>
           <select
             value={dietGoal}
             onChange={(e) => setDietGoal(e.target.value)}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           >
-            {DIET_GOALS.map((d) => (
+            {getDietGoals(t).map((d) => (
               <option key={d.value} value={d.value}>
                 {d.label}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Activity level">
+        <Field label={t("health_activity_label")}>
           <select
             value={activityLevel}
             onChange={(e) => setActivityLevel(e.target.value)}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           >
-            {ACTIVITY_LEVELS.map((a) => (
+            {getActivityLevels(t).map((a) => (
               <option key={a.value} value={a.value}>
                 {a.label}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Allergies / restrictions">
+        <Field label={t("health_restrictions_label")}>
           <input
             value={restrictions}
             onChange={(e) => setRestrictions(e.target.value)}
-            placeholder="e.g. peanuts, lactose"
+            placeholder={t("health_restrictions_placeholder")}
             className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-sm"
           />
         </Field>
       </div>
       <div className="flex justify-end">
         <PrimaryButton disabled={saving} onClick={submit}>
-          {saving ? "Saving…" : "Save & continue"}
+          {saving ? t("saving", { ns: "common" }) : t("save_and_continue")}
         </PrimaryButton>
       </div>
     </div>
@@ -751,6 +764,7 @@ function HealthStep({
 }
 
 function MemoriesStep({ onNext }: { onNext: () => void }) {
+  const { t } = useTranslation("onboarding");
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   const submit = async () => {
@@ -768,20 +782,19 @@ function MemoriesStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="pt-3 space-y-3">
       <p className="text-xs text-muted-foreground">
-        Hobbies, family, constraints, things that matter to you — anything you'd
-        want Kim to remember. You can also just tell Kim in the chat.
+        {t("memories_hint")}
       </p>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={4}
-        placeholder="I have two kids, I rock climb on weekends, I'm learning Spanish…"
+        placeholder={t("memories_placeholder")}
         className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm resize-none"
       />
       <div className="flex justify-between items-center">
         <SkipButton onSkip={onNext} disabled={saving} />
         <PrimaryButton disabled={saving} onClick={submit}>
-          {saving ? "Saving…" : "Save & continue"}
+          {saving ? t("saving", { ns: "common" }) : t("save_and_continue")}
         </PrimaryButton>
       </div>
     </div>
@@ -789,12 +802,12 @@ function MemoriesStep({ onNext }: { onNext: () => void }) {
 }
 
 function DoneStep({ onFinish }: { onFinish: () => Promise<void> }) {
+  const { t } = useTranslation("onboarding");
   const [finishing, setFinishing] = useState(false);
   return (
     <div className="pt-3 space-y-3">
       <p className="text-sm text-muted-foreground">
-        That's everything Kim needs. You can always refine later from the
-        health page, or just tell Kim.
+        {t("done_body")}
       </p>
       <div className="flex justify-end">
         <PrimaryButton
@@ -808,7 +821,7 @@ function DoneStep({ onFinish }: { onFinish: () => Promise<void> }) {
             }
           }}
         >
-          {finishing ? "Finishing…" : "Enter Kim"}
+          {finishing ? t("finishing", { ns: "common" }) : t("done_cta")}
         </PrimaryButton>
       </div>
     </div>
@@ -865,6 +878,7 @@ function SkipButton({
   onSkip: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useTranslation("onboarding");
   return (
     <button
       type="button"
@@ -872,7 +886,7 @@ function SkipButton({
       disabled={disabled}
       className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
     >
-      Skip this step
+      {t("skip_this_step")}
     </button>
   );
 }

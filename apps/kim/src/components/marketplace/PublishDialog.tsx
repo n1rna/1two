@@ -17,6 +17,7 @@ import {
   type MarketplaceKind,
   KIND_LABELS,
 } from "@/lib/marketplace";
+import { useTranslation } from "react-i18next";
 
 export interface PublishDialogProps {
   open: boolean;
@@ -38,6 +39,7 @@ export function PublishDialog({
   existingItemId,
   onSuccess,
 }: PublishDialogProps) {
+  const { t } = useTranslation("marketplace");
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
@@ -89,7 +91,7 @@ export function PublishDialog({
         onSuccess?.();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to publish.");
+      setError(e instanceof Error ? e.message : t("publish_error"));
     } finally {
       setSaving(false);
     }
@@ -114,13 +116,13 @@ export function PublishDialog({
         <DialogHeader>
           <DialogTitle>
             {isRepublish
-              ? "Publish New Version"
-              : `Publish ${KIND_LABELS[kind]} to Marketplace`}
+              ? t("publish_dialog_title_new_version")
+              : t("publish_dialog_title", { kind: KIND_LABELS[kind] })}
           </DialogTitle>
           <DialogDescription>
             {isRepublish
-              ? "Snapshot the current state as a new version."
-              : "Share this template publicly with a link."}
+              ? t("publish_dialog_desc_new_version")
+              : t("publish_dialog_desc")}
           </DialogDescription>
         </DialogHeader>
 
@@ -131,9 +133,9 @@ export function PublishDialog({
                 <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-sm font-medium">Published!</p>
+                <p className="text-sm font-medium">{t("publish_success_title")}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Your template is now live on the marketplace.
+                  {t("publish_success_body")}
                 </p>
               </div>
             </div>
@@ -169,25 +171,25 @@ export function PublishDialog({
               <>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Title <span className="font-normal opacity-60">*</span>
+                    {t("publish_field_title")} <span className="font-normal opacity-60">{t("publish_field_title_required")}</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Morning Power Routine"
+                    placeholder={t("publish_title_placeholder")}
                     className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Description <span className="font-normal opacity-60">*</span>
+                    {t("publish_field_description")} <span className="font-normal opacity-60">{t("publish_field_description_required")}</span>
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe what this template does and who it's for..."
+                    placeholder={t("publish_description_placeholder")}
                     rows={3}
                     className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50 resize-none"
                   />
@@ -195,14 +197,14 @@ export function PublishDialog({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Tags{" "}
-                    <span className="font-normal opacity-60">(comma-separated)</span>
+                    {t("publish_field_tags")}{" "}
+                    <span className="font-normal opacity-60">{t("publish_field_tags_hint")}</span>
                   </label>
                   <input
                     type="text"
                     value={tagsRaw}
                     onChange={(e) => setTagsRaw(e.target.value)}
-                    placeholder="strength, beginner, 5-day"
+                    placeholder={t("publish_tags_placeholder")}
                     className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
                   />
                 </div>
@@ -211,14 +213,14 @@ export function PublishDialog({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Changelog{" "}
-                <span className="font-normal opacity-60">(optional)</span>
+                {t("publish_field_changelog")}{" "}
+                <span className="font-normal opacity-60">{t("publish_field_changelog_hint")}</span>
               </label>
               <input
                 type="text"
                 value={changelog}
                 onChange={(e) => setChangelog(e.target.value)}
-                placeholder="What changed in this version?"
+                placeholder={t("publish_changelog_placeholder")}
                 className="w-full rounded-lg border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
               />
             </div>
@@ -247,12 +249,12 @@ export function PublishDialog({
                 {saving ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                    Publishing...
+                    {t("publishing", { ns: "common" })}
                   </>
                 ) : isRepublish ? (
-                  "Publish Version"
+                  t("new_version_submit")
                 ) : (
-                  "Publish"
+                  t("publish", { ns: "common" })
                 )}
               </Button>
             </DialogFooter>

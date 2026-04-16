@@ -6,6 +6,7 @@ import { Search, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listPublicMarketplaceItems, type MarketplaceItem } from "@/lib/marketplace";
 import { MarketplaceCard } from "./MarketplaceCard";
+import { useTranslation } from "react-i18next";
 
 const KIND_TABS: { value: string; label: string }[] = [
   { value: "", label: "All" },
@@ -15,6 +16,7 @@ const KIND_TABS: { value: string; label: string }[] = [
 ];
 
 export function MarketplaceBrowser() {
+  const { t } = useTranslation("marketplace");
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialKind = searchParams.get("kind") ?? "";
@@ -48,7 +50,7 @@ export function MarketplaceBrowser() {
       });
       setItems(res.items ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load marketplace.");
+      setError(e instanceof Error ? e.message : t("browser_error_load"));
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ export function MarketplaceBrowser() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search templates..."
+            placeholder={t("browser_search_placeholder")}
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border bg-background focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/50"
           />
         </div>
@@ -103,10 +105,10 @@ export function MarketplaceBrowser() {
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-          <p className="text-sm font-medium text-muted-foreground">No results</p>
+          <p className="text-sm font-medium text-muted-foreground">{t("browser_no_results")}</p>
           {query && (
             <p className="text-xs text-muted-foreground/60">
-              Try a different search term or clear the filter.
+              {t("browser_no_results_hint")}
             </p>
           )}
         </div>

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 const displayFont = { fontFamily: "var(--font-display), Georgia, serif" };
 const monoFont = { fontFamily: "var(--font-geist-mono), ui-monospace, monospace" };
@@ -14,13 +15,15 @@ const monoFont = { fontFamily: "var(--font-geist-mono), ui-monospace, monospace"
  */
 export function AskKimButton({
   onClick,
-  label = "Chat with",
+  label,
   className,
 }: {
   onClick: () => void;
   label?: string;
   className?: string;
 }) {
+  const { t } = useTranslation("kim");
+  const displayLabel = label ?? t("ask_kim_label");
   return (
     <button
       onClick={onClick}
@@ -48,7 +51,7 @@ export function AskKimButton({
         className="relative h-3.5 w-3.5"
         style={{ color: "rgb(232 176 92)" }}
       />
-      <span className="relative text-[13px] tracking-wide">{label}</span>
+      <span className="relative text-[13px] tracking-wide">{displayLabel}</span>
       <span
         className="relative text-2xl italic leading-none -mb-0.5"
         style={{ ...displayFont, color: "rgb(232 176 92)" }}
@@ -100,6 +103,7 @@ export function KimPromptChip({
  * "Ask Kim" eyebrow shown above create-page heros.
  */
 export function AskKimEyebrow() {
+  const { t } = useTranslation("kim");
   return (
     <div
       className="inline-flex items-center gap-1.5 px-2.5 h-6 rounded-full border mb-3"
@@ -120,7 +124,7 @@ export function AskKimEyebrow() {
           fontSize: "9.5px",
         }}
       >
-        ask
+        {t("ask_kim_eyebrow_ask")}
       </span>
       <span
         className="italic leading-none -mb-0.5 text-base"

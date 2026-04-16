@@ -89,6 +89,7 @@ export interface HealthSession {
   description: string;
   active: boolean;
   targetMuscleGroups: string[];
+  equipment: string[];
   estimatedDuration: number | null;
   difficultyLevel: string;
   exerciseCount?: number;

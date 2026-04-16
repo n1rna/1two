@@ -14,6 +14,7 @@ import {
   type MealItem,
 } from "@/lib/health";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
@@ -82,6 +83,7 @@ function addMealToTotals(t: DayTotals, m: MealItem): DayTotals {
 }
 
 export default function MealPlanDetailPage() {
+  const { t } = useTranslation("meals");
   const { id } = useParams<{ id: string }>();
   const [plan, setPlan] = useState<HealthMealPlan | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -148,14 +150,14 @@ export default function MealPlanDetailPage() {
 
   if (err) {
     return (
-      <PageShell title="Meal plan" backHref={routes.meals} backLabel="All meal plans">
+      <PageShell title="Meal plan" backHref={routes.meals} backLabel={t("detail_back_label")}>
         <EmptyState title={err} />
       </PageShell>
     );
   }
   if (!plan) {
     return (
-      <PageShell title="Loading…" backHref={routes.meals} backLabel="All meal plans">
+      <PageShell title="Loading…" backHref={routes.meals} backLabel={t("detail_back_label")}>
         <div className="h-64 rounded-lg bg-muted animate-pulse" />
       </PageShell>
     );
@@ -176,18 +178,18 @@ export default function MealPlanDetailPage() {
       title={plan.title}
       subtitle={`${plan.planType || "plan"} · ${plan.dietType || "—"}${targetKcal ? ` · target ${targetKcal} kcal/day` : ""}`}
       backHref={routes.meals}
-      backLabel="All meal plans"
+      backLabel={t("detail_back_label")}
       actions={
         <>
           <div className="flex items-center gap-2 pr-1">
             <span className="text-xs text-muted-foreground">
-              {plan.active ? "Active" : "Inactive"}
+              {plan.active ? t("active", { ns: "common" }) : t("inactive", { ns: "common" })}
             </span>
             <ActiveToggle
               active={plan.active}
               onChange={toggleActive}
               stopPropagation={false}
-              label={plan.active ? "Disable meal plan" : "Enable meal plan"}
+              label={plan.active ? t("disable_meal_plan") : t("enable_meal_plan")}
             />
           </div>
           <PublishControl
@@ -208,7 +210,7 @@ export default function MealPlanDetailPage() {
         />
 
         {meals.length === 0 ? (
-          <EmptyState title="Empty plan" hint="Ask Kim to generate meals, or add them manually" />
+          <EmptyState title={t("detail_empty_title")} hint={t("detail_empty_hint")} />
         ) : (
           <WeekGrid
             planId={plan.id}
@@ -236,6 +238,7 @@ function PlanSummary({
   numDays: number;
   mealCount: number;
 }) {
+  const { t } = useTranslation("meals");
   const totalMacroGrams = totals.protein + totals.carbs + totals.fat;
   const pct = (v: number) => (totalMacroGrams > 0 ? (v / totalMacroGrams) * 100 : 0);
   const pPct = pct(totals.protein);
@@ -252,9 +255,9 @@ function PlanSummary({
   return (
     <Card>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Stat label="Avg / day" value={`${avgCalories}`} suffix="kcal" />
+        <Stat label={t("detail_stat_avg_day")} value={`${avgCalories}`} suffix="kcal" />
         <Stat
-          label="Target"
+          label={t("detail_stat_target")}
           value={targetKcal ? `${targetKcal}` : "—"}
           suffix={targetKcal ? "kcal" : undefined}
           hint={
@@ -264,15 +267,15 @@ function PlanSummary({
           }
           hintTone={deltaTone}
         />
-        <Stat label="Days" value={`${numDays}`} />
-        <Stat label="Meals" value={`${mealCount}`} />
+        <Stat label={t("detail_stat_days")} value={`${numDays}`} />
+        <Stat label={t("detail_stat_meals")} value={`${mealCount}`} />
       </div>
 
       {totalMacroGrams > 0 && (
         <div className="mt-5 pt-5 border-t border-border">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground">Macro split</span>
-            <span className="text-xs text-muted-foreground">Plan total</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("detail_macro_split")}</span>
+            <span className="text-xs text-muted-foreground">{t("detail_plan_total")}</span>
           </div>
           <div className="h-2 w-full overflow-hidden flex bg-muted rounded-full">
             <div className="bg-sky-500" style={{ width: `${pPct}%` }} />
@@ -355,6 +358,7 @@ function WeekGrid({
   dayTotals: Record<string, DayTotals>;
   targetKcal: number | null;
 }) {
+  const { t } = useTranslation("meals");
   const colTemplate = `minmax(112px, 128px) repeat(${columns.length}, minmax(180px, 1fr))`;
 
   return (
@@ -367,7 +371,7 @@ function WeekGrid({
             style={{ gridTemplateColumns: colTemplate }}
           >
             <div className="px-4 py-3 text-xs font-medium text-muted-foreground">
-              Meal
+              {t("grid_header_meal")}
             </div>
             {columns.map((col) => (
               <div key={col} className="px-4 py-3 border-l border-border">
@@ -437,7 +441,7 @@ function WeekGrid({
             style={{ gridTemplateColumns: colTemplate }}
           >
             <div className="px-4 py-3 text-xs font-medium text-muted-foreground">
-              Day total
+              {t("grid_day_total")}
             </div>
             {columns.map((col) => {
               const t = dayTotals[col] ?? emptyTotals();

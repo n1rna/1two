@@ -20,8 +20,10 @@ import {
   respondToActionable,
   type LifeActionable,
 } from "@/lib/life";
+import { useTranslation } from "react-i18next";
 
 export default function ActionablesPage() {
+  const { t } = useTranslation("actionables");
   const [actionables, setActionables] = useState<LifeActionable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +141,7 @@ export default function ActionablesPage() {
 
   const skipAllPending = async () => {
     if (pending.length === 0) return;
-    if (!confirm(`Dismiss all ${pending.length} pending actionable(s)?`)) return;
+    if (!confirm(t("confirm_skip_all", { count: pending.length }))) return;
     setBulkBusy(true);
     try {
       await bulkDismissActionables({ allPending: true });
@@ -154,11 +156,13 @@ export default function ActionablesPage() {
 
   return (
     <ListShell
-      title="Actionables"
+      title={t("page_title")}
       subtitle={
         pending.length > 0
-          ? `${pending.length} pending${resolved.length ? ` · ${resolved.length} resolved` : ""}`
-          : "Things Kim wants you to confirm, decide, or acknowledge"
+          ? resolved.length
+            ? t("subtitle_with_counts", { pendingCount: pending.length, resolvedCount: resolved.length })
+            : t("subtitle_with_pending", { pendingCount: pending.length })
+          : t("subtitle_empty")
       }
       toolbar={
         <>
@@ -174,14 +178,14 @@ export default function ActionablesPage() {
             <button
               onClick={toggleSelectAll}
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
-              title={allPendingSelected ? "Clear selection" : "Select all pending"}
+              title={allPendingSelected ? t("clear_selection_title") : t("select_all_pending_title")}
             >
               {allPendingSelected ? (
                 <CheckSquare className="h-3.5 w-3.5" />
               ) : (
                 <Square className="h-3.5 w-3.5" />
               )}
-              {allPendingSelected ? "Clear" : "Select all"}
+              {allPendingSelected ? t("clear_selection", { ns: "common" }) : t("select_all", { ns: "common" })}
             </button>
           )}
 
@@ -192,10 +196,10 @@ export default function ActionablesPage() {
               onClick={skipAllPending}
               disabled={bulkBusy}
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors disabled:opacity-50"
-              title="Dismiss every pending actionable"
+              title={t("skip_all_title")}
             >
               <X className="h-3.5 w-3.5" />
-              Skip all
+              {t("skip_all")}
             </button>
           )}
         </>
@@ -206,14 +210,14 @@ export default function ActionablesPage() {
         {selected.size > 0 && (
           <div className="sticky top-0 z-10 flex items-center gap-3 px-8 py-2.5 border-b bg-accent/40 backdrop-blur">
             <span className="text-xs font-medium text-foreground">
-              {selected.size} selected
+              {t("selected_count", { count: selected.size, ns: "common" })}
             </span>
             <div className="flex-1" />
             <button
               onClick={() => setSelected(new Set())}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
-              Clear
+              {t("clear", { ns: "common" })}
             </button>
             <button
               onClick={skipSelected}
@@ -221,7 +225,7 @@ export default function ActionablesPage() {
               className="inline-flex items-center gap-1.5 rounded-md bg-destructive/90 text-destructive-foreground px-3 py-1.5 text-xs font-medium hover:bg-destructive disabled:opacity-50 transition-colors"
             >
               <X className="h-3 w-3" />
-              Skip {selected.size}
+              {t("skip_count", { count: selected.size, ns: "common" })}
             </button>
           </div>
         )}
@@ -237,7 +241,7 @@ export default function ActionablesPage() {
               }}
               className="ml-auto text-xs underline"
             >
-              Retry
+              {t("retry", { ns: "common" })}
             </button>
           </div>
         )}
@@ -260,11 +264,10 @@ export default function ActionablesPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">
-                All caught up
+                {t("all_caught_up_title")}
               </p>
               <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                No items need your attention right now. Kim will surface new
-                actionables here as suggestions come up.
+                {t("all_caught_up_body")}
               </p>
             </div>
           </div>
@@ -285,7 +288,7 @@ export default function ActionablesPage() {
                         : "bg-background border-border hover:border-primary/60",
                     )}
                     aria-pressed={isSel}
-                    title={isSel ? "Deselect" : "Select"}
+                    title={isSel ? t("deselect_title") : t("select_title")}
                   >
                     {isSel && <Check className="h-3 w-3" strokeWidth={3} />}
                   </button>
@@ -309,7 +312,7 @@ export default function ActionablesPage() {
               ) : (
                 <ChevronRight className="h-3 w-3" />
               )}
-              <span>Resolved ({resolved.length})</span>
+              <span>{t("resolved_section", { count: resolved.length })}</span>
             </button>
             {showResolved && (
               <div>

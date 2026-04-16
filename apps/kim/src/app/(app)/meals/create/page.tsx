@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { createMealPlan } from "@/lib/health";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[] = [
   {
@@ -56,6 +57,7 @@ const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[
 ];
 
 export default function MealPlanCreatePage() {
+  const { t } = useTranslation("meals");
   const router = useRouter();
   const { askKim, setOpen } = useKim();
   const [manualOpen, setManualOpen] = useState(false);
@@ -87,8 +89,8 @@ export default function MealPlanCreatePage() {
 
   return (
     <PageShell
-      title="New meal plan"
-      subtitle="Describe what you want — Kim will generate a full plan from your profile"
+      title={t("create_title")}
+      subtitle={t("create_subtitle")}
       backHref={routes.meals}
     >
       <div className="max-w-2xl space-y-6">
@@ -99,11 +101,10 @@ export default function MealPlanCreatePage() {
             className="text-3xl leading-[1.1] italic max-w-xl"
             style={{ fontFamily: "var(--font-display), Georgia, serif" }}
           >
-            Tell Kim your goal — she'll build the meal plan.
+            {t("create_hero_heading")}
           </h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-lg leading-relaxed">
-            Kim reads your calorie target, macros, diet type, and
-            restrictions, then generates a full plan you can tweak.
+            {t("create_hero_body")}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -123,7 +124,7 @@ export default function MealPlanCreatePage() {
               className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground"
               style={{ fontFamily: "var(--font-geist-mono), ui-monospace, monospace" }}
             >
-              or press ⌘K
+              {t("or_press_cmd_k", { ns: "common" })}
             </span>
           </div>
         </section>
@@ -131,7 +132,7 @@ export default function MealPlanCreatePage() {
         {/* Divider */}
         <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           <div className="flex-1 border-t border-border/60" />
-          <span>or start from an empty plan</span>
+          <span>{t("create_divider_or")}</span>
           <div className="flex-1 border-t border-border/60" />
         </div>
 
@@ -142,10 +143,9 @@ export default function MealPlanCreatePage() {
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card/50 hover:bg-card transition-colors"
           >
             <div className="text-left">
-              <div className="text-sm font-medium">Empty meal plan</div>
+              <div className="text-sm font-medium">{t("create_empty_plan_title")}</div>
               <div className="text-xs text-muted-foreground">
-                Create a blank plan with a title, then populate it yourself or
-                with Kim later
+                {t("create_empty_plan_hint")}
               </div>
             </div>
             <ChevronDown
@@ -157,18 +157,18 @@ export default function MealPlanCreatePage() {
             <div className="mt-4 rounded-xl border bg-card p-6 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Title
+                  {t("create_field_title")}
                 </label>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Weekly cut — week 1"
+                  placeholder={t("create_title_placeholder")}
                   className="w-full rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Plan type
+                  {t("create_field_plan_type")}
                 </label>
                 <div className="flex gap-1.5">
                   {["daily", "weekly"].map((t) => (
@@ -196,7 +196,7 @@ export default function MealPlanCreatePage() {
                   onClick={submitManual}
                   disabled={!title.trim() || saving}
                 >
-                  {saving ? "Creating…" : "Create empty plan"}
+                  {saving ? t("creating", { ns: "common" }) : t("create_submit")}
                 </Button>
               </div>
             </div>

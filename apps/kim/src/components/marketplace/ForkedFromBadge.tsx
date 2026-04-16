@@ -5,8 +5,10 @@ import Link from "next/link";
 import { GitFork } from "lucide-react";
 import { getMarketplaceItem } from "@/lib/marketplace";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 export function ForkedFromBadge({ mpId }: { mpId: string }) {
+  const { t } = useTranslation("marketplace");
   const [slug, setSlug] = useState<string | null>(null);
   const [title, setTitle] = useState<string | null>(null);
   const [author, setAuthor] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export function ForkedFromBadge({ mpId }: { mpId: string }) {
       className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
     >
       <GitFork className="h-3 w-3" />
-      Forked from{" "}
+      {t("forked_from")}{" "}
       <span className="font-medium">{author}</span>
       {title && <span className="opacity-60">/ {title}</span>}
     </Link>

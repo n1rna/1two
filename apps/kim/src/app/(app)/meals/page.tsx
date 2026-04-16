@@ -23,6 +23,7 @@ import {
   updateMealPlan,
   type HealthMealPlan,
 } from "@/lib/health";
+import { useTranslation } from "react-i18next";
 
 const DIET_COLORS: Record<string, string> = {
   omnivore: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
@@ -38,6 +39,7 @@ function dietColor(dietType?: string): string {
 }
 
 export default function MealPlansPage() {
+  const { t } = useTranslation("meals");
   const router = useRouter();
   const [plans, setPlans] = useState<HealthMealPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function MealPlansPage() {
   }, []);
 
   async function remove(id: string) {
-    if (!confirm("Delete this meal plan?")) return;
+    if (!confirm(t("confirm_delete"))) return;
     await deleteMealPlan(id);
     setPlans((cur) => cur.filter((p) => p.id !== id));
   }
@@ -72,11 +74,11 @@ export default function MealPlansPage() {
 
   return (
     <ListShell
-      title="Meal plans"
+      title={t("list_title")}
       subtitle={
         plans.length > 0
-          ? `${plans.length} total`
-          : "Ask Kim to generate new plans, or fork a community template"
+          ? t("list_subtitle_with_count", { count: plans.length })
+          : t("list_subtitle_empty")
       }
       toolbar={
         <>
@@ -91,10 +93,10 @@ export default function MealPlansPage() {
           <Link
             href={routes.marketplace({ kind: "meal_plan" })}
             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
-            title="Browse meal plan templates"
+            title={t("browse_templates_tooltip")}
           >
             <Store className="h-3.5 w-3.5" />
-            Browse Templates
+            {t("browse_templates", { ns: "common" })}
           </Link>
           <Button
             size="sm"
@@ -103,7 +105,7 @@ export default function MealPlansPage() {
             onClick={() => router.push(routes.mealNew)}
           >
             <Plus className="h-3.5 w-3.5" />
-            New Plan
+            {t("new_plan", { ns: "common" })}
           </Button>
         </>
       }
@@ -139,11 +141,10 @@ export default function MealPlansPage() {
             <UtensilsCrossed className="h-10 w-10 text-muted-foreground/20" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                No meal plans yet
+                {t("empty_title")}
               </p>
               <p className="text-xs text-muted-foreground/60 mt-1">
-                Create one from scratch, let Kim generate one, or fork a
-                community template.
+                {t("empty_hint")}
               </p>
             </div>
             <div className="flex items-center gap-2 mt-1">
@@ -196,6 +197,7 @@ function MealPlanRow({
   onToggleActive: (active: boolean) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation("meals");
   const mealCount = plan.content?.meals?.length ?? 0;
   const color = dietColor(plan.dietType);
   return (
@@ -245,7 +247,7 @@ function MealPlanRow({
         <ActiveToggle
           active={plan.active}
           onChange={onToggleActive}
-          label={plan.active ? "Disable meal plan" : "Enable meal plan"}
+          label={plan.active ? t("disable_meal_plan") : t("enable_meal_plan")}
         />
         <button
           onClick={(e) => {

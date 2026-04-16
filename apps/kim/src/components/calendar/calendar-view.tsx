@@ -33,6 +33,7 @@ import {
   type GCalEvent,
   type GCalStatus,
 } from "@/lib/life";
+import { useTranslation } from "react-i18next";
 
 // ─── Timezone context ─────────────────────────────────────────────────────────
 
@@ -206,6 +207,7 @@ function CalendarHeader({
   showSummary?: boolean;
   onToggleSummary?: () => void;
 }) {
+  const { t } = useTranslation("calendar");
   const tz = useTz();
   const label = (() => {
     if (view === "day") {
@@ -227,7 +229,7 @@ function CalendarHeader({
       <button
         onClick={onPrev}
         className="h-6 w-6 flex items-center justify-center rounded-md border border-border/50 hover:bg-muted text-muted-foreground hover:text-foreground"
-        aria-label="Previous"
+        aria-label={t("previous_aria")}
       >
         <ChevronDown className="h-3.5 w-3.5 rotate-90" />
       </button>
@@ -235,13 +237,13 @@ function CalendarHeader({
       <button
         onClick={onNext}
         className="h-6 w-6 flex items-center justify-center rounded-md border border-border/50 hover:bg-muted text-muted-foreground hover:text-foreground"
-        aria-label="Next"
+        aria-label={t("next_aria")}
       >
         <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
       </button>
 
       <button onClick={onToday} className="text-xs text-primary hover:underline ml-1">
-        Today
+        {t("today_btn")}
       </button>
 
       <div className="flex-1" />
@@ -258,7 +260,7 @@ function CalendarHeader({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {v === "day" ? "Day" : "Week"}
+            {v === "day" ? t("view_day") : t("view_week")}
           </button>
         ))}
       </div>
@@ -272,10 +274,10 @@ function CalendarHeader({
               ? "bg-primary/10 text-primary border-primary/30"
               : "text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted/50",
           )}
-          title={showSummary ? "Show actual events" : "Show day summary"}
+          title={showSummary ? t("summary_hide_tooltip") : t("summary_show_tooltip")}
         >
           <Sun className="h-3 w-3" />
-          <span className="hidden sm:inline">Summary</span>
+          <span className="hidden sm:inline">{t("summary_btn")}</span>
         </button>
       )}
 
@@ -284,7 +286,7 @@ function CalendarHeader({
           onClick={onRefresh}
           disabled={refreshing}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-50"
-          title="Refresh events"
+          title={t("refresh_events_tooltip")}
         >
           <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
         </button>

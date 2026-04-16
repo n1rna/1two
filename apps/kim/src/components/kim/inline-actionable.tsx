@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { LifeActionable } from "@/lib/life";
+import { useTranslation } from "react-i18next";
 
 export function InlineChatActionable({
   actionable,
@@ -12,6 +13,7 @@ export function InlineChatActionable({
   actionable: LifeActionable;
   onRespond: (action: string, data?: unknown) => Promise<void>;
 }) {
+  const { t } = useTranslation("kim");
   const [acting, setActing] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
@@ -55,10 +57,10 @@ export function InlineChatActionable({
       {!resolved && actionable.type === "confirm" && (
         <div className="flex items-center gap-2 pt-1">
           <KimPillButton disabled={acting} onClick={() => handle("confirm")} variant="primary">
-            {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirm"}
+            {acting ? <Loader2 className="h-3 w-3 animate-spin" /> : t("actionable_confirm_btn")}
           </KimPillButton>
           <KimPillButton disabled={acting} onClick={() => handle("dismiss")}>
-            Dismiss
+            {t("actionable_dismiss_btn")}
           </KimPillButton>
         </div>
       )}
@@ -92,7 +94,7 @@ export function InlineChatActionable({
               onClick={() => handle("choose", { optionId: selectedOption })}
               variant="primary"
             >
-              Select
+              {t("actionable_select_btn")}
             </KimPillButton>
             <KimPillButton disabled={acting} onClick={() => handle("dismiss")}>
               Dismiss
@@ -107,7 +109,7 @@ export function InlineChatActionable({
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder="Your response..."
+            placeholder={t("actionable_input_placeholder")}
             className="w-full rounded-md px-2.5 py-1.5 text-xs focus:outline-none"
             style={{
               background: "var(--kim-bg-sunken)",
@@ -121,7 +123,7 @@ export function InlineChatActionable({
               onClick={() => handle("input", { text: inputText })}
               variant="primary"
             >
-              Submit
+              {t("actionable_submit_btn")}
             </KimPillButton>
             <KimPillButton disabled={acting} onClick={() => handle("dismiss")}>
               Dismiss
@@ -133,7 +135,7 @@ export function InlineChatActionable({
       {!resolved && actionable.type === "info" && (
         <div className="pt-1">
           <KimPillButton disabled={acting} onClick={() => handle("confirm")}>
-            Got it
+            {t("actionable_got_it_btn")}
           </KimPillButton>
         </div>
       )}

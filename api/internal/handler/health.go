@@ -98,6 +98,7 @@ type healthSessionRecord struct {
 	Description        string                        `json:"description"`
 	Active             bool                          `json:"active"`
 	TargetMuscleGroups []string                      `json:"targetMuscleGroups"`
+	Equipment          []string                      `json:"equipment"`
 	EstimatedDuration  *int                          `json:"estimatedDuration"`
 	DifficultyLevel    string                        `json:"difficultyLevel"`
 	ExerciseCount      int                           `json:"exerciseCount,omitempty"`
@@ -929,6 +930,7 @@ func CreateHealthSession(db *sql.DB) http.HandlerFunc {
 			Description        string   `json:"description"`
 			Active             *bool    `json:"active"`
 			TargetMuscleGroups []string `json:"targetMuscleGroups"`
+			Equipment          []string `json:"equipment"`
 			EstimatedDuration  *int     `json:"estimatedDuration"`
 			DifficultyLevel    string   `json:"difficultyLevel"`
 		}
@@ -956,10 +958,12 @@ func CreateHealthSession(db *sql.DB) http.HandlerFunc {
 			duration = *body.EstimatedDuration
 		}
 		if _, err := db.ExecContext(r.Context(),
-			`INSERT INTO health_sessions (id,user_id,title,description,active,target_muscle_groups,estimated_duration,difficulty_level)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+			`INSERT INTO health_sessions (id,user_id,title,description,active,target_muscle_groups,equipment,estimated_duration,difficulty_level)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 			id, userID, title, body.Description, active,
-			health.StringSliceToPgArray(body.TargetMuscleGroups), duration, difficulty); err != nil {
+			health.StringSliceToPgArray(body.TargetMuscleGroups),
+			health.StringSliceToPgArray(body.Equipment),
+			duration, difficulty); err != nil {
 			log.Printf("health: create session for %s: %v", userID, err)
 			http.Error(w, `{"error":"failed to create session"}`, http.StatusInternalServerError)
 			return
@@ -973,6 +977,7 @@ func CreateHealthSession(db *sql.DB) http.HandlerFunc {
 			Description:        body.Description,
 			Active:             active,
 			TargetMuscleGroups: body.TargetMuscleGroups,
+			Equipment:          body.Equipment,
 			DifficultyLevel:    difficulty,
 			ExerciseCount:      0,
 			CreatedAt:          now,
@@ -1005,7 +1010,7 @@ func ListHealthSessions(db *sql.DB) http.HandlerFunc {
 		if activeParam == "true" || activeParam == "false" {
 			rows, err = db.QueryContext(r.Context(), `
 				SELECT s.id, s.user_id, s.title, s.description, s.active,
-				       s.target_muscle_groups, s.estimated_duration, s.difficulty_level,
+				       s.target_muscle_groups, s.equipment, s.estimated_duration, s.difficulty_level,
 				       s.created_at, s.updated_at,
 				       COUNT(e.id) AS exercise_count
 				FROM health_sessions s
@@ -1016,7 +1021,7 @@ func ListHealthSessions(db *sql.DB) http.HandlerFunc {
 		} else {
 			rows, err = db.QueryContext(r.Context(), `
 				SELECT s.id, s.user_id, s.title, s.description, s.active,
-				       s.target_muscle_groups, s.estimated_duration, s.difficulty_level,
+				       s.target_muscle_groups, s.equipment, s.estimated_duration, s.difficulty_level,
 				       s.created_at, s.updated_at,
 				       COUNT(e.id) AS exercise_count
 				FROM health_sessions s
@@ -1034,12 +1039,12 @@ func ListHealthSessions(db *sql.DB) http.HandlerFunc {
 		sessions := make([]healthSessionRecord, 0)
 		for rows.Next() {
 			var s healthSessionRecord
-			var muscleGroups []string
+			var muscleGroups, equipment []string
 			var estimatedDuration sql.NullInt64
 			var createdAt, updatedAt time.Time
 			if err := rows.Scan(
 				&s.ID, &s.UserID, &s.Title, &s.Description, &s.Active,
-				pq.Array(&muscleGroups), &estimatedDuration, &s.DifficultyLevel,
+				pq.Array(&muscleGroups), pq.Array(&equipment), &estimatedDuration, &s.DifficultyLevel,
 				&createdAt, &updatedAt, &s.ExerciseCount,
 			); err != nil {
 				http.Error(w, `{"error":"failed to read sessions"}`, http.StatusInternalServerError)
@@ -1048,6 +1053,10 @@ func ListHealthSessions(db *sql.DB) http.HandlerFunc {
 			s.TargetMuscleGroups = muscleGroups
 			if s.TargetMuscleGroups == nil {
 				s.TargetMuscleGroups = []string{}
+			}
+			s.Equipment = equipment
+			if s.Equipment == nil {
+				s.Equipment = []string{}
 			}
 			if estimatedDuration.Valid {
 				v := int(estimatedDuration.Int64)
@@ -1074,16 +1083,16 @@ func GetHealthSession(db *sql.DB) http.HandlerFunc {
 		sessionID := chi.URLParam(r, "id")
 
 		var s healthSessionRecord
-		var muscleGroups []string
+		var muscleGroups, equipment []string
 		var estimatedDuration sql.NullInt64
 		var createdAt, updatedAt time.Time
 		err := db.QueryRowContext(r.Context(), `
-			SELECT id, user_id, title, description, active, target_muscle_groups,
+			SELECT id, user_id, title, description, active, target_muscle_groups, equipment,
 			       estimated_duration, difficulty_level, created_at, updated_at
 			FROM health_sessions WHERE id = $1`, sessionID,
 		).Scan(
 			&s.ID, &s.UserID, &s.Title, &s.Description, &s.Active,
-			pq.Array(&muscleGroups), &estimatedDuration, &s.DifficultyLevel,
+			pq.Array(&muscleGroups), pq.Array(&equipment), &estimatedDuration, &s.DifficultyLevel,
 			&createdAt, &updatedAt,
 		)
 		if err == sql.ErrNoRows {
@@ -1103,6 +1112,10 @@ func GetHealthSession(db *sql.DB) http.HandlerFunc {
 		s.TargetMuscleGroups = muscleGroups
 		if s.TargetMuscleGroups == nil {
 			s.TargetMuscleGroups = []string{}
+		}
+		s.Equipment = equipment
+		if s.Equipment == nil {
+			s.Equipment = []string{}
 		}
 		if estimatedDuration.Valid {
 			v := int(estimatedDuration.Int64)
@@ -1153,6 +1166,7 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 			Description        *string   `json:"description"`
 			Active             *bool     `json:"active"`
 			TargetMuscleGroups *[]string `json:"targetMuscleGroups"`
+			Equipment          *[]string `json:"equipment"`
 			EstimatedDuration  *int      `json:"estimatedDuration"`
 			DifficultyLevel    *string   `json:"difficultyLevel"`
 		}
@@ -1195,6 +1209,9 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 		if req.TargetMuscleGroups != nil {
 			add("target_muscle_groups", pq.Array(*req.TargetMuscleGroups))
 		}
+		if req.Equipment != nil {
+			add("equipment", pq.Array(*req.Equipment))
+		}
 		if req.EstimatedDuration != nil {
 			add("estimated_duration", *req.EstimatedDuration)
 		}
@@ -1212,16 +1229,16 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 
 		// Re-fetch updated session
 		var s healthSessionRecord
-		var muscleGroups []string
+		var muscleGroups, equipment []string
 		var estimatedDuration sql.NullInt64
 		var createdAt, updatedAt time.Time
 		if err := db.QueryRowContext(r.Context(), `
-			SELECT id, user_id, title, description, active, target_muscle_groups,
+			SELECT id, user_id, title, description, active, target_muscle_groups, equipment,
 			       estimated_duration, difficulty_level, created_at, updated_at
 			FROM health_sessions WHERE id = $1`, sessionID,
 		).Scan(
 			&s.ID, &s.UserID, &s.Title, &s.Description, &s.Active,
-			pq.Array(&muscleGroups), &estimatedDuration, &s.DifficultyLevel,
+			pq.Array(&muscleGroups), pq.Array(&equipment), &estimatedDuration, &s.DifficultyLevel,
 			&createdAt, &updatedAt,
 		); err != nil {
 			http.Error(w, `{"error":"failed to get updated session"}`, http.StatusInternalServerError)
@@ -1230,6 +1247,10 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 		s.TargetMuscleGroups = muscleGroups
 		if s.TargetMuscleGroups == nil {
 			s.TargetMuscleGroups = []string{}
+		}
+		s.Equipment = equipment
+		if s.Equipment == nil {
+			s.Equipment = []string{}
 		}
 		if estimatedDuration.Valid {
 			v := int(estimatedDuration.Int64)

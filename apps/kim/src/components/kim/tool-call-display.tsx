@@ -8,6 +8,7 @@ import { routes } from "@/lib/routes";
 import type { ChatEffect, LifeActionable } from "@/lib/life";
 import { InlineChatActionable } from "./inline-actionable";
 import { toolMeta, READ_ONLY_TOOLS } from "./tool-labels";
+import { useTranslation } from "react-i18next";
 
 export function ToolCallDisplay({
   effect,
@@ -20,6 +21,7 @@ export function ToolCallDisplay({
   onActionableRespond: (id: string, action: string, data?: unknown) => Promise<void>;
   onActionableStatusChange?: (msgId: string, actionableId: string, status: string) => void;
 }) {
+  const { t } = useTranslation("kim");
   const meta = toolMeta(effect.tool);
 
   // ── Actionable (interactive) ──

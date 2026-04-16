@@ -28,6 +28,7 @@ import {
   routineFormToPayload,
 } from "@/components/routines/routine-form";
 import { createLifeRoutine } from "@/lib/life";
+import { useTranslation } from "react-i18next";
 
 const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[] = [
   {
@@ -63,6 +64,7 @@ const EXAMPLE_PROMPTS: { icon: React.ReactNode; label: string; prompt: string }[
 ];
 
 export default function RoutineCreatePage() {
+  const { t } = useTranslation("routines");
   const router = useRouter();
   const { askKim, setOpen } = useKim();
   const [form, setForm] = useState<RoutineFormState>(emptyRoutineForm);
@@ -101,8 +103,8 @@ export default function RoutineCreatePage() {
 
   return (
     <PageShell
-      title="New routine"
-      subtitle="Describe it to Kim — she'll draft the form for you to review"
+      title={t("create_title")}
+      subtitle={t("create_subtitle")}
       backHref={routes.routines}
     >
       <div className="max-w-2xl space-y-6">
@@ -113,11 +115,10 @@ export default function RoutineCreatePage() {
             className="text-3xl leading-[1.1] italic max-w-xl"
             style={{ fontFamily: "var(--font-display), Georgia, serif" }}
           >
-            Tell Kim what you want to do — she'll build the routine.
+            {t("create_hero_heading")}
           </h2>
           <p className="text-sm text-muted-foreground mt-3 max-w-lg leading-relaxed">
-            Describe the habit in your own words. Kim drafts the schedule,
-            type, and any config, then you review and submit.
+            {t("create_hero_body")}
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -137,7 +138,7 @@ export default function RoutineCreatePage() {
               className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground"
               style={{ fontFamily: "var(--font-geist-mono), ui-monospace, monospace" }}
             >
-              or press ⌘K
+              {t("or_press_cmd_k", { ns: "common" })}
             </span>
           </div>
         </section>
@@ -145,7 +146,7 @@ export default function RoutineCreatePage() {
         {/* Divider */}
         <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           <div className="flex-1 border-t border-border/60" />
-          <span>or fill it yourself</span>
+          <span>{t("or_fill_yourself", { ns: "common" })}</span>
           <div className="flex-1 border-t border-border/60" />
         </div>
 
@@ -156,11 +157,11 @@ export default function RoutineCreatePage() {
             className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card/50 hover:bg-card transition-colors"
           >
             <div className="text-left">
-              <div className="text-sm font-medium">Manual form</div>
+              <div className="text-sm font-medium">{t("create_manual_form")}</div>
               <div className="text-xs text-muted-foreground">
                 {manualOpen
-                  ? "Review and edit the fields below"
-                  : "Expand to fill out the routine by hand"}
+                  ? t("create_manual_open_hint")
+                  : t("create_manual_closed_hint")}
               </div>
             </div>
             <ChevronDown
@@ -177,7 +178,7 @@ export default function RoutineCreatePage() {
                 onSubmit={submit}
                 onCancel={() => router.push(routes.routines)}
                 saving={saving}
-                submitLabel="Create routine"
+                submitLabel={t("create_submit_label")}
               />
             </div>
           )}

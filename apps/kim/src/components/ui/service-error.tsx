@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { WifiOff, RefreshCw, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { routes } from "@/lib/routes";
+import { useTranslation } from "react-i18next";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -35,6 +36,7 @@ export function ServiceError({
   onRetry,
   retrying,
 }: ServiceErrorProps) {
+  const { t } = useTranslation("common");
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
       <motion.div
@@ -73,7 +75,7 @@ export function ServiceError({
               className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`} />
-              Try again
+              {t("retry")}
             </button>
           )}
           <Link
@@ -81,7 +83,7 @@ export function ServiceError({
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Home
+            {t("back")}
           </Link>
         </motion.div>
 

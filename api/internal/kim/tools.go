@@ -433,7 +433,8 @@ func gymTools() []llms.Tool {
 			Parameters: map[string]any{"type": "object", "properties": map[string]any{
 				"title": map[string]any{"type": "string"}, "description": map[string]any{"type": "string"},
 				"active":               map[string]any{"type": "boolean", "description": "Defaults to true."},
-				"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Muscle groups targeted (e.g. chest, back, legs, shoulders, arms, core)."},
+				"equipment":            map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Equipment used (e.g. bodyweight, dumbbells, barbell, cables, machines, kettlebell, resistance bands)."},
 				"estimated_duration":   map[string]any{"type": "integer"},
 				"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
 				"exercises": map[string]any{"type": "array", "items": map[string]any{
@@ -454,6 +455,7 @@ func gymTools() []llms.Tool {
 				"description":          map[string]any{"type": "string"},
 				"active":               map[string]any{"type": "boolean"},
 				"target_muscle_groups": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"equipment":            map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 				"estimated_duration":   map[string]any{"type": "integer"},
 				"difficulty_level":     map[string]any{"type": "string", "enum": []string{"beginner", "intermediate", "advanced"}},
 			}, "required": []string{"session_id"}},

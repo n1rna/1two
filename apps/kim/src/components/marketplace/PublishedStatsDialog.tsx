@@ -27,6 +27,7 @@ import {
   type MarketplaceKind,
 } from "@/lib/marketplace";
 import { PublishDialog } from "./PublishDialog";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   open: boolean;
@@ -50,6 +51,7 @@ export function PublishedStatsDialog({
   onRepublished,
   onUnpublished,
 }: Props) {
+  const { t } = useTranslation("marketplace");
   const [republishOpen, setRepublishOpen] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -91,11 +93,10 @@ export function PublishedStatsDialog({
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              Published {KIND_LABELS[kind]}
+              {t("stats_dialog_title", { kind: KIND_LABELS[kind] })}
             </DialogTitle>
             <DialogDescription>
-              Currently live as <span className="font-mono">v{item.current_version}</span>.
-              Manage the marketplace listing for this item.
+              {t("stats_dialog_description", { version: item.current_version })}
             </DialogDescription>
           </DialogHeader>
 
@@ -104,17 +105,17 @@ export function PublishedStatsDialog({
             <div className="grid grid-cols-3 gap-2">
               <StatCell
                 icon={<Eye className="h-3.5 w-3.5" />}
-                label="Views"
+                label={t("stats_views")}
                 value={item.view_count}
               />
               <StatCell
                 icon={<GitFork className="h-3.5 w-3.5" />}
-                label="Forks"
+                label={t("stats_forks")}
                 value={item.fork_count}
               />
               <StatCell
                 icon={<Upload className="h-3.5 w-3.5" />}
-                label="Version"
+                label={t("stats_version")}
                 value={`v${item.current_version}`}
               />
             </div>
@@ -122,7 +123,7 @@ export function PublishedStatsDialog({
             {/* Public URL */}
             <div className="space-y-1.5">
               <div className="text-xs font-medium text-muted-foreground">
-                Public link
+                {t("stats_public_link")}
               </div>
               <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
                 <code className="flex-1 text-xs font-mono truncate">{publicUrl}</code>
@@ -130,7 +131,7 @@ export function PublishedStatsDialog({
                   type="button"
                   onClick={copyUrl}
                   className="shrink-0 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                  title="Copy link"
+                  title={t("stats_copy_link")}
                 >
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-green-500" />
@@ -153,7 +154,7 @@ export function PublishedStatsDialog({
             {versions.length > 0 && (
               <div className="space-y-1.5">
                 <div className="text-xs font-medium text-muted-foreground">
-                  Version history
+                  {t("stats_version_history")}
                 </div>
                 <div className="rounded-lg border bg-muted/10 divide-y max-h-40 overflow-y-auto">
                   {versions.map((v) => (
@@ -176,7 +177,7 @@ export function PublishedStatsDialog({
                           <p className="leading-snug">{v.changelog}</p>
                         ) : (
                           <p className="leading-snug text-muted-foreground/60 italic">
-                            No changelog
+                            {t("stats_no_changelog")}
                           </p>
                         )}
                         <p className="mt-0.5 text-[10px] text-muted-foreground">
@@ -195,7 +196,7 @@ export function PublishedStatsDialog({
             <div className="flex items-center justify-between gap-2 pt-1">
               {confirmUnpublish ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">Sure?</span>
+                  <span className="text-xs text-muted-foreground">{t("unpublish_confirm")}</span>
                   <Button
                     size="sm"
                     variant="destructive"
@@ -237,7 +238,7 @@ export function PublishedStatsDialog({
                 }}
               >
                 <Upload className="h-3 w-3" />
-                Publish new version
+                {t("stats_publish_new_version")}
               </Button>
             </div>
           </div>

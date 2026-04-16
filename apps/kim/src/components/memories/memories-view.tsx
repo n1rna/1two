@@ -28,6 +28,7 @@ import {
   updateLifeMemory,
   type LifeMemory,
 } from "@/lib/life";
+import { useTranslation } from "react-i18next";
 
 const MEMORY_CATEGORIES = [
   { value: "preference", label: "Preference" },
@@ -44,6 +45,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export function MemoriesView() {
+  const { t } = useTranslation("memories");
   const [memories, setMemories] = useState<LifeMemory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +144,7 @@ export function MemoriesView() {
             {!loading && filtered.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 gap-2 text-center px-4">
                 <Lightbulb className="h-8 w-8 text-muted-foreground/20" />
-                <p className="text-xs text-muted-foreground">{filterCategory === "all" ? "No memories yet" : `No ${filterCategory} memories`}</p>
+                <p className="text-xs text-muted-foreground">{filterCategory === "all" ? t("empty_all") : t("empty_filtered", { category: filterCategory })}</p>
               </div>
             )}
             {!loading && filtered.map((memory) => (
@@ -189,9 +191,9 @@ export function MemoriesView() {
               </div>
               <Button size="sm" className="gap-1 text-xs h-6" onClick={handleSave} disabled={!editorContent.trim() || saving || (!editorDirty && !isNew)}>
                 {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                {isNew ? "Create" : "Save"}
+                {isNew ? t("editor_create") : t("editor_save")}
               </Button>
-              <button onClick={() => { setSelectedId(null); setIsNew(false); setEditorDirty(false); }} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Close">
+              <button onClick={() => { setSelectedId(null); setIsNew(false); setEditorDirty(false); }} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title={t("editor_close_title")}>
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -199,18 +201,18 @@ export function MemoriesView() {
               <textarea
                 value={editorContent}
                 onChange={(e) => { setEditorContent(e.target.value); setEditorDirty(true); }}
-                placeholder="Write your memory in markdown..."
+                placeholder={t("editor_placeholder")}
                 className="w-full h-full resize-none bg-background px-4 py-3 text-sm font-mono leading-relaxed focus:outline-none placeholder:text-muted-foreground/40"
                 onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); handleSave(); } }}
                 autoFocus
               />
             </div>
             <div className="flex items-center gap-3 px-4 py-1 border-t text-[10px] text-muted-foreground/50 shrink-0">
-              <span>{editorContent.length} chars</span>
-              <span>{editorContent.split("\n").length} lines</span>
-              {editorDirty && <span className="text-teal-500">unsaved</span>}
-              {!editorDirty && !isNew && <span className="text-green-500">saved</span>}
-              <span className="ml-auto">Cmd+S to save</span>
+              <span>{t("chars_count", { count: editorContent.length, ns: "common" })}</span>
+              <span>{t("lines_count", { count: editorContent.split("\n").length, ns: "common" })}</span>
+              {editorDirty && <span className="text-teal-500">{t("unsaved", { ns: "common" })}</span>}
+              {!editorDirty && !isNew && <span className="text-green-500">{t("saved", { ns: "common" })}</span>}
+              <span className="ml-auto">{t("cmd_s_to_save", { ns: "common" })}</span>
             </div>
           </div>
         )}
@@ -218,8 +220,8 @@ export function MemoriesView() {
 
       <Dialog open={!!confirmDeleteId} onOpenChange={() => setConfirmDeleteId(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Delete Memory</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Are you sure? This cannot be undone.</p>
+          <DialogHeader><DialogTitle>{t("delete_dialog_title")}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{t("delete_dialog_body")}</p>
           <DialogFooter>
             <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
             <Button variant="destructive" size="sm" onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}>Delete</Button>

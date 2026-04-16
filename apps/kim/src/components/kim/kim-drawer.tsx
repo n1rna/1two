@@ -29,6 +29,7 @@ import { commandsForMode } from "./slash-commands";
 import { SlashCommandMenu, useSlashCommands } from "@/components/ui/slash-commands";
 import type { SlashCommand } from "@/components/ui/slash-commands";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 const MODES: KimMode[] = [
   "general",
@@ -40,6 +41,7 @@ const MODES: KimMode[] = [
 ];
 
 export function KimDrawer() {
+  const { t } = useTranslation("kim");
   const kim = useKim();
   const {
     open,
@@ -209,29 +211,29 @@ export function KimDrawer() {
             className="kim-display text-3xl leading-none"
             style={{ color: "var(--kim-amber)" }}
           >
-            kim
+            {t("drawer_title")}
           </span>
           <span
             className="kim-mono text-[10px] uppercase tracking-[0.18em]"
             style={{ color: "var(--kim-ink-faint)" }}
           >
-            agent
+            {t("drawer_subtitle")}
           </span>
         </div>
         <div className="flex items-center gap-1">
           <HeaderButton
-            title={maximized ? "Restore" : "Expand"}
+            title={maximized ? t("drawer_restore_title") : t("drawer_expand_title")}
             onClick={() => setMaximized((m) => !m)}
           >
             {maximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </HeaderButton>
-          <HeaderButton title="History" onClick={() => setShowHistory((s) => !s)}>
+          <HeaderButton title={t("drawer_history_title")} onClick={() => setShowHistory((s) => !s)}>
             <History size={13} />
           </HeaderButton>
-          <HeaderButton title="New conversation" onClick={newConversation}>
+          <HeaderButton title={t("drawer_new_conversation_title")} onClick={newConversation}>
             <Plus size={13} />
           </HeaderButton>
-          <HeaderButton title="Close (⌘K)" onClick={() => setOpen(false)}>
+          <HeaderButton title={t("drawer_close_title")} onClick={() => setOpen(false)}>
             <X size={13} />
           </HeaderButton>
         </div>
@@ -303,7 +305,7 @@ export function KimDrawer() {
               className="kim-mono text-[9.5px] uppercase tracking-[0.18em]"
               style={{ color: "var(--kim-amber)" }}
             >
-              drafting form
+              {t("drawer_drafting_form")}
             </div>
             <div
               className="text-xs truncate"
@@ -339,14 +341,14 @@ export function KimDrawer() {
                 className="text-[10px] kim-mono uppercase tracking-[0.18em] mb-2 px-1"
                 style={{ color: "var(--kim-ink-faint)" }}
               >
-                conversations
+                {t("drawer_history_heading")}
               </div>
               {conversations.length === 0 && (
                 <div
                   className="text-xs italic px-1"
                   style={{ color: "var(--kim-ink-faint)" }}
                 >
-                  none yet
+                  {t("drawer_history_empty")}
                 </div>
               )}
               {conversations.map((c) => (
@@ -367,7 +369,7 @@ export function KimDrawer() {
                         : "var(--kim-ink)",
                   }}
                 >
-                  <div className="truncate">{c.title || "untitled"}</div>
+                  <div className="truncate">{c.title || t("drawer_history_untitled")}</div>
                   <div
                     className="kim-mono text-[9.5px] uppercase tracking-[0.14em] opacity-60"
                   >
@@ -401,7 +403,7 @@ export function KimDrawer() {
               color: "var(--kim-rose)",
             }}
           >
-            error: {error}
+            {t("error_prefix", { message: error })}
           </div>
         )}
       </div>
@@ -416,7 +418,7 @@ export function KimDrawer() {
             className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-1"
             style={{ color: "var(--kim-ink-faint)" }}
           >
-            context ·
+            {t("drawer_context_label")}
           </span>
           {selection.map((s) => (
             <span key={`${s.kind}-${s.id}`} className="kim-chip">
@@ -440,7 +442,7 @@ export function KimDrawer() {
             className="kim-mono text-[9.5px] uppercase tracking-[0.16em] ml-auto opacity-60 hover:opacity-100"
             style={{ color: "var(--kim-ink-dim)" }}
           >
-            clear
+            {t("drawer_clear_context")}
           </button>
         </div>
       )}
@@ -470,7 +472,7 @@ export function KimDrawer() {
             onChange={onInputChange}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder="type / for commands or ask kim…"
+            placeholder={t("drawer_input_placeholder")}
             className="w-full resize-none bg-transparent px-3 py-3 pr-12 text-sm outline-none placeholder:italic min-h-[44px] max-h-[160px]"
             style={{
               color: "var(--kim-ink)",
@@ -486,7 +488,7 @@ export function KimDrawer() {
               background: "var(--kim-amber)",
               color: "var(--kim-bg)",
             }}
-            title="Send (Enter)"
+            title={t("drawer_send_title")}
           >
             <ArrowUp size={14} strokeWidth={2.5} />
           </button>
@@ -495,13 +497,13 @@ export function KimDrawer() {
           className="mt-2 flex items-center justify-between kim-mono text-[9.5px] uppercase tracking-[0.14em]"
           style={{ color: "var(--kim-ink-faint)" }}
         >
-          <span>⌘K toggle · ⇧enter newline</span>
+          <span>{t("drawer_shortcuts_hint")}</span>
           <Link
             href={routes.chat}
             className="hover:text-[var(--kim-amber)]"
             onClick={() => setOpen(false)}
           >
-            full view →
+            {t("drawer_full_view")}
           </Link>
         </div>
       </div>

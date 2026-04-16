@@ -23,6 +23,7 @@ import {
   type RoutineConfigSchema,
   type RoutineConfigValues,
 } from "./routine-schema";
+import { useTranslation } from "react-i18next";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -52,6 +53,7 @@ function asValues(raw: unknown): RoutineConfigValues {
 }
 
 export function RoutineDetailView({ routineId }: { routineId: string }) {
+  const { t } = useTranslation("routines");
   const [routine, setRoutine] = useState<LifeRoutine | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -180,7 +182,7 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
 
   if (loading) {
     return (
-      <PageShell title="Loading…" backHref={routes.routines} backLabel="All routines">
+      <PageShell title="Loading…" backHref={routes.routines} backLabel={t("detail_back_label")}>
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -190,10 +192,10 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
 
   if (error || !routine) {
     return (
-      <PageShell title="Routine" backHref={routes.routines} backLabel="All routines">
+      <PageShell title="Routine" backHref={routes.routines} backLabel={t("detail_back_label")}>
         <EmptyState
-          title={error ?? "Routine not found"}
-          hint="Return to the list and try again."
+          title={error ?? t("error_not_found")}
+          hint={t("error_not_found_hint")}
         />
       </PageShell>
     );
@@ -207,18 +209,18 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
       title={displayName}
       subtitle={scheduleSummary || undefined}
       backHref={routes.routines}
-      backLabel="All routines"
+      backLabel={t("detail_back_label")}
       actions={
         <>
           <div className="flex items-center gap-2 pr-1">
             <span className="text-xs text-muted-foreground">
-              {routine.active ? "Active" : "Inactive"}
+              {routine.active ? t("active", { ns: "common" }) : t("inactive", { ns: "common" })}
             </span>
             <ActiveToggle
               active={routine.active}
               onChange={toggleActive}
               stopPropagation={false}
-              label={routine.active ? "Disable routine" : "Enable routine"}
+              label={routine.active ? t("detail_disable_routine") : t("detail_enable_routine")}
             />
           </div>
           {editing ? (
@@ -289,7 +291,7 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
         ) : (
           <p className="mt-1.5 text-sm text-foreground leading-relaxed">
             {routine.description || (
-              <span className="text-muted-foreground/50 italic">No description</span>
+              <span className="text-muted-foreground/50 italic">{t("no_description", { ns: "common" })}</span>
             )}
           </p>
         )}
@@ -328,10 +330,10 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
               type="button"
               onClick={() => setSchemaEditorOpen((o) => !o)}
               className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground uppercase tracking-wider"
-              title="Edit the field schema"
+              title={t("detail_edit_schema_title")}
             >
               <Code2 className="h-3 w-3" />
-              {schemaEditorOpen ? "close schema" : "edit schema"}
+              {schemaEditorOpen ? t("detail_close_schema") : t("detail_edit_schema")}
             </button>
           )}
         </div>
@@ -339,7 +341,7 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
         {editing && schemaEditorOpen && (
           <div className="mb-4 space-y-1.5">
             <p className="text-[10px] text-muted-foreground/70">
-              Raw JSON schema — defines which fields the configuration form shows.
+              {t("detail_schema_hint")}
             </p>
             <textarea
               value={schemaStr}
@@ -377,11 +379,10 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
 
       <div className="border-t pt-3 space-y-1 text-[11px] text-muted-foreground/60">
         <p>
-          Last triggered:{" "}
-          {routine.lastTriggered ? relativeTime(routine.lastTriggered) : "Never"}
+          {routine.lastTriggered ? t("detail_last_triggered", { time: relativeTime(routine.lastTriggered) }) : t("detail_last_triggered_never")}
         </p>
-        <p>Updated: {relativeTime(routine.updatedAt)}</p>
-        <p>Created: {relativeTime(routine.createdAt)}</p>
+        <p>{t("detail_updated", { time: relativeTime(routine.updatedAt) })}</p>
+        <p>{t("detail_created", { time: relativeTime(routine.createdAt) })}</p>
       </div>
 
       </div>
