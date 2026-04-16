@@ -1,17 +1,17 @@
 {
-  "category_preference": "Preference",
+  "category_preference": "Préférence",
   "category_instruction": "Instruction",
-  "category_fact": "Fact",
-  "category_habit": "Habit",
+  "category_fact": "Fait",
+  "category_habit": "Habitude",
 
-  "empty_all": "No memories yet",
-  "empty_filtered": "No {{category}} memories",
+  "empty_all": "Aucune mémoire pour l'instant",
+  "empty_filtered": "Aucune mémoire de type {{category}}",
 
-  "editor_placeholder": "Write your memory in markdown...",
-  "editor_create": "Create",
-  "editor_save": "Save",
-  "editor_close_title": "Close",
+  "editor_placeholder": "Écris ta mémoire en markdown...",
+  "editor_create": "Créer",
+  "editor_save": "Enregistrer",
+  "editor_close_title": "Fermer",
 
-  "delete_dialog_title": "Delete Memory",
-  "delete_dialog_body": "Are you sure? This cannot be undone."
+  "delete_dialog_title": "Supprimer la mémoire",
+  "delete_dialog_body": "Tu es sûr ? C'est irréversible."
 }
