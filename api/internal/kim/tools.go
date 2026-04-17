@@ -462,6 +462,56 @@ func mealTools() []llms.Tool {
 				"supplements": supplementArraySchema(),
 			}, "required": []string{"plan_id", "supplements"}},
 		}},
+		{Type: "function", Function: &llms.FunctionDefinition{
+			Name: "propose_meal_edits",
+			Description: "Propose modifications to one or more meals the user has currently selected in the meal plan view. Use this when the user asks to bulk-edit meals they've selected; the 'Selected context' section of the system prompt will list the selection_ids and full snapshots of the meals in play. Do NOT apply changes yourself — the frontend will render a preview and let the user confirm before persisting.",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"plan_id": map[string]any{"type": "string", "description": "The meal plan id (must match the current plan the user is viewing)."},
+					"summary": map[string]any{"type": "string", "description": "One-sentence summary of the batch change, e.g. 'Swapped 4 meals to vegetarian alternatives'."},
+					"updates": map[string]any{
+						"type":        "array",
+						"description": "List of per-meal edits. Each entry must reference a selection_id from the selected set, plus a partial patch of MealItem fields to apply.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"selection_id": map[string]any{"type": "string", "description": "The selection id for the meal being edited, of the form 'plan:day:slot:index'."},
+								"reason":       map[string]any{"type": "string", "description": "Short human-readable reason for this specific change."},
+								"patch": map[string]any{
+									"type":        "object",
+									"description": "Partial MealItem fields to override on this meal. Only include fields that change.",
+									"properties": map[string]any{
+										"name":        map[string]any{"type": "string"},
+										"description": map[string]any{"type": "string"},
+										"calories":    map[string]any{"type": "integer"},
+										"protein_g":   map[string]any{"type": "integer"},
+										"carbs_g":     map[string]any{"type": "integer"},
+										"fat_g":       map[string]any{"type": "integer"},
+										"fiber_g":     map[string]any{"type": "integer"},
+										"ingredients": map[string]any{
+											"type": "array",
+											"items": map[string]any{
+												"type": "object",
+												"properties": map[string]any{
+													"name":     map[string]any{"type": "string"},
+													"quantity": map[string]any{"type": "string"},
+												},
+												"required": []string{"name"},
+											},
+										},
+										"prep_notes": map[string]any{"type": "string"},
+										"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+									},
+								},
+							},
+							"required": []string{"selection_id", "patch"},
+						},
+					},
+				},
+				"required": []string{"plan_id", "updates"},
+			},
+		}},
 	}
 }
 

@@ -6,9 +6,14 @@ import { Sun, Sandwich, Moon, Cookie } from "lucide-react";
 import { PageShell, Card, EmptyState } from "@/components/page-shell";
 import { ActiveToggle } from "@/components/active-toggle";
 import { PublishControl } from "@/components/marketplace/PublishControl";
-import { Selectable, useKimAutoContext } from "@/components/kim";
+import { Selectable, useKim, useKimAutoContext, useKimEffect } from "@/components/kim";
 import { MealDetailDialog } from "@/components/meals/meal-detail-dialog";
 import { GroceryListCard } from "@/components/meals/grocery-list-card";
+import { BulkEditBar } from "@/components/meals/bulk-edit-bar";
+import {
+  MealEditsPreviewDialog,
+  type MealEditProposal,
+} from "@/components/meals/meal-edits-preview-dialog";
 import {
   getMealPlan,
   updateMealPlan,
@@ -17,7 +22,8 @@ import {
   type MealItem,
   type SupplementItem,
 } from "@/lib/health";
-import { Pill } from "lucide-react";
+import { CheckSquare, Pill } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 import { useTranslation } from "react-i18next";
 
@@ -97,6 +103,18 @@ export default function MealPlanDetailPage() {
     context: string;
     selectionId: string;
   } | null>(null);
+
+  // Bulk edit mode state — when active, clicking a meal toggles its selection
+  // for a batch request to Kim. Selection is a Set of selection_ids
+  // (plan:day:slot:index).
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
+  const [preview, setPreview] = useState<{
+    summary?: string;
+    proposals: MealEditProposal[];
+  } | null>(null);
+  const { addSelection, clearSelection, askKim, setMode } = useKim();
 
   useEffect(() => {
     (async () => {
@@ -194,6 +212,164 @@ export default function MealPlanDetailPage() {
     setPlan(updated);
   }
 
+  // ── Bulk edit helpers ────────────────────────────────────────────────────
+
+  const toggleBulk = (selectionId: string) => {
+    setBulkSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(selectionId)) next.delete(selectionId);
+      else next.add(selectionId);
+      return next;
+    });
+  };
+
+  const exitBulkMode = () => {
+    setBulkMode(false);
+    setBulkSelected(new Set());
+    clearSelection();
+  };
+
+  const selectAllForDay = (day: string) => {
+    if (!plan) return;
+    const planId = plan.id;
+    const isWeekly =
+      plan.planType === "weekly" ||
+      meals.some((m) => normalizeDay(m.day) !== "any");
+    const ids: string[] = [];
+    for (const slot of MEAL_SLOTS) {
+      const list = bySlotDay[slot][day] ?? [];
+      list.forEach((_m, i) => {
+        ids.push(`${planId}:${day}:${slot}:${i}`);
+      });
+    }
+    // If daily plan, there's only "any" as a column; same id scheme.
+    void isWeekly;
+    setBulkSelected((cur) => {
+      const next = new Set(cur);
+      for (const id of ids) next.add(id);
+      return next;
+    });
+  };
+
+  // Resolve a selection_id to the underlying MealItem + day/slot coords.
+  const resolveMeal = useMemo(() => {
+    if (!plan) return (_id: string) => null as { meal: MealItem; day: string; slot: MealSlot; index: number } | null;
+    const map = new Map<
+      string,
+      { meal: MealItem; day: string; slot: MealSlot; index: number }
+    >();
+    for (const slot of MEAL_SLOTS) {
+      for (const [day, list] of Object.entries(bySlotDay[slot])) {
+        list.forEach((meal, index) => {
+          map.set(`${plan.id}:${day}:${slot}:${index}`, {
+            meal,
+            day,
+            slot,
+            index,
+          });
+        });
+      }
+    }
+    return (id: string) => map.get(id) ?? null;
+  }, [plan, bySlotDay]);
+
+  const sendBulkPrompt = async (userPrompt: string) => {
+    if (!plan || bulkSelected.size === 0) return;
+    setBulkPending(true);
+    try {
+      // Pin every selected meal to Kim's context so the system prompt
+      // carries full snapshots.
+      clearSelection();
+      for (const selId of bulkSelected) {
+        const resolved = resolveMeal(selId);
+        if (!resolved) continue;
+        addSelection({
+          kind: "meal-item",
+          id: selId,
+          label: resolved.meal.name,
+          snapshot: resolved.meal as unknown as Record<string, unknown>,
+        });
+      }
+      setMode("meals", true);
+
+      // Send a structured prompt asking Kim to call propose_meal_edits.
+      const ids = Array.from(bulkSelected);
+      const prompt =
+        `Bulk edit for meal plan ${plan.id}. Selected meals (selection_ids): ${ids.join(", ")}.\n\n` +
+        `User request: ${userPrompt}\n\n` +
+        `Please call propose_meal_edits with a list of per-meal patches. Only change fields that need to change.`;
+      askKim(prompt);
+    } finally {
+      setBulkPending(false);
+    }
+  };
+
+  // Listen for Kim's propose_meal_edits tool call and open the preview dialog.
+  useKimEffect("propose_meal_edits", async (data) => {
+    if (!plan) return;
+    const rawUpdates = (data?.updates ?? []) as Array<{
+      selection_id?: string;
+      patch?: Partial<MealItem>;
+      reason?: string;
+    }>;
+    const proposals: MealEditProposal[] = [];
+    for (const u of rawUpdates) {
+      if (!u.selection_id || !u.patch) continue;
+      const resolved = resolveMeal(u.selection_id);
+      if (!resolved) continue;
+      proposals.push({
+        selectionId: u.selection_id,
+        before: resolved.meal,
+        patch: u.patch,
+        reason: u.reason,
+      });
+    }
+    if (proposals.length > 0) {
+      setPreview({
+        summary: typeof data?.summary === "string" ? data.summary : undefined,
+        proposals,
+      });
+    }
+  });
+
+  const applyMealEdits = async (accepted: MealEditProposal[]) => {
+    if (!plan) return;
+    // Build the new meals array by merging patches in place. The
+    // selection_id encodes (plan, day, slot, index) — we find the exact
+    // MealItem in content.meals and replace it with {...existing, ...patch}.
+    const next = meals.map((m, globalIdx) => {
+      // Rebuild the selection_id that would have been generated for this
+      // meal when the grid was computed.
+      const slot = normalizeSlot(m.meal_type);
+      const day = normalizeDay(m.day);
+      const isWeekly =
+        plan.planType === "weekly" ||
+        meals.some((x) => normalizeDay(x.day) !== "any");
+      const col = isWeekly && day === "any" ? "monday" : day;
+      // Compute this meal's index *within its (day, slot) bucket*.
+      const inBucketIdx = meals
+        .slice(0, globalIdx)
+        .filter((x) => {
+          const xs = normalizeSlot(x.meal_type);
+          const xd = normalizeDay(x.day);
+          const xcol = isWeekly && xd === "any" ? "monday" : xd;
+          return xs === slot && xcol === col;
+        }).length;
+      const selId = `${plan.id}:${col}:${slot}:${inBucketIdx}`;
+      const proposal = accepted.find((p) => p.selectionId === selId);
+      if (!proposal) return m;
+      return { ...m, ...proposal.patch } as MealItem;
+    });
+
+    const nextContent = {
+      ...(plan.content ?? { meals: [] }),
+      meals: next,
+    };
+    const updated = await updateMealPlan(plan.id, { content: nextContent });
+    setPlan(updated);
+    exitBulkMode();
+  };
+
   return (
     <PageShell
       title={plan.title}
@@ -213,6 +389,16 @@ export default function MealPlanDetailPage() {
               label={plan.active ? t("disable_meal_plan") : t("enable_meal_plan")}
             />
           </div>
+          <Button
+            size="sm"
+            variant={bulkMode ? "default" : "outline"}
+            className="gap-1.5"
+            onClick={() => (bulkMode ? exitBulkMode() : setBulkMode(true))}
+            title={bulkMode ? "Exit bulk edit" : "Bulk edit meals with Kim"}
+          >
+            <CheckSquare className="h-3 w-3" />
+            {bulkMode ? "Done" : "Bulk edit"}
+          </Button>
           <PublishControl
             kind="meal_plan"
             sourceId={plan.id}
@@ -254,6 +440,9 @@ export default function MealPlanDetailPage() {
             bySlotDay={bySlotDay}
             dayTotals={dayTotals}
             targetKcal={targetKcal}
+            bulkMode={bulkMode}
+            bulkSelected={bulkSelected}
+            onBulkToggle={toggleBulk}
             onInspect={(meal, context, selectionId) =>
               setDetail({ meal, context, selectionId })
             }
@@ -268,6 +457,25 @@ export default function MealPlanDetailPage() {
         meal={detail?.meal ?? null}
         context={detail?.context}
         selectionId={detail?.selectionId}
+      />
+      {bulkMode && (
+        <BulkEditBar
+          count={bulkSelected.size}
+          days={columns.filter((c) => c !== "any") as string[]}
+          onSelectDay={selectAllForDay}
+          onCancel={exitBulkMode}
+          onSend={sendBulkPrompt}
+          pending={bulkPending}
+        />
+      )}
+      <MealEditsPreviewDialog
+        open={!!preview}
+        onOpenChange={(next) => {
+          if (!next) setPreview(null);
+        }}
+        summary={preview?.summary}
+        proposals={preview?.proposals ?? []}
+        onApply={applyMealEdits}
       />
     </PageShell>
   );
@@ -400,6 +608,9 @@ function WeekGrid({
   dayTotals,
   targetKcal,
   onInspect,
+  bulkMode,
+  bulkSelected,
+  onBulkToggle,
 }: {
   planId: string;
   columns: (WeekDay | "any")[];
@@ -407,6 +618,9 @@ function WeekGrid({
   dayTotals: Record<string, DayTotals>;
   targetKcal: number | null;
   onInspect: (meal: MealItem, context: string, selectionId: string) => void;
+  bulkMode: boolean;
+  bulkSelected: Set<string>;
+  onBulkToggle: (selectionId: string) => void;
 }) {
   const { t } = useTranslation("meals");
   const colTemplate = `minmax(112px, 128px) repeat(${columns.length}, minmax(180px, 1fr))`;
@@ -476,6 +690,11 @@ function WeekGrid({
                             index={i}
                             meal={m}
                             onInspect={onInspect}
+                            bulkMode={bulkMode}
+                            bulkSelected={bulkSelected.has(
+                              `${planId}:${col}:${slot}:${i}`,
+                            )}
+                            onBulkToggle={onBulkToggle}
                           />
                         ))
                       )}
@@ -542,6 +761,9 @@ function MealCell({
   index,
   meal,
   onInspect,
+  bulkMode,
+  bulkSelected,
+  onBulkToggle,
 }: {
   planId: string;
   day: string;
@@ -549,6 +771,9 @@ function MealCell({
   index: number;
   meal: MealItem;
   onInspect: (meal: MealItem, context: string, selectionId: string) => void;
+  bulkMode: boolean;
+  bulkSelected: boolean;
+  onBulkToggle: (selectionId: string) => void;
 }) {
   const totalMacros = (meal.protein_g ?? 0) + (meal.carbs_g ?? 0) + (meal.fat_g ?? 0);
   const pPct = totalMacros > 0 ? ((meal.protein_g ?? 0) / totalMacros) * 100 : 0;
@@ -559,31 +784,73 @@ function MealCell({
   const slotLabel = slot.charAt(0).toUpperCase() + slot.slice(1);
   const context = dayLabel ? `${dayLabel} · ${slotLabel}` : slotLabel;
 
+  const cellClass = bulkMode
+    ? `group rounded-md border bg-background transition-colors p-2.5 cursor-pointer ${
+        bulkSelected
+          ? "border-primary bg-primary/5 ring-2 ring-primary/30"
+          : "border-border hover:border-primary/40"
+      }`
+    : "group rounded-md border border-border bg-background hover:border-foreground/20 hover:bg-accent/40 transition-colors p-2.5 cursor-pointer data-[selected=true]:border-foreground/40 data-[selected=true]:bg-accent";
+
   return (
     <Selectable
       kind="meal-item"
       id={selectionId}
       label={meal.name}
       snapshot={meal as unknown as Record<string, unknown>}
-      className="group rounded-md border border-border bg-background hover:border-foreground/20 hover:bg-accent/40 transition-colors p-2.5 cursor-pointer data-[selected=true]:border-foreground/40 data-[selected=true]:bg-accent"
+      className={cellClass}
     >
       <div
         role="button"
         tabIndex={0}
         onClick={(e) => {
-          // Modifier clicks are handled by Selectable (adds to Kim context);
-          // a plain click opens the detail dialog.
+          // Modifier clicks are handled by Selectable (adds to Kim context).
           if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+          if (bulkMode) {
+            onBulkToggle(selectionId);
+            return;
+          }
           onInspect(meal, context, selectionId);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onInspect(meal, context, selectionId);
+            if (bulkMode) {
+              onBulkToggle(selectionId);
+            } else {
+              onInspect(meal, context, selectionId);
+            }
           }
         }}
-        className="outline-none"
+        className="outline-none relative"
       >
+        {bulkMode && (
+          <div className="absolute -top-1 -left-1 z-10">
+            <span
+              className={
+                "flex items-center justify-center h-4 w-4 rounded-sm border " +
+                (bulkSelected
+                  ? "bg-primary border-primary text-primary-foreground"
+                  : "bg-background border-border")
+              }
+              aria-hidden
+            >
+              {bulkSelected && (
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-3 w-3"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L9 11.6l6.3-6.3a1 1 0 011.4 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
+            </span>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium leading-snug line-clamp-2">

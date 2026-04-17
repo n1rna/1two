@@ -181,6 +181,10 @@ func ExecuteTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 	case "draft_form":
 		out, _ := json.Marshal(args)
 		return string(out)
+	// ── Bulk meal editing proposal (pure echo; frontend renders preview). ──
+	case "propose_meal_edits":
+		out, _ := json.Marshal(args)
+		return string(out)
 	// ── Marketplace tools ──
 	case "search_marketplace":
 		return toolSearchMarketplace(ctx, db, args)
