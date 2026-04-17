@@ -71,6 +71,37 @@ export interface SupplementItem {
   notes?: string;
 }
 
+export type GroceryCategory =
+  | "produce"
+  | "dairy"
+  | "proteins"
+  | "grains"
+  | "pantry"
+  | "frozen"
+  | "supplements"
+  | "other";
+
+export interface GroceryItem {
+  /** Normalized item name (lowercased). */
+  name: string;
+  /** Aggregate numeric quantity. 0 means "n/a" (e.g. "to taste"). */
+  quantity: number;
+  /** Unit string ("g", "ml", "cups", "pcs", "unit", …). Empty when unknown. */
+  unit: string;
+  category: GroceryCategory;
+  checked: boolean;
+  /** "auto" = derived from meal/supplement ingredients; "manual" = user-added. */
+  source: "auto" | "manual";
+  /** Optional free-form note. */
+  note?: string;
+}
+
+export interface GroceryList {
+  items: GroceryItem[];
+  /** ISO timestamp of the last auto-generation. */
+  generatedAt?: string;
+}
+
 export interface HealthMealPlan {
   id: string;
   userId: string;
@@ -81,6 +112,7 @@ export interface HealthMealPlan {
   content: {
     meals: MealItem[];
     supplements?: SupplementItem[];
+    grocery?: GroceryList;
   };
   active: boolean;
   createdAt: string;

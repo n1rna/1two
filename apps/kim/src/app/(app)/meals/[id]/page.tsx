@@ -8,9 +8,11 @@ import { ActiveToggle } from "@/components/active-toggle";
 import { PublishControl } from "@/components/marketplace/PublishControl";
 import { Selectable, useKimAutoContext } from "@/components/kim";
 import { MealDetailDialog } from "@/components/meals/meal-detail-dialog";
+import { GroceryListCard } from "@/components/meals/grocery-list-card";
 import {
   getMealPlan,
   updateMealPlan,
+  type GroceryItem,
   type HealthMealPlan,
   type MealItem,
   type SupplementItem,
@@ -182,6 +184,16 @@ export default function MealPlanDetailPage() {
     setPlan(updated);
   }
 
+  async function handleSaveGrocery(items: GroceryItem[], generatedAt?: string) {
+    if (!plan) return;
+    const nextContent = {
+      ...(plan.content ?? { meals: [] }),
+      grocery: { items, generatedAt },
+    };
+    const updated = await updateMealPlan(plan.id, { content: nextContent });
+    setPlan(updated);
+  }
+
   return (
     <PageShell
       title={plan.title}
@@ -224,6 +236,14 @@ export default function MealPlanDetailPage() {
             weekly={numDays > 1}
           />
         )}
+
+        <GroceryListCard
+          plan={plan}
+          meals={meals}
+          supplements={supplements}
+          planDays={numDays}
+          onSave={handleSaveGrocery}
+        />
 
         {meals.length === 0 ? (
           <EmptyState title={t("detail_empty_title")} hint={t("detail_empty_hint")} />
