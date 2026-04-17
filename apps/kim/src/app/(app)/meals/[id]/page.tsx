@@ -177,6 +177,59 @@ export default function MealPlanDetailPage() {
     return { columns: finalColumns, bySlotDay, dayTotals, planTotals };
   }, [plan, meals]);
 
+  // Resolve a selection_id to the underlying MealItem + day/slot coords.
+  // Must be defined BEFORE the early returns below so hook order stays stable
+  // across renders (the err / !plan branches skip the rest of the component).
+  const resolveMeal = useMemo(() => {
+    if (!plan) return (_id: string) => null as { meal: MealItem; day: string; slot: MealSlot; index: number } | null;
+    const map = new Map<
+      string,
+      { meal: MealItem; day: string; slot: MealSlot; index: number }
+    >();
+    for (const slot of MEAL_SLOTS) {
+      for (const [day, list] of Object.entries(bySlotDay[slot])) {
+        list.forEach((meal, index) => {
+          map.set(`${plan.id}:${day}:${slot}:${index}`, {
+            meal,
+            day,
+            slot,
+            index,
+          });
+        });
+      }
+    }
+    return (id: string) => map.get(id) ?? null;
+  }, [plan, bySlotDay]);
+
+  // Listen for Kim's propose_meal_edits tool call and open the preview dialog.
+  // Registered before early returns so hook order is stable.
+  useKimEffect("propose_meal_edits", async (data) => {
+    if (!plan) return;
+    const rawUpdates = (data?.updates ?? []) as Array<{
+      selection_id?: string;
+      patch?: Partial<MealItem>;
+      reason?: string;
+    }>;
+    const proposals: MealEditProposal[] = [];
+    for (const u of rawUpdates) {
+      if (!u.selection_id || !u.patch) continue;
+      const resolved = resolveMeal(u.selection_id);
+      if (!resolved) continue;
+      proposals.push({
+        selectionId: u.selection_id,
+        before: resolved.meal,
+        patch: u.patch,
+        reason: u.reason,
+      });
+    }
+    if (proposals.length > 0) {
+      setPreview({
+        summary: typeof data?.summary === "string" ? data.summary : undefined,
+        proposals,
+      });
+    }
+  });
+
   if (err) {
     return (
       <PageShell title="Meal plan" backHref={routes.meals} backLabel={t("detail_back_label")}>
@@ -251,28 +304,6 @@ export default function MealPlanDetailPage() {
     });
   };
 
-  // Resolve a selection_id to the underlying MealItem + day/slot coords.
-  const resolveMeal = useMemo(() => {
-    if (!plan) return (_id: string) => null as { meal: MealItem; day: string; slot: MealSlot; index: number } | null;
-    const map = new Map<
-      string,
-      { meal: MealItem; day: string; slot: MealSlot; index: number }
-    >();
-    for (const slot of MEAL_SLOTS) {
-      for (const [day, list] of Object.entries(bySlotDay[slot])) {
-        list.forEach((meal, index) => {
-          map.set(`${plan.id}:${day}:${slot}:${index}`, {
-            meal,
-            day,
-            slot,
-            index,
-          });
-        });
-      }
-    }
-    return (id: string) => map.get(id) ?? null;
-  }, [plan, bySlotDay]);
-
   const sendBulkPrompt = async (userPrompt: string) => {
     if (!plan || bulkSelected.size === 0) return;
     setBulkPending(true);
@@ -303,34 +334,6 @@ export default function MealPlanDetailPage() {
       setBulkPending(false);
     }
   };
-
-  // Listen for Kim's propose_meal_edits tool call and open the preview dialog.
-  useKimEffect("propose_meal_edits", async (data) => {
-    if (!plan) return;
-    const rawUpdates = (data?.updates ?? []) as Array<{
-      selection_id?: string;
-      patch?: Partial<MealItem>;
-      reason?: string;
-    }>;
-    const proposals: MealEditProposal[] = [];
-    for (const u of rawUpdates) {
-      if (!u.selection_id || !u.patch) continue;
-      const resolved = resolveMeal(u.selection_id);
-      if (!resolved) continue;
-      proposals.push({
-        selectionId: u.selection_id,
-        before: resolved.meal,
-        patch: u.patch,
-        reason: u.reason,
-      });
-    }
-    if (proposals.length > 0) {
-      setPreview({
-        summary: typeof data?.summary === "string" ? data.summary : undefined,
-        proposals,
-      });
-    }
-  });
 
   const applyMealEdits = async (accepted: MealEditProposal[]) => {
     if (!plan) return;
