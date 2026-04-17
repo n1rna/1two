@@ -13,7 +13,9 @@ import {
   updateMealPlan,
   type HealthMealPlan,
   type MealItem,
+  type SupplementItem,
 } from "@/lib/health";
+import { Pill } from "lucide-react";
 import { routes } from "@/lib/routes";
 import { useTranslation } from "react-i18next";
 
@@ -123,6 +125,7 @@ export default function MealPlanDetailPage() {
   );
 
   const meals = plan?.content?.meals ?? [];
+  const supplements = plan?.content?.supplements ?? [];
 
   const { columns, bySlotDay, dayTotals, planTotals } = useMemo(() => {
     const isWeekly =
@@ -214,6 +217,13 @@ export default function MealPlanDetailPage() {
           numDays={numDays}
           mealCount={meals.length}
         />
+
+        {supplements.length > 0 && (
+          <SupplementsCard
+            supplements={supplements}
+            weekly={numDays > 1}
+          />
+        )}
 
         {meals.length === 0 ? (
           <EmptyState title={t("detail_empty_title")} hint={t("detail_empty_hint")} />
@@ -587,5 +597,127 @@ function MealCell({
         )}
       </div>
     </Selectable>
+  );
+}
+
+// ─── Supplements ──────────────────────────────────────────────────────────────
+
+function SupplementsCard({
+  supplements,
+  weekly,
+}: {
+  supplements: SupplementItem[];
+  weekly: boolean;
+}) {
+  // Group by timing for the summary strip.
+  const byTiming = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of supplements) {
+      const k = s.timing || "Any time";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    }
+    return Array.from(map.entries());
+  }, [supplements]);
+
+  // Daily supplements (no day) vs per-day supplements.
+  const daily = supplements.filter((s) => !s.day || s.day.toLowerCase() === "any");
+  const byDay = useMemo(() => {
+    const m = new Map<string, SupplementItem[]>();
+    for (const s of supplements) {
+      const d = (s.day ?? "").toLowerCase();
+      if (!d || d === "any") continue;
+      const list = m.get(d) ?? [];
+      list.push(s);
+      m.set(d, list);
+    }
+    return m;
+  }, [supplements]);
+
+  return (
+    <section className="rounded-lg border border-amber-500/30 bg-amber-500/5">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-amber-500/20">
+        <div className="flex items-center gap-2">
+          <Pill className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <h2 className="text-sm font-semibold">Supplements</h2>
+          <span className="text-xs text-muted-foreground">
+            {supplements.length}{" "}
+            {supplements.length === 1 ? "item" : "items"}
+          </span>
+        </div>
+        {byTiming.length > 0 && (
+          <div className="hidden sm:flex flex-wrap gap-1.5">
+            {byTiming.map(([timing, count]) => (
+              <span
+                key={timing}
+                className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-background px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-400"
+              >
+                {timing}
+                <span className="font-mono tabular-nums">· {count}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 py-3 space-y-3">
+        {daily.length > 0 && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+              {weekly ? "Every day" : "Schedule"}
+            </div>
+            <ul className="divide-y divide-amber-500/20 rounded-md border border-amber-500/20 bg-background">
+              {daily.map((s, i) => (
+                <SupplementRow key={`daily-${i}`} s={s} />
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {weekly && byDay.size > 0 && (
+          <div className="space-y-2">
+            {WEEK_DAYS.filter((d) => byDay.has(d)).map((d) => (
+              <div key={d}>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 capitalize">
+                  {d}
+                </div>
+                <ul className="divide-y divide-amber-500/20 rounded-md border border-amber-500/20 bg-background">
+                  {byDay.get(d)!.map((s, i) => (
+                    <SupplementRow key={`${d}-${i}`} s={s} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SupplementRow({ s }: { s: SupplementItem }) {
+  return (
+    <li className="flex items-center gap-3 px-3 py-2 text-sm">
+      <Pill className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium">{s.name}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {s.dose}
+            {s.unit}
+          </span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+            {s.form}
+          </span>
+        </div>
+        {s.notes && (
+          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+            {s.notes}
+          </div>
+        )}
+      </div>
+      <span className="shrink-0 text-xs text-muted-foreground">
+        {s.timing}
+      </span>
+    </li>
   );
 }

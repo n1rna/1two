@@ -451,8 +451,39 @@ func mealTools() []llms.Tool {
 						"tags":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Tags like 'high-protein', 'vegetarian', 'quick-prep'."},
 					}, "required": []string{"meal_type", "name", "calories"},
 				}},
+				"supplements": supplementArraySchema(),
 			}, "required": []string{"plan_type", "title", "meals"}},
 		}},
+		{Type: "function", Function: &llms.FunctionDefinition{
+			Name:        "add_supplements_to_plan",
+			Description: "Add one or more supplements (pills, vitamins, powders, etc.) to an existing meal plan without regenerating it.",
+			Parameters: map[string]any{"type": "object", "properties": map[string]any{
+				"plan_id":     map[string]any{"type": "string", "description": "Target meal plan ID."},
+				"supplements": supplementArraySchema(),
+			}, "required": []string{"plan_id", "supplements"}},
+		}},
+	}
+}
+
+// supplementArraySchema is the shared JSON-schema for arrays of supplements,
+// reused by generate_meal_plan and add_supplements_to_plan.
+func supplementArraySchema() map[string]any {
+	return map[string]any{
+		"type":        "array",
+		"description": "Supplements to include in the plan. Supplements are tracked separately from meals and don't contribute to caloric macros.",
+		"items": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"day":    map[string]any{"type": "string", "description": "Optional day (monday..sunday). Omit to take every day."},
+				"name":   map[string]any{"type": "string"},
+				"form":   map[string]any{"type": "string", "enum": []string{"pill", "capsule", "powder", "liquid", "gummy", "other"}},
+				"dose":   map[string]any{"type": "number"},
+				"unit":   map[string]any{"type": "string", "description": "e.g. mg, mcg, IU, g, ml, drops, scoop."},
+				"timing": map[string]any{"type": "string", "description": "e.g. 'morning', 'with breakfast', 'before bed'."},
+				"notes":  map[string]any{"type": "string"},
+			},
+			"required": []string{"name", "form", "dose", "unit", "timing"},
+		},
 	}
 }
 

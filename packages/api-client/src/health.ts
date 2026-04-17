@@ -55,6 +55,22 @@ export interface WeightEntry {
   createdAt: string;
 }
 
+export interface SupplementItem {
+  /** Optional day ("monday", "tuesday", etc). When omitted, the supplement is taken every day. */
+  day?: string;
+  name: string;
+  /** Physical form. */
+  form: "pill" | "capsule" | "powder" | "liquid" | "gummy" | "other";
+  /** Numeric dose. */
+  dose: number;
+  /** Dose unit: "mg", "mcg", "IU", "g", "ml", "drops", "scoop", etc. */
+  unit: string;
+  /** When to take it: "morning", "with breakfast", "before bed", etc. */
+  timing: string;
+  /** Optional free-form notes. */
+  notes?: string;
+}
+
 export interface HealthMealPlan {
   id: string;
   userId: string;
@@ -64,6 +80,7 @@ export interface HealthMealPlan {
   targetCalories: number | null;
   content: {
     meals: MealItem[];
+    supplements?: SupplementItem[];
   };
   active: boolean;
   createdAt: string;

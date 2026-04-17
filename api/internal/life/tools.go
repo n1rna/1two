@@ -74,6 +74,14 @@ func toolActionTitle(toolName string, args map[string]any) string {
 	}
 }
 
+// ExecuteToolWithSource is a compatibility wrapper used by the kim agent to
+// pass an optional source descriptor (e.g. a journey event tag) alongside a
+// tool call. The source is currently ignored here; richer stamping lives on
+// the journey branch. Exposed as a shim so both call-sites compile.
+func ExecuteToolWithSource(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall, _ map[string]any) string {
+	return ExecuteTool(ctx, db, gcalClient, userID, autoApprove, call)
+}
+
 // ExecuteTool dispatches a single tool call to the appropriate DB operation and
 // returns a JSON string result (always valid JSON).
 // When autoApprove is false, write operations are intercepted and converted to
@@ -145,6 +153,8 @@ func ExecuteTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 		return toolHealthLogWeight(ctx, db, userID, call.FunctionCall.Arguments)
 	case "generate_meal_plan":
 		return toolHealthGenerateMealPlan(ctx, db, userID, call.FunctionCall.Arguments)
+	case "add_supplements_to_plan":
+		return toolHealthAddSupplements(ctx, db, userID, call.FunctionCall.Arguments)
 	case "create_session":
 		return toolHealthCreateSession(ctx, db, userID, call.FunctionCall.Arguments)
 	case "update_session":
@@ -1213,9 +1223,10 @@ func toolHealthLogWeight(ctx context.Context, db *sql.DB, userID, args string) s
 
 func toolHealthGenerateMealPlan(ctx context.Context, db *sql.DB, userID, args string) string {
 	var params struct {
-		PlanType string          `json:"plan_type"`
-		Title    string          `json:"title"`
-		Meals    json.RawMessage `json:"meals"`
+		PlanType    string          `json:"plan_type"`
+		Title       string          `json:"title"`
+		Meals       json.RawMessage `json:"meals"`
+		Supplements json.RawMessage `json:"supplements,omitempty"`
 	}
 	if err := json.Unmarshal([]byte(args), &params); err != nil {
 		return jsonError("invalid parameters")
@@ -1226,7 +1237,11 @@ func toolHealthGenerateMealPlan(ctx context.Context, db *sql.DB, userID, args st
 	db.QueryRowContext(ctx, `SELECT diet_type, target_calories FROM health_profiles WHERE user_id=$1`, userID).Scan(&dietType, &targetCals)
 
 	id := uuid.NewString()
-	content, _ := json.Marshal(map[string]any{"meals": json.RawMessage(params.Meals)})
+	contentMap := map[string]any{"meals": json.RawMessage(params.Meals)}
+	if len(params.Supplements) > 0 {
+		contentMap["supplements"] = json.RawMessage(params.Supplements)
+	}
+	content, _ := json.Marshal(contentMap)
 	var tc *int
 	if targetCals.Valid {
 		v := int(targetCals.Int64)
@@ -1240,6 +1255,62 @@ func toolHealthGenerateMealPlan(ctx context.Context, db *sql.DB, userID, args st
 		return jsonError("failed to save meal plan: " + err.Error())
 	}
 	return fmt.Sprintf(`{"success":true,"id":"%s","title":"%s"}`, id, params.Title)
+}
+
+// toolHealthAddSupplements appends supplements to an existing meal plan's
+// content JSONB. Existing supplements are preserved.
+func toolHealthAddSupplements(ctx context.Context, db *sql.DB, userID, args string) string {
+	var params struct {
+		PlanID      string          `json:"plan_id"`
+		Supplements json.RawMessage `json:"supplements"`
+	}
+	if err := json.Unmarshal([]byte(args), &params); err != nil {
+		return jsonError("invalid parameters")
+	}
+	if params.PlanID == "" || len(params.Supplements) == 0 {
+		return jsonError("plan_id and supplements are required")
+	}
+
+	var incoming []map[string]any
+	if err := json.Unmarshal(params.Supplements, &incoming); err != nil {
+		return jsonError("invalid supplements payload")
+	}
+
+	var rawContent string
+	err := db.QueryRowContext(ctx,
+		`SELECT content FROM health_meal_plans WHERE id = $1 AND user_id = $2`,
+		params.PlanID, userID).Scan(&rawContent)
+	if err == sql.ErrNoRows {
+		return jsonError("meal plan not found")
+	}
+	if err != nil {
+		log.Printf("life agent: load meal plan for supplements: %v", err)
+		return jsonError("failed to load meal plan")
+	}
+
+	var content map[string]any
+	if err := json.Unmarshal([]byte(rawContent), &content); err != nil {
+		content = map[string]any{}
+	}
+
+	existing, _ := content["supplements"].([]any)
+	for _, s := range incoming {
+		existing = append(existing, s)
+	}
+	content["supplements"] = existing
+
+	newContent, err := json.Marshal(content)
+	if err != nil {
+		return jsonError("failed to marshal content")
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`UPDATE health_meal_plans SET content = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`,
+		string(newContent), params.PlanID, userID); err != nil {
+		log.Printf("life agent: update meal plan supplements: %v", err)
+		return jsonError("failed to save supplements")
+	}
+	return fmt.Sprintf(`{"success":true,"added":%d}`, len(incoming))
 }
 
 type healthExerciseInput struct {
