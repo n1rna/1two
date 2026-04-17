@@ -7,6 +7,7 @@ import { PageShell, Card, EmptyState } from "@/components/page-shell";
 import { ActiveToggle } from "@/components/active-toggle";
 import { PublishControl } from "@/components/marketplace/PublishControl";
 import { Selectable, useKimAutoContext } from "@/components/kim";
+import { MealDetailDialog } from "@/components/meals/meal-detail-dialog";
 import {
   getMealPlan,
   updateMealPlan,
@@ -87,6 +88,11 @@ export default function MealPlanDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [plan, setPlan] = useState<HealthMealPlan | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [detail, setDetail] = useState<{
+    meal: MealItem;
+    context: string;
+    selectionId: string;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -218,9 +224,21 @@ export default function MealPlanDetailPage() {
             bySlotDay={bySlotDay}
             dayTotals={dayTotals}
             targetKcal={targetKcal}
+            onInspect={(meal, context, selectionId) =>
+              setDetail({ meal, context, selectionId })
+            }
           />
         )}
       </div>
+      <MealDetailDialog
+        open={!!detail}
+        onOpenChange={(next) => {
+          if (!next) setDetail(null);
+        }}
+        meal={detail?.meal ?? null}
+        context={detail?.context}
+        selectionId={detail?.selectionId}
+      />
     </PageShell>
   );
 }
@@ -351,12 +369,14 @@ function WeekGrid({
   bySlotDay,
   dayTotals,
   targetKcal,
+  onInspect,
 }: {
   planId: string;
   columns: (WeekDay | "any")[];
   bySlotDay: Record<MealSlot, Record<string, MealItem[]>>;
   dayTotals: Record<string, DayTotals>;
   targetKcal: number | null;
+  onInspect: (meal: MealItem, context: string, selectionId: string) => void;
 }) {
   const { t } = useTranslation("meals");
   const colTemplate = `minmax(112px, 128px) repeat(${columns.length}, minmax(180px, 1fr))`;
@@ -425,6 +445,7 @@ function WeekGrid({
                             slot={slot}
                             index={i}
                             meal={m}
+                            onInspect={onInspect}
                           />
                         ))
                       )}
@@ -490,57 +511,81 @@ function MealCell({
   slot,
   index,
   meal,
+  onInspect,
 }: {
   planId: string;
   day: string;
   slot: MealSlot;
   index: number;
   meal: MealItem;
+  onInspect: (meal: MealItem, context: string, selectionId: string) => void;
 }) {
   const totalMacros = (meal.protein_g ?? 0) + (meal.carbs_g ?? 0) + (meal.fat_g ?? 0);
   const pPct = totalMacros > 0 ? ((meal.protein_g ?? 0) / totalMacros) * 100 : 0;
   const cPct = totalMacros > 0 ? ((meal.carbs_g ?? 0) / totalMacros) * 100 : 0;
   const fPct = totalMacros > 0 ? ((meal.fat_g ?? 0) / totalMacros) * 100 : 0;
+  const selectionId = `${planId}:${day}:${slot}:${index}`;
+  const dayLabel = day === "any" ? "" : day.charAt(0).toUpperCase() + day.slice(1);
+  const slotLabel = slot.charAt(0).toUpperCase() + slot.slice(1);
+  const context = dayLabel ? `${dayLabel} · ${slotLabel}` : slotLabel;
 
   return (
     <Selectable
       kind="meal-item"
-      id={`${planId}:${day}:${slot}:${index}`}
+      id={selectionId}
       label={meal.name}
       snapshot={meal as unknown as Record<string, unknown>}
       className="group rounded-md border border-border bg-background hover:border-foreground/20 hover:bg-accent/40 transition-colors p-2.5 cursor-pointer data-[selected=true]:border-foreground/40 data-[selected=true]:bg-accent"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium leading-snug line-clamp-2">
-            {meal.name}
-          </div>
-          {meal.description && (
-            <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2 leading-snug">
-              {meal.description}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          // Modifier clicks are handled by Selectable (adds to Kim context);
+          // a plain click opens the detail dialog.
+          if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+          onInspect(meal, context, selectionId);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onInspect(meal, context, selectionId);
+          }
+        }}
+        className="outline-none"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium leading-snug line-clamp-2">
+              {meal.name}
             </div>
-          )}
-        </div>
-        <div className="shrink-0 text-right">
-          <div className="text-sm font-semibold tabular-nums leading-none">
-            {meal.calories}
+            {meal.description && (
+              <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2 leading-snug">
+                {meal.description}
+              </div>
+            )}
           </div>
-          <div className="text-[10px] text-muted-foreground mt-0.5">kcal</div>
+          <div className="shrink-0 text-right">
+            <div className="text-sm font-semibold tabular-nums leading-none">
+              {meal.calories}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">kcal</div>
+          </div>
         </div>
-      </div>
 
-      {totalMacros > 0 && (
-        <div className="mt-2 space-y-1">
-          <div className="h-1 w-full rounded-full bg-muted overflow-hidden flex">
-            <div className="bg-sky-500" style={{ width: `${pPct}%` }} />
-            <div className="bg-teal-500" style={{ width: `${cPct}%` }} />
-            <div className="bg-rose-500" style={{ width: `${fPct}%` }} />
+        {totalMacros > 0 && (
+          <div className="mt-2 space-y-1">
+            <div className="h-1 w-full rounded-full bg-muted overflow-hidden flex">
+              <div className="bg-sky-500" style={{ width: `${pPct}%` }} />
+              <div className="bg-teal-500" style={{ width: `${cPct}%` }} />
+              <div className="bg-rose-500" style={{ width: `${fPct}%` }} />
+            </div>
+            <div className="text-[10px] text-muted-foreground tabular-nums">
+              {meal.protein_g ?? 0}p · {meal.carbs_g ?? 0}c · {meal.fat_g ?? 0}f
+            </div>
           </div>
-          <div className="text-[10px] text-muted-foreground tabular-nums">
-            {meal.protein_g ?? 0}p · {meal.carbs_g ?? 0}c · {meal.fat_g ?? 0}f
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </Selectable>
   );
 }

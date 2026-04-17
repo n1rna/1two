@@ -71,6 +71,12 @@ export interface HealthMealPlan {
   forkedFromMpId?: string | null;
 }
 
+export interface MealIngredient {
+  name: string;
+  /** Free-form quantity string: e.g. "200g", "2 cups", "1 tbsp". */
+  quantity?: string;
+}
+
 export interface MealItem {
   day?: string;
   meal_type: string;
@@ -80,6 +86,16 @@ export interface MealItem {
   protein_g?: number;
   carbs_g?: number;
   fat_g?: number;
+  /** Fiber in grams (optional, shown in detail view). */
+  fiber_g?: number;
+  /** Ingredient list with optional quantities. */
+  ingredients?: MealIngredient[];
+  /** Free-form preparation steps or chef notes. */
+  prep_notes?: string;
+  /** Tags like "high-protein", "vegetarian", "quick-prep". */
+  tags?: string[];
+  /** Optional photo URL (not fetched — just displayed if present). */
+  photo_url?: string;
 }
 
 export interface HealthSession {

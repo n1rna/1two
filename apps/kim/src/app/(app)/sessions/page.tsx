@@ -35,23 +35,18 @@ function difficultyColor(level?: string): string {
   return DIFFICULTY_COLORS[level ?? ""] ?? "bg-muted text-muted-foreground";
 }
 
-type ActiveFilter = "all" | "active" | "inactive";
-
 export default function SessionsPage() {
   const { t } = useTranslation("sessions");
   const router = useRouter();
   const [sessions, setSessions] = useState<HealthSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<ActiveFilter>("all");
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const activeParam =
-        filter === "all" ? undefined : filter === "active";
-      setSessions(await listHealthSessions(activeParam));
+      setSessions(await listHealthSessions());
     } catch (e) {
       setError(String(e));
     } finally {
@@ -61,8 +56,7 @@ export default function SessionsPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, []);
 
   async function remove(id: string) {
     if (!confirm(t("confirm_delete"))) return;
@@ -93,15 +87,6 @@ export default function SessionsPage() {
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           </button>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as ActiveFilter)}
-            className="text-xs bg-background border border-border rounded-md px-2 h-7"
-          >
-            <option value="all">{t("filter_all")}</option>
-            <option value="active">{t("filter_active")}</option>
-            <option value="inactive">{t("filter_inactive")}</option>
-          </select>
           <div className="flex-1" />
           <Link
             href={routes.marketplace({ kind: "gym_session" })}
