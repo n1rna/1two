@@ -14,10 +14,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/riverqueue/river"
+
 	"github.com/n1rna/1tt/api/internal/ai"
+	"github.com/n1rna/1tt/api/internal/jobs"
 	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/middleware"
-	"github.com/n1rna/1tt/api/internal/tracked"
 )
 
 // ----- record types -----
@@ -1622,72 +1624,24 @@ func RespondToActionable(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 		}
 
 		// Feed the response to the agent so it can take follow-up actions
-		// (update calendar, create tasks, etc.). Run in background through
-		// tracked.Run so every follow-up invocation lands a visible row in
-		// life_agent_runs.
+		// (update calendar, create tasks, etc.). The cmd/worker process
+		// drains this queue and wraps the agent call in tracked.RunSync so
+		// the activity feed keeps working.
 		if req.Action != "dismiss" {
-			var aTitle, aType string
-			_ = db.QueryRowContext(r.Context(),
-				`SELECT title, type FROM life_actionables WHERE id = $1`,
-				actionableID,
-			).Scan(&aTitle, &aType)
-
-			tracked.Run(context.Background(), db, tracked.Meta{
-				UserID:      userID,
-				Kind:        "actionable_followup",
-				Title:       "Following up on your response",
-				Subtitle:    aTitle,
-				Trigger:     actionableID,
-				EntityID:    actionableID,
-				EntityTitle: aTitle,
-			}, func(ctx context.Context, runID string) (tracked.RunOutput, error) {
+			if rc := RiverClient(); rc != nil {
 				responseStr, _ := json.Marshal(responseData)
-				chatResult, err := agent.ProcessActionableResponse(
-					ctx, db, userID,
-					life.ActionableRecord{ID: actionableID, Type: aType, Title: aTitle},
-					string(responseStr),
-				)
-				if err != nil {
-					log.Printf("life: process actionable response %s: %v", actionableID, err)
-					return tracked.RunOutput{Summary: "Follow-up failed"}, err
+				if _, err := rc.Insert(context.Background(), jobs.ActionableFollowupArgs{
+					UserID:       userID,
+					ActionableID: actionableID,
+					Action:       req.Action,
+					Response:     string(responseStr),
+				}, &river.InsertOpts{
+					Queue:       jobs.QueueAgent,
+					MaxAttempts: 3,
+				}); err != nil {
+					log.Printf("life: river insert followup %s: %v", actionableID, err)
 				}
-
-				// Store the agent's follow-up effects on the actionable so we can
-				// verify that actions were actually taken.
-				if chatResult != nil && len(chatResult.Effects) > 0 {
-					var effectsSummary []map[string]any
-					for _, eff := range chatResult.Effects {
-						item := map[string]any{"tool": eff.Tool, "id": eff.ID}
-						var parsed map[string]any
-						if json.Unmarshal([]byte(eff.Result), &parsed) == nil {
-							item["data"] = parsed
-						}
-						effectsSummary = append(effectsSummary, item)
-					}
-
-					// Merge effects into the existing response JSONB
-					var existing map[string]any
-					var existingJSON sql.NullString
-					_ = db.QueryRowContext(ctx,
-						`SELECT response FROM life_actionables WHERE id = $1`, actionableID,
-					).Scan(&existingJSON)
-					if existingJSON.Valid {
-						_ = json.Unmarshal([]byte(existingJSON.String), &existing)
-					}
-					if existing == nil {
-						existing = map[string]any{}
-					}
-					existing["follow_up_effects"] = effectsSummary
-					updatedJSON, _ := json.Marshal(existing)
-					_, _ = db.ExecContext(ctx,
-						`UPDATE life_actionables SET response = $1 WHERE id = $2`,
-						string(updatedJSON), actionableID,
-					)
-					log.Printf("life: stored %d follow-up effects on actionable %s", len(effectsSummary), actionableID)
-				}
-
-				return tracked.FromToolResult(chatResult, ""), nil
-			})
+			}
 		}
 
 		json.NewEncoder(w).Encode(map[string]any{

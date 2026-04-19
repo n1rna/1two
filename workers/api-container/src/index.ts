@@ -3,7 +3,6 @@ import { DurableObject } from "cloudflare:workers";
 
 interface Env {
   API_CONTAINER: DurableObjectNamespace<ApiContainer>;
-  SCHEDULER_QUEUE: Queue;
   DATABASE_URL: string;
   ALLOWED_ORIGINS: string;
   TURNSTILE_SECRET_KEY: string;
@@ -41,12 +40,6 @@ interface Env {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   GOOGLE_REDIRECT_URI: string;
-}
-
-// Message types that the container can process.
-interface InternalMessage {
-  type: string;
-  data?: unknown;
 }
 
 export class ApiContainer extends Container<Env> {
@@ -111,24 +104,6 @@ export class ApiContainer extends Container<Env> {
   }
 }
 
-/** Send a typed message to the Go container. */
-async function sendMessage(
-  stub: Container<Env>,
-  secret: string,
-  msg: InternalMessage
-): Promise<Response> {
-  return stub.fetch(
-    new Request("http://internal/api/v1/internal/message", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Internal-Secret": secret,
-      },
-      body: JSON.stringify(msg),
-    })
-  );
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const stub = getContainer(env.API_CONTAINER);
@@ -140,123 +115,5 @@ export default {
     }
 
     return stub.fetch(request);
-  },
-
-  async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    const stub = getContainer(env.API_CONTAINER);
-
-    try {
-      await stub.startAndWaitForPorts();
-    } catch (e) {
-      console.error("Scheduled: container startup failed:", e);
-      return;
-    }
-
-    const secret = env.INTERNAL_SECRET ?? "";
-
-    // Daily cleanup at 3 AM UTC
-    if (event.cron === "0 3 * * *") {
-      const res = await sendMessage(stub, secret, { type: "cleanup" });
-      console.log(`Cleanup: ${res.status} ${await res.text()}`);
-    }
-
-    // Life scheduler every 15 minutes — check which cycles are due and enqueue them.
-    // We run BOTH the scheduler check and the summary check on every tick,
-    // and we never early-return between them. Each is wrapped in its own
-    // try/catch so a failure in one doesn't suppress the other.
-    if (event.cron === "*/15 * * * *") {
-      // ── Scheduler cycles ──
-      try {
-        const res = await sendMessage(stub, secret, {
-          type: "life_scheduler_check",
-        });
-
-        if (!res.ok) {
-          console.error(`Scheduler check failed: ${res.status} ${await res.text()}`);
-        } else {
-          const body = (await res.json()) as {
-            cycles: { user_id: string; cycle: string }[];
-          };
-          const cycles = body.cycles ?? [];
-
-          if (cycles.length === 0) {
-            console.log("Scheduler: no cycles due");
-          } else {
-            for (const cycle of cycles) {
-              await env.SCHEDULER_QUEUE.send({
-                type: "life_scheduler_run",
-                data: { user_id: cycle.user_id, cycle: cycle.cycle },
-              });
-            }
-            console.log(`Scheduler: enqueued ${cycles.length} cycle(s)`);
-          }
-        }
-      } catch (e) {
-        console.error("Scheduler check threw:", e);
-      }
-
-      // ── Day summaries ── (always runs, independent of scheduler outcome)
-      try {
-        const summaryRes = await sendMessage(stub, secret, {
-          type: "life_summary_check",
-        });
-
-        if (!summaryRes.ok) {
-          console.error(`Summary check failed: ${summaryRes.status} ${await summaryRes.text()}`);
-        } else {
-          const summaryBody = (await summaryRes.json()) as {
-            stale: { user_id: string; date: string }[];
-          };
-          const stale = summaryBody.stale ?? [];
-
-          for (const item of stale) {
-            await env.SCHEDULER_QUEUE.send({
-              type: "life_summary_generate",
-              data: { user_id: item.user_id, date: item.date },
-            });
-          }
-
-          console.log(`Summaries: checked, enqueued ${stale.length} regeneration(s)`);
-        }
-      } catch (e) {
-        console.error("Summary check threw:", e);
-      }
-    }
-  },
-
-  // Queue consumer — processes one message at a time
-  async queue(
-    batch: MessageBatch<InternalMessage>,
-    env: Env
-  ): Promise<void> {
-    const stub = getContainer(env.API_CONTAINER);
-
-    try {
-      await stub.startAndWaitForPorts();
-    } catch (e) {
-      console.error("Queue: container startup failed:", e);
-      batch.retryAll();
-      return;
-    }
-
-    const secret = env.INTERNAL_SECRET ?? "";
-
-    for (const msg of batch.messages) {
-      try {
-        const res = await sendMessage(stub, secret, msg.body);
-        const text = await res.text();
-
-        if (res.ok) {
-          console.log(`Queue [${msg.body.type}]: ${res.status} ${text}`);
-          msg.ack();
-        } else {
-          console.error(`Queue [${msg.body.type}]: ${res.status} ${text}`);
-          msg.retry();
-        }
-      } catch (e) {
-        console.error(`Queue [${msg.body.type}]: error:`, e);
-        msg.retry();
-      }
-    }
   },
 };
