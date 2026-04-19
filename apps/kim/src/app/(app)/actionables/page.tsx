@@ -4,13 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
+  Archive,
+  Bell,
+  Brain,
+  Calendar as CalendarIcon,
   Check,
   CheckSquare,
   ChevronDown,
   ChevronRight,
+  Clock,
+  Filter,
+  History,
+  ListTodo,
+  Repeat,
   RefreshCw,
+  Search,
   Sparkles,
   Square,
+  Utensils,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,72 +32,93 @@ import {
   getLifeAgentRun,
   listLifeActionables,
   respondToActionable,
-  type JourneyTrigger,
   type LifeActionable,
   type LifeAgentRun,
 } from "@/lib/life";
+import {
+  BUCKET_ORDER,
+  DOMAIN_ORDER,
+  type ActionableDomain,
+  type TimeBucket,
+  bucketOf,
+  domainOf,
+  groupByBucket,
+  matchesSearch,
+} from "@/lib/actionables-group";
 import { useTranslation } from "react-i18next";
 
-// Triggers we explicitly know how to label. Unknown triggers fall back to the
-// raw string so the group still renders rather than silently disappearing.
-const KNOWN_JOURNEY_TRIGGERS: JourneyTrigger[] = [
-  "gym_session_updated",
-  "meal_plan_updated",
-  "routine_updated",
-];
+const DOMAIN_ICON: Record<ActionableDomain, React.ElementType> = {
+  calendar: CalendarIcon,
+  task: ListTodo,
+  routine: Repeat,
+  meal: Utensils,
+  memory: Brain,
+  suggestion: Sparkles,
+  other: Bell,
+};
 
-function isJourneyActionable(a: LifeActionable): boolean {
-  return a.source?.kind === "journey" && typeof a.source.trigger === "string";
+const BUCKET_ICON: Record<TimeBucket, React.ElementType> = {
+  tomorrow: CalendarIcon,
+  today: Clock,
+  yesterday: History,
+  older: Archive,
+};
+
+function bucketAccent(b: TimeBucket): string {
+  if (b === "today") return "text-teal-500";
+  if (b === "tomorrow") return "text-primary";
+  return "text-muted-foreground";
 }
 
-function groupPendingByJourney(pending: LifeActionable[]): {
-  journeyGroups: { trigger: string; items: LifeActionable[] }[];
-  other: LifeActionable[];
-} {
-  const byTrigger = new Map<string, LifeActionable[]>();
-  const other: LifeActionable[] = [];
-  for (const a of pending) {
-    if (isJourneyActionable(a)) {
-      const trig = a.source!.trigger as string;
-      const bucket = byTrigger.get(trig);
-      if (bucket) bucket.push(a);
-      else byTrigger.set(trig, [a]);
-    } else {
-      other.push(a);
-    }
-  }
-  // Order known triggers first (stable ordering), unknown triggers last.
-  const ordered: { trigger: string; items: LifeActionable[] }[] = [];
-  for (const t of KNOWN_JOURNEY_TRIGGERS) {
-    const items = byTrigger.get(t);
-    if (items) {
-      ordered.push({ trigger: t, items });
-      byTrigger.delete(t);
-    }
-  }
-  for (const [t, items] of byTrigger) {
-    ordered.push({ trigger: t, items });
-  }
-  return { journeyGroups: ordered, other };
+function parseCsv(value: string | null): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toggleInArray<T extends string>(arr: T[], v: T): T[] {
+  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
 
 export default function ActionablesPage() {
   const { t } = useTranslation("actionables");
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Deep-link filter: when ?run=<id> is present the page only shows
-  // actionables this run produced. Populated from agent-runs detail.
+
   const runId = searchParams.get("run");
   const [runFilter, setRunFilter] = useState<LifeAgentRun | null>(null);
   const [runFilterLoading, setRunFilterLoading] = useState(false);
+
   const [actionables, setActionables] = useState<LifeActionable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showResolved, setShowResolved] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  // Journey super-group collapsible state. Collapsed by default when > 5 items.
-  const [journeyCollapsed, setJourneyCollapsed] = useState(false);
+
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  const [bucketFilter, setBucketFilter] = useState<TimeBucket[]>(
+    () => parseCsv(searchParams.get("b")) as TimeBucket[],
+  );
+  const [domainFilter, setDomainFilter] = useState<ActionableDomain[]>(
+    () => parseCsv(searchParams.get("d")) as ActionableDomain[],
+  );
+
+  // Mirror filter state into the URL so deep-links preserve what the user sees.
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (search) params.set("q", search);
+    else params.delete("q");
+    if (bucketFilter.length) params.set("b", bucketFilter.join(","));
+    else params.delete("b");
+    if (domainFilter.length) params.set("d", domainFilter.join(","));
+    else params.delete("d");
+    const qs = params.toString();
+    router.replace(qs ? `/actionables?${qs}` : "/actionables", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, bucketFilter, domainFilter]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,9 +136,6 @@ export default function ActionablesPage() {
     load();
   }, [load]);
 
-  // Hydrate the run filter whenever the ?run query param changes. The
-  // endpoint returns the full run payload, and we only need its produced
-  // actionable ids to filter client-side.
   useEffect(() => {
     let cancelled = false;
     if (!runId) {
@@ -130,8 +159,11 @@ export default function ActionablesPage() {
   }, [runId]);
 
   const clearRunFilter = useCallback(() => {
-    router.replace("/actionables");
-  }, [router]);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("run");
+    const qs = params.toString();
+    router.replace(qs ? `/actionables?${qs}` : "/actionables", { scroll: false });
+  }, [router, searchParams]);
 
   const handleRespond = useCallback(
     async (id: string, action: string, data?: unknown) => {
@@ -159,9 +191,6 @@ export default function ActionablesPage() {
     [],
   );
 
-  // When a run filter is active, restrict the dataset to actionables the
-  // run produced. Works across pending + resolved so revisiting a completed
-  // run still shows the items the user has already actioned.
   const filteredActionables = useMemo(() => {
     if (!runFilter) return actionables;
     const allowed = new Set(runFilter.producedActionableIds);
@@ -172,8 +201,12 @@ export default function ActionablesPage() {
     () => filteredActionables.filter((a) => a.status === "pending"),
     [filteredActionables],
   );
-  const resolved = filteredActionables.filter((a) => a.status !== "pending");
+  const resolved = useMemo(
+    () => filteredActionables.filter((a) => a.status !== "pending"),
+    [filteredActionables],
+  );
 
+  // Sort once (earliest dueAt first, dueless at the end newest-first).
   const sortedPending = useMemo(
     () =>
       [...pending].sort((a, b) => {
@@ -188,23 +221,57 @@ export default function ActionablesPage() {
     [pending],
   );
 
-  // Split the sorted list into a Journey super-group (by trigger) and a flat
-  // fallback list. Sort order within each group is preserved from sortedPending.
-  const { journeyGroups, other: otherPending } = useMemo(
-    () => groupPendingByJourney(sortedPending),
-    [sortedPending],
+  // Apply search + domain + bucket in sequence. We also compute pool-level
+  // counts for filter chip badges (counts reflect what the chip would show
+  // if toggled, i.e. ignore its own axis).
+  const afterSearch = useMemo(
+    () => sortedPending.filter((a) => matchesSearch(a, search)),
+    [sortedPending, search],
   );
 
-  const journeyCount = useMemo(
-    () => journeyGroups.reduce((n, g) => n + g.items.length, 0),
-    [journeyGroups],
-  );
+  const bucketCounts = useMemo(() => {
+    const pool =
+      domainFilter.length === 0
+        ? afterSearch
+        : afterSearch.filter((a) => domainFilter.includes(domainOf(a)));
+    const map: Record<TimeBucket, number> = {
+      tomorrow: 0,
+      today: 0,
+      yesterday: 0,
+      older: 0,
+    };
+    for (const a of pool) map[bucketOf(a)]++;
+    return map;
+  }, [afterSearch, domainFilter]);
 
-  // Auto-collapse when the journey section is large so the flat list stays
-  // visible. User can toggle freely after that.
-  useEffect(() => {
-    setJourneyCollapsed(journeyCount > 5);
-  }, [journeyCount]);
+  const domainCounts = useMemo(() => {
+    const pool =
+      bucketFilter.length === 0
+        ? afterSearch
+        : afterSearch.filter((a) => bucketFilter.includes(bucketOf(a)));
+    const map: Record<ActionableDomain, number> = {
+      calendar: 0,
+      task: 0,
+      routine: 0,
+      meal: 0,
+      memory: 0,
+      suggestion: 0,
+      other: 0,
+    };
+    for (const a of pool) map[domainOf(a)]++;
+    return map;
+  }, [afterSearch, bucketFilter]);
+
+  const visiblePending = useMemo(() => {
+    let out = afterSearch;
+    if (domainFilter.length)
+      out = out.filter((a) => domainFilter.includes(domainOf(a)));
+    if (bucketFilter.length)
+      out = out.filter((a) => bucketFilter.includes(bucketOf(a)));
+    return out;
+  }, [afterSearch, domainFilter, bucketFilter]);
+
+  const grouped = useMemo(() => groupByBucket(visiblePending), [visiblePending]);
 
   const toggleSelect = (id: string) => {
     setSelected((cur) => {
@@ -215,14 +282,14 @@ export default function ActionablesPage() {
     });
   };
 
-  const allPendingSelected =
-    sortedPending.length > 0 && selected.size === sortedPending.length;
+  const allVisibleSelected =
+    visiblePending.length > 0 && selected.size === visiblePending.length;
 
   const toggleSelectAll = () => {
-    if (allPendingSelected) {
+    if (allVisibleSelected) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(sortedPending.map((a) => a.id)));
+      setSelected(new Set(visiblePending.map((a) => a.id)));
     }
   };
 
@@ -267,13 +334,24 @@ export default function ActionablesPage() {
     }
   };
 
+  const hasActiveFilters =
+    !!search || bucketFilter.length > 0 || domainFilter.length > 0;
+  const clearFilters = () => {
+    setSearch("");
+    setBucketFilter([]);
+    setDomainFilter([]);
+  };
+
   return (
     <ListShell
       title={t("page_title")}
       subtitle={
         pending.length > 0
           ? resolved.length
-            ? t("subtitle_with_counts", { pendingCount: pending.length, resolvedCount: resolved.length })
+            ? t("subtitle_with_counts", {
+                pendingCount: pending.length,
+                resolvedCount: resolved.length,
+              })
             : t("subtitle_with_pending", { pendingCount: pending.length })
           : t("subtitle_empty")
       }
@@ -287,18 +365,24 @@ export default function ActionablesPage() {
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
           </button>
 
-          {sortedPending.length > 0 && (
+          {visiblePending.length > 0 && (
             <button
               onClick={toggleSelectAll}
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
-              title={allPendingSelected ? t("clear_selection_title") : t("select_all_pending_title")}
+              title={
+                allVisibleSelected
+                  ? t("clear_selection_title")
+                  : t("select_all_pending_title")
+              }
             >
-              {allPendingSelected ? (
+              {allVisibleSelected ? (
                 <CheckSquare className="h-3.5 w-3.5" />
               ) : (
                 <Square className="h-3.5 w-3.5" />
               )}
-              {allPendingSelected ? t("clear_selection", { ns: "common" }) : t("select_all", { ns: "common" })}
+              {allVisibleSelected
+                ? t("clear_selection", { ns: "common" })
+                : t("select_all", { ns: "common" })}
             </button>
           )}
 
@@ -319,10 +403,8 @@ export default function ActionablesPage() {
       }
     >
       <div>
-        {/* Run filter banner — surfaced when the page was opened from the
-            Kim drawer's "View N actionables" deep link. */}
         {runId && (
-          <div className="mx-8 mt-4 flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] px-3 py-2 text-xs">
+          <div className="mx-4 sm:mx-8 mt-4 flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] px-3 py-2 text-xs">
             <Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               {runFilterLoading ? (
@@ -353,9 +435,115 @@ export default function ActionablesPage() {
           </div>
         )}
 
-        {/* Bulk action bar */}
+        {/* Filters panel: search + bucket chips + domain chips. */}
+        {pending.length > 0 && (
+          <div className="mx-4 sm:mx-8 mt-4 space-y-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/70" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("search_placeholder")}
+                className="w-full h-8 pl-8 pr-8 rounded-md border border-border bg-background text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {BUCKET_ORDER.map((b) => {
+                const count = bucketCounts[b];
+                const active = bucketFilter.includes(b);
+                const Icon = BUCKET_ICON[b];
+                const accent = bucketAccent(b);
+                if (count === 0 && !active) return null;
+                return (
+                  <button
+                    key={b}
+                    onClick={() =>
+                      setBucketFilter((cur) => toggleInArray(cur, b))
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1 h-6 px-2 rounded-full border text-[11px] transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
+                    )}
+                  >
+                    <Icon
+                      className={cn("h-3 w-3", !active && accent)}
+                    />
+                    <span>{t(`bucket_${b}`)}</span>
+                    <span
+                      className={cn(
+                        "text-[10px]",
+                        active
+                          ? "text-primary-foreground/80"
+                          : "text-muted-foreground/60",
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+              <span className="mx-1 h-4 w-px bg-border" />
+              {DOMAIN_ORDER.map((d) => {
+                const count = domainCounts[d];
+                const active = domainFilter.includes(d);
+                const Icon = DOMAIN_ICON[d];
+                if (count === 0 && !active) return null;
+                return (
+                  <button
+                    key={d}
+                    onClick={() =>
+                      setDomainFilter((cur) => toggleInArray(cur, d))
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1 h-6 px-2 rounded-full border text-[11px] transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-border text-muted-foreground hover:text-foreground hover:border-primary/40",
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    <span>{t(`domain_${d}`)}</span>
+                    <span
+                      className={cn(
+                        "text-[10px]",
+                        active
+                          ? "text-primary-foreground/80"
+                          : "text-muted-foreground/60",
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                  {t("filter_clear_all")}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {selected.size > 0 && (
-          <div className="sticky top-0 z-10 flex items-center gap-3 px-8 py-2.5 border-b bg-accent/40 backdrop-blur">
+          <div className="sticky top-0 z-10 flex items-center gap-3 px-4 sm:px-8 py-2.5 border-b bg-accent/40 backdrop-blur mt-4">
             <span className="text-xs font-medium text-foreground">
               {t("selected_count", { count: selected.size, ns: "common" })}
             </span>
@@ -378,7 +566,7 @@ export default function ActionablesPage() {
         )}
 
         {error && (
-          <div className="mx-8 mt-6 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="mx-4 sm:mx-8 mt-6 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             {error}
             <button
@@ -394,7 +582,7 @@ export default function ActionablesPage() {
         )}
 
         {loading && (
-          <div className="px-8 py-6 space-y-2">
+          <div className="px-4 sm:px-8 py-6 space-y-2">
             {[...Array(3)].map((_, i) => (
               <div
                 key={i}
@@ -420,130 +608,83 @@ export default function ActionablesPage() {
           </div>
         )}
 
-        {!loading && sortedPending.length > 0 && (
-          <div className="px-8 py-6 space-y-6">
-            {/* Journey super-group: cascading changes from recent updates. */}
-            {journeyGroups.length > 0 && (
-              <div className="rounded-lg border border-primary/20 bg-primary/[0.03]">
-                <button
-                  onClick={() => setJourneyCollapsed((c) => !c)}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-primary/5 rounded-t-lg transition-colors"
-                >
-                  {journeyCollapsed ? (
-                    <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-primary shrink-0" />
-                  )}
-                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="text-sm font-medium text-foreground">
-                    {t("journey_group_title")}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    · {journeyCount}
-                  </span>
-                  <span className="flex-1" />
-                  <span className="text-[11px] text-muted-foreground/70 truncate">
-                    {t("journey_group_subtitle")}
-                  </span>
-                </button>
-                {!journeyCollapsed && (
-                  <div className="px-3 pb-3 pt-1 space-y-4">
-                    {journeyGroups.map((group) => {
-                      const label =
-                        KNOWN_JOURNEY_TRIGGERS.includes(
-                          group.trigger as JourneyTrigger,
-                        )
-                          ? t(`journey_trigger_${group.trigger}`)
-                          : group.trigger;
+        {!loading &&
+          pending.length > 0 &&
+          visiblePending.length === 0 &&
+          !error && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-8">
+              <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center">
+                <Filter className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t("empty_filtered_title")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                  {t("empty_filtered_body")}
+                </p>
+              </div>
+              <button
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:bg-accent/40 transition-colors"
+              >
+                <X className="h-3 w-3" />
+                {t("filter_clear_all")}
+              </button>
+            </div>
+          )}
+
+        {!loading && grouped.length > 0 && (
+          <div className="px-4 sm:px-8 py-6 space-y-6">
+            {grouped.map((group) => {
+              const Icon = BUCKET_ICON[group.bucket];
+              const accent = bucketAccent(group.bucket);
+              return (
+                <section key={group.bucket}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className={cn("h-3.5 w-3.5 shrink-0", accent)} />
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
+                      {t(`bucket_${group.bucket}`)}
+                    </h2>
+                    <span className="text-[10px] text-muted-foreground/60">
+                      · {group.items.length}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((a) => {
+                      const isSel = selected.has(a.id);
                       return (
-                        <div key={group.trigger}>
-                          <div className="flex items-center gap-2 px-1 mb-1.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              {label}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/60">
-                              · {group.items.length}
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {group.items.map((a) => {
-                              const isSel = selected.has(a.id);
-                              return (
-                                <div
-                                  key={a.id}
-                                  className="flex items-start gap-2"
-                                >
-                                  <button
-                                    onClick={() => toggleSelect(a.id)}
-                                    className={cn(
-                                      "mt-4 h-[18px] w-[18px] shrink-0 rounded-[4px] border flex items-center justify-center transition-colors",
-                                      isSel
-                                        ? "bg-primary border-primary text-primary-foreground"
-                                        : "bg-background border-border hover:border-primary/60",
-                                    )}
-                                    aria-pressed={isSel}
-                                    title={
-                                      isSel
-                                        ? t("deselect_title")
-                                        : t("select_title")
-                                    }
-                                  >
-                                    {isSel && (
-                                      <Check
-                                        className="h-3 w-3"
-                                        strokeWidth={3}
-                                      />
-                                    )}
-                                  </button>
-                                  <div className="flex-1 min-w-0">
-                                    <ActionableCard
-                                      actionable={a}
-                                      onRespond={handleRespond}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
+                        <div key={a.id} className="flex items-start gap-2">
+                          <button
+                            onClick={() => toggleSelect(a.id)}
+                            className={cn(
+                              "mt-4 h-[18px] w-[18px] shrink-0 rounded-[4px] border flex items-center justify-center transition-colors",
+                              isSel
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "bg-background border-border hover:border-primary/60",
+                            )}
+                            aria-pressed={isSel}
+                            title={
+                              isSel ? t("deselect_title") : t("select_title")
+                            }
+                          >
+                            {isSel && (
+                              <Check className="h-3 w-3" strokeWidth={3} />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <ActionableCard
+                              actionable={a}
+                              onRespond={handleRespond}
+                            />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Flat list of non-journey pending actionables. */}
-            {otherPending.length > 0 && (
-              <div className="space-y-2">
-                {otherPending.map((a) => {
-                  const isSel = selected.has(a.id);
-                  return (
-                    <div key={a.id} className="flex items-start gap-2">
-                      <button
-                        onClick={() => toggleSelect(a.id)}
-                        className={cn(
-                          "mt-4 h-[18px] w-[18px] shrink-0 rounded-[4px] border flex items-center justify-center transition-colors",
-                          isSel
-                            ? "bg-primary border-primary text-primary-foreground"
-                            : "bg-background border-border hover:border-primary/60",
-                        )}
-                        aria-pressed={isSel}
-                        title={isSel ? t("deselect_title") : t("select_title")}
-                      >
-                        {isSel && <Check className="h-3 w-3" strokeWidth={3} />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <ActionableCard
-                          actionable={a}
-                          onRespond={handleRespond}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                </section>
+              );
+            })}
           </div>
         )}
 
@@ -551,7 +692,7 @@ export default function ActionablesPage() {
           <div className="border-t mt-2">
             <button
               onClick={() => setShowResolved(!showResolved)}
-              className="w-full flex items-center gap-2 px-8 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="w-full flex items-center gap-2 px-4 sm:px-8 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {showResolved ? (
                 <ChevronDown className="h-3 w-3" />

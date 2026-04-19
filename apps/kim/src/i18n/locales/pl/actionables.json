@@ -19,8 +19,6 @@
   "select_title": "Zaznacz",
   "deselect_title": "Odznacz",
 
-  "journey_group_title": "Ścieżka",
-  "journey_group_subtitle": "Zmiany kaskadowe po ostatnich aktualizacjach",
   "journey_trigger_gym_session_updated": "Aktualizacja sesji siłowni",
   "journey_trigger_meal_plan_updated": "Aktualizacja planu posiłków",
   "journey_trigger_routine_updated": "Aktualizacja rutyny",
@@ -29,5 +27,24 @@
   "run_filter_banner": "Pokazywanie {{count}} akcji z {{source}}",
   "run_filter_loading": "Ładowanie przebiegu…",
   "run_filter_missing": "Nie znaleziono przebiegu — pusty filtr",
-  "run_filter_clear": "Wyczyść filtr"
+  "run_filter_clear": "Wyczyść filtr",
+
+  "search_placeholder": "Szukaj zadań…",
+  "filter_clear_all": "Wyczyść filtry",
+
+  "bucket_tomorrow": "Jutro",
+  "bucket_today": "Dziś",
+  "bucket_yesterday": "Wczoraj",
+  "bucket_older": "Starsze",
+
+  "domain_calendar": "Kalendarz",
+  "domain_task": "Zadanie",
+  "domain_routine": "Rutyna",
+  "domain_meal": "Posiłek",
+  "domain_memory": "Pamięć",
+  "domain_suggestion": "Sugestia",
+  "domain_other": "Inne",
+
+  "empty_filtered_title": "Brak wyników dla tych filtrów",
+  "empty_filtered_body": "Spróbuj wyczyścić filtry lub zmienić zapytanie."
 }

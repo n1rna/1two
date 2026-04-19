@@ -19,8 +19,6 @@
   "select_title": "Select",
   "deselect_title": "Deselect",
 
-  "journey_group_title": "Journey",
-  "journey_group_subtitle": "Cascading changes from recent updates",
   "journey_trigger_gym_session_updated": "Gym session update",
   "journey_trigger_meal_plan_updated": "Meal plan update",
   "journey_trigger_routine_updated": "Routine update",
@@ -29,5 +27,24 @@
   "run_filter_banner": "Showing {{count}} actionables from {{source}}",
   "run_filter_loading": "Loading run…",
   "run_filter_missing": "Run not found — showing empty filter",
-  "run_filter_clear": "Clear filter"
+  "run_filter_clear": "Clear filter",
+
+  "search_placeholder": "Search actionables…",
+  "filter_clear_all": "Clear filters",
+
+  "bucket_tomorrow": "Tomorrow",
+  "bucket_today": "Today",
+  "bucket_yesterday": "Yesterday",
+  "bucket_older": "Older",
+
+  "domain_calendar": "Calendar",
+  "domain_task": "Task",
+  "domain_routine": "Routine",
+  "domain_meal": "Meal",
+  "domain_memory": "Memory",
+  "domain_suggestion": "Suggestion",
+  "domain_other": "Other",
+
+  "empty_filtered_title": "Nothing matches these filters",
+  "empty_filtered_body": "Try clearing filters or changing the search query."
 }

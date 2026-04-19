@@ -29,6 +29,41 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { AskKimButton } from "@/components/kim";
 import type { JourneyTrigger, LifeActionable } from "@/lib/life";
+import { domainOf, type ActionableDomain } from "@/lib/actionables-group";
+
+const DOMAIN_CHIP_META: Record<
+  ActionableDomain,
+  { icon: React.ReactNode; className: string }
+> = {
+  calendar: {
+    icon: <CalendarDays className="h-2.5 w-2.5" />,
+    className: "border-rose-500/30 bg-rose-500/10 text-rose-500",
+  },
+  task: {
+    icon: <ListTodo className="h-2.5 w-2.5" />,
+    className: "border-orange-500/30 bg-orange-500/10 text-orange-500",
+  },
+  routine: {
+    icon: <Repeat className="h-2.5 w-2.5" />,
+    className: "border-violet-500/30 bg-violet-500/10 text-violet-500",
+  },
+  meal: {
+    icon: <Utensils className="h-2.5 w-2.5" />,
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-500",
+  },
+  memory: {
+    icon: <Lightbulb className="h-2.5 w-2.5" />,
+    className: "border-yellow-500/30 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+  },
+  suggestion: {
+    icon: <Sparkles className="h-2.5 w-2.5" />,
+    className: "border-primary/30 bg-primary/10 text-primary",
+  },
+  other: {
+    icon: <Info className="h-2.5 w-2.5" />,
+    className: "border-border bg-muted/40 text-muted-foreground",
+  },
+};
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -413,6 +448,8 @@ export function ActionableCard({
       ? t(`journey_trigger_${journeyTriggerKey}`)
       : journeyTriggerKey
     : null;
+  const domain = domainOf(actionable);
+  const domainMeta = DOMAIN_CHIP_META[domain];
   const isPending = actionable.status === "pending";
   const isDueSoon =
     actionable.dueAt &&
@@ -484,21 +521,30 @@ export function ActionableCard({
           <p className="text-sm font-medium text-foreground leading-snug">
             {actionable.title}
           </p>
-          {journeySource && (
-            <div className="mt-1 flex items-center gap-1 text-[10px]">
+          <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5",
+                domainMeta.className,
+              )}
+            >
+              {domainMeta.icon}
+              {t(`domain_${domain}`)}
+            </span>
+            {journeySource && (
               <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-primary">
                 <Sparkles className="h-2.5 w-2.5" />
                 {journeyTriggerLabel}
               </span>
-              {journeySource.entity_title && (
-                <span className="text-muted-foreground/70 truncate">
-                  {t("journey_source_chip", {
-                    title: journeySource.entity_title,
-                  })}
-                </span>
-              )}
-            </div>
-          )}
+            )}
+            {journeySource?.entity_title && (
+              <span className="text-muted-foreground/70 truncate">
+                {t("journey_source_chip", {
+                  title: journeySource.entity_title,
+                })}
+              </span>
+            )}
+          </div>
           <ActionableContent actionable={actionable} />
 
           <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">

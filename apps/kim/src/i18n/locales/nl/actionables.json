@@ -19,8 +19,6 @@
   "select_title": "Selecteer",
   "deselect_title": "Deselecteer",
 
-  "journey_group_title": "Traject",
-  "journey_group_subtitle": "Vervolgwijzigingen van recente aanpassingen",
   "journey_trigger_gym_session_updated": "Gym-sessie aangepast",
   "journey_trigger_meal_plan_updated": "Maaltijdplan aangepast",
   "journey_trigger_routine_updated": "Routine aangepast",
@@ -29,5 +27,24 @@
   "run_filter_banner": "Toont {{count}} acties uit {{source}}",
   "run_filter_loading": "Run wordt geladen…",
   "run_filter_missing": "Run niet gevonden — leeg filter",
-  "run_filter_clear": "Filter wissen"
+  "run_filter_clear": "Filter wissen",
+
+  "search_placeholder": "Zoek actiepunten…",
+  "filter_clear_all": "Filters wissen",
+
+  "bucket_tomorrow": "Morgen",
+  "bucket_today": "Vandaag",
+  "bucket_yesterday": "Gisteren",
+  "bucket_older": "Ouder",
+
+  "domain_calendar": "Agenda",
+  "domain_task": "Taak",
+  "domain_routine": "Routine",
+  "domain_meal": "Maaltijd",
+  "domain_memory": "Geheugen",
+  "domain_suggestion": "Voorstel",
+  "domain_other": "Overig",
+
+  "empty_filtered_title": "Niets matcht deze filters",
+  "empty_filtered_body": "Probeer filters te wissen of de zoekopdracht aan te passen."
 }
