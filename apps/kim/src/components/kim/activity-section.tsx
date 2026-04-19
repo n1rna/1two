@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDashed,
   GitBranch,
@@ -56,6 +57,7 @@ export function ActivitySection({
   const { t } = useTranslation("kim");
   const { runs, hasActive } = useAgentRunsStream({ open });
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   const previewRuns = useMemo(() => runs.slice(0, 2), [runs]);
   const fullRuns = useMemo(() => runs.slice(0, 50), [runs]);
@@ -67,13 +69,27 @@ export function ActivitySection({
         className="relative border-b"
         style={{ borderColor: "var(--kim-border)" }}
       >
-        <div className="flex items-center gap-2 px-5 py-2.5">
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-[var(--kim-teal-soft)]/60"
+        >
+          {collapsed ? (
+            <ChevronRight size={11} style={{ color: "var(--kim-amber)" }} />
+          ) : (
+            <ChevronDown size={11} style={{ color: "var(--kim-amber)" }} />
+          )}
           <Sparkles size={11} style={{ color: "var(--kim-amber)" }} />
           <span
             className="kim-mono text-[10px] uppercase tracking-[0.18em]"
             style={{ color: "var(--kim-ink-dim)" }}
           >
             {t("activity_title")}
+          </span>
+          <span
+            className="kim-mono text-[10px] tracking-[0.14em]"
+            style={{ color: "var(--kim-ink-faint)" }}
+          >
+            · {runs.length}
           </span>
           {hasActive && (
             <span
@@ -83,31 +99,35 @@ export function ActivitySection({
               {t("activity_running")}
             </span>
           )}
-        </div>
-        <div className="px-3 pb-2 space-y-1">
-          {previewRuns.map((run) => (
-            <ActivityRunRow
-              key={run.id}
-              run={run}
-              expanded={expandedRunId === run.id}
-              onToggleExpanded={() =>
-                setExpandedRunId((cur) => (cur === run.id ? null : run.id))
-              }
-            />
-          ))}
-        </div>
-        {onViewAll && (
-          <button
-            onClick={onViewAll}
-            className="w-full flex items-center justify-between px-5 py-2 border-t hover:bg-[var(--kim-teal-soft)]/60 kim-mono text-[10px] uppercase tracking-[0.16em]"
-            style={{
-              borderColor: "var(--kim-border)",
-              color: "var(--kim-amber)",
-            }}
-          >
-            <span>{t("activity_view_all", { count: runs.length })}</span>
-            <ChevronRight size={11} />
-          </button>
+        </button>
+        {!collapsed && (
+          <>
+            <div className="px-3 pb-2 space-y-1">
+              {previewRuns.map((run) => (
+                <ActivityRunRow
+                  key={run.id}
+                  run={run}
+                  expanded={expandedRunId === run.id}
+                  onToggleExpanded={() =>
+                    setExpandedRunId((cur) => (cur === run.id ? null : run.id))
+                  }
+                />
+              ))}
+            </div>
+            {onViewAll && (
+              <button
+                onClick={onViewAll}
+                className="w-full flex items-center justify-between px-5 py-2 border-t hover:bg-[var(--kim-teal-soft)]/60 kim-mono text-[10px] uppercase tracking-[0.16em]"
+                style={{
+                  borderColor: "var(--kim-border)",
+                  color: "var(--kim-amber)",
+                }}
+              >
+                <span>{t("activity_view_all", { count: runs.length })}</span>
+                <ChevronRight size={11} />
+              </button>
+            )}
+          </>
         )}
       </div>
     );
