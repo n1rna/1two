@@ -6,8 +6,10 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +17,7 @@ import (
 	"time"
 
 	"github.com/riverqueue/river"
+	"riverqueue.com/riverui"
 
 	"github.com/n1rna/1tt/api/internal/ai"
 	"github.com/n1rna/1tt/api/internal/config"
@@ -174,6 +177,21 @@ func main() {
 		fmt.Fprintln(w, "ok")
 	})
 
+	// River UI at /river, basic-auth gated by INTERNAL_SECRET. User: "admin".
+	riveruiHandler, err := riverui.NewHandler(&riverui.HandlerOpts{
+		Endpoints: riverui.NewEndpoints(client, nil),
+		Logger:    slog.Default(),
+		Prefix:    "/river",
+	})
+	if err != nil {
+		log.Fatalf("worker: riverui new: %v", err)
+	}
+	if err := riveruiHandler.Start(ctx); err != nil {
+		log.Fatalf("worker: riverui start: %v", err)
+	}
+	mux.Handle("/river/", basicAuth(riveruiHandler, cfg.InternalSecret))
+	mux.Handle("/river", basicAuth(http.RedirectHandler("/river/", http.StatusMovedPermanently), cfg.InternalSecret))
+
 	httpSrv := &http.Server{
 		Addr:              ":" + port,
 		Handler:           mux,
@@ -201,4 +219,24 @@ func main() {
 		log.Printf("worker: river stop: %v", err)
 	}
 	log.Printf("worker: bye")
+}
+
+// basicAuth gates handlers behind HTTP Basic auth. User is fixed to "admin";
+// password is the provided secret. Empty secret disables auth (dev only).
+func basicAuth(next http.Handler, secret string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if secret == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		user, pass, ok := r.BasicAuth()
+		if !ok ||
+			subtle.ConstantTimeCompare([]byte(user), []byte("admin")) != 1 ||
+			subtle.ConstantTimeCompare([]byte(pass), []byte(secret)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="river"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
