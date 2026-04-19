@@ -66,12 +66,10 @@ func main() {
 			}
 		}
 	}
+	_ = riverClient
 	if riverPool != nil {
 		defer riverPool.Close()
 	}
-	// Wire the river insert client once so handlers can enqueue without
-	// threading *jobs.Client through every constructor signature.
-	handler.SetRiverClient(riverClient)
 
 	var r2 *storage.R2Client
 	if cfg.R2AccountID != "" {
@@ -100,7 +98,7 @@ func main() {
 			APIKey:   cfg.LLMAPIKey,
 			BaseURL:  cfg.LLMBaseURL,
 			Model:    cfg.LLMModel,
-		}, riverClient)
+		})
 	} else {
 		log.Printf("WARNING: llms.txt generator not configured (missing CLOUDFLARE_ACCOUNT_ID, LLM_API_KEY, DB, or R2)")
 	}
@@ -454,6 +452,10 @@ func main() {
 		defer cancel()
 
 		srv.Shutdown(ctx)
+
+		if llmsSvc != nil {
+			llmsSvc.Stop()
+		}
 	}()
 
 	// In dev mode, start Telegram polling if configured (production uses webhooks).

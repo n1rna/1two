@@ -13,12 +13,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/riverqueue/river"
-
 	"github.com/n1rna/1tt/api/internal/health"
-	"github.com/n1rna/1tt/api/internal/jobs"
 	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/tracked"
 )
 
 // buildSessionChangeSummary produces a compact natural-language diff string
@@ -99,43 +97,47 @@ func buildMealPlanChangeSummary(
 	return strings.Join(parts, "; ")
 }
 
-// packageRiverClient is set once at startup via SetRiverClient. Handlers
-// enqueue background work through it; the cmd/worker process drains.
-// Not threaded through every handler signature because async fan-out is
-// cross-cutting — keeping a package-level sink avoids churning dozens of
-// handler constructors.
-var packageRiverClient *jobs.Client
-
-// SetRiverClient registers the river insert client used by all handlers in
-// this package. Call from cmd/server main after building the client. Passing
-// nil disables enqueuing (useful in tests).
-func SetRiverClient(rc *jobs.Client) {
-	packageRiverClient = rc
-}
-
-// RiverClient exposes the package-level insert client for handlers that need
-// to enqueue jobs inline (e.g. actionable follow-ups).
-func RiverClient() *jobs.Client { return packageRiverClient }
-
-// fireJourneyEventAsync enqueues a River JourneyEventArgs so the cmd/worker
-// process runs the cascading agent. The worker wraps the call in
-// tracked.RunSync so the activity feed keeps seeing every invocation.
-func fireJourneyEventAsync(_ *sql.DB, _ life.ChatAgent, ev life.JourneyEvent) {
-	if packageRiverClient == nil || ev.UserID == "" || ev.Trigger == "" {
+// fireJourneyEventAsync kicks off a journey agent run in a detached goroutine
+// so the caller's HTTP response is unaffected. The invocation is wrapped in
+// tracked.Run so a row lands in life_agent_runs with the status, tool calls,
+// and any actionables the run produced — powering the drawer's activity
+// surface. Errors are logged and persisted to the run row; callers are
+// fire-and-forget.
+func fireJourneyEventAsync(db *sql.DB, agent life.ChatAgent, ev life.JourneyEvent) {
+	if agent == nil || ev.UserID == "" || ev.Trigger == "" {
 		return
 	}
-	_, err := packageRiverClient.Insert(context.Background(), jobs.JourneyEventArgs{
+
+	tracked.Run(context.Background(), db, tracked.Meta{
 		UserID:      ev.UserID,
+		Kind:        "journey",
+		Title:       journeyRunTitle(ev.Trigger),
+		Subtitle:    ev.EntityTitle,
 		Trigger:     ev.Trigger,
 		EntityID:    ev.EntityID,
 		EntityTitle: ev.EntityTitle,
-		Payload:     ev.ChangeSummary,
-	}, &river.InsertOpts{
-		Queue:       jobs.QueueAgent,
-		MaxAttempts: 3,
+	}, func(ctx context.Context, runID string) (tracked.RunOutput, error) {
+		result, err := life.ProcessJourneyEventWithResult(ctx, db, agent, ev)
+		if err != nil {
+			log.Printf("journey: %s for user %s: %v", ev.Trigger, ev.UserID, err)
+			return tracked.RunOutput{Summary: "Journey run failed"}, err
+		}
+		return tracked.FromToolResult(result, ""), nil
 	})
-	if err != nil {
-		log.Printf("journey: river insert %s: %v", ev.Trigger, err)
+}
+
+// journeyRunTitle returns a user-visible label for the activity feed given
+// a journey trigger constant. Falls back to the trigger string verbatim.
+func journeyRunTitle(trigger string) string {
+	switch trigger {
+	case life.JourneyTriggerGymSessionUpdated:
+		return "Processing gym session update"
+	case life.JourneyTriggerMealPlanUpdated:
+		return "Processing meal plan update"
+	case life.JourneyTriggerRoutineUpdated:
+		return "Processing routine update"
+	default:
+		return "Processing " + strings.ReplaceAll(trigger, "_", " ")
 	}
 }
 

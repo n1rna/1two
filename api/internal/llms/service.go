@@ -11,27 +11,35 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/riverqueue/river"
 
 	"github.com/n1rna/1tt/api/internal/ai"
 	"github.com/n1rna/1tt/api/internal/billing"
 	"github.com/n1rna/1tt/api/internal/crawl"
 	"github.com/n1rna/1tt/api/internal/gitclone"
-	"github.com/n1rna/1tt/api/internal/jobs"
 	"github.com/n1rna/1tt/api/internal/storage"
 )
 
-// Service orchestrates llms.txt generation. Jobs are queued via River; the
-// always-on worker process calls RunJob to execute them. The llms_jobs table
-// remains the source of truth for job status so the UI doesn't change.
+// maxWorkers is the maximum number of jobs processed concurrently.
+const maxWorkers = 3
+
+// pollInterval is how frequently the worker loop checks for pending jobs.
+const pollInterval = 2 * time.Second
+
+// Service orchestrates llms.txt generation jobs using a DB-backed queue
+// with a bounded worker pool.
 type Service struct {
-	db           *sql.DB
-	r2           *storage.R2Client
-	crawlClient  *crawl.Client
-	llmCfg       ai.LLMConfig
-	riverClient  *jobs.Client // may be nil in tests or when DB is unavailable
+	db          *sql.DB
+	r2          *storage.R2Client
+	crawlClient *crawl.Client
+	llmCfg      ai.LLMConfig
+
+	// Worker pool coordination
+	sem        chan struct{}           // semaphore limiting concurrent workers
+	activeJobs sync.Map               // jobID -> context.CancelFunc for cancellation
+	cancelLoop context.CancelFunc     // stops the worker loop
+	wg         sync.WaitGroup         // tracks in-flight workers for graceful shutdown
 }
 
 // GenerateRequest holds the parameters for a new llms.txt generation job.
@@ -78,51 +86,138 @@ type CacheInfo struct {
 	ExpiresAt  time.Time `json:"expiresAt,omitzero"`
 }
 
-// NewService constructs a Service. The caller wires a river client so
-// StartJob can enqueue work; if nil, StartJob will insert the DB row but the
-// worker will not pick it up (useful for tests).
-func NewService(db *sql.DB, r2 *storage.R2Client, crawlClient *crawl.Client, llmCfg ai.LLMConfig, riverClient *jobs.Client) *Service {
-	return &Service{
+// NewService creates a new Service and starts the background worker loop.
+// Call Stop() to shut it down gracefully.
+func NewService(db *sql.DB, r2 *storage.R2Client, crawlClient *crawl.Client, llmCfg ai.LLMConfig) *Service {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s := &Service{
 		db:          db,
 		r2:          r2,
 		crawlClient: crawlClient,
 		llmCfg:      llmCfg,
-		riverClient: riverClient,
+		sem:         make(chan struct{}, maxWorkers),
+		cancelLoop:  cancel,
+	}
+
+	// Recover any jobs that were in-flight when the server last stopped
+	s.recoverStaleJobs()
+
+	// Start the worker loop
+	go s.workerLoop(ctx)
+
+	return s
+}
+
+// Stop gracefully shuts down the worker loop and waits for in-flight jobs.
+func (s *Service) Stop() {
+	s.cancelLoop()
+	s.wg.Wait()
+}
+
+// ─── Worker loop ─────────────────────────────────────────────────────────────
+
+// workerLoop polls the DB for pending jobs and dispatches them to workers.
+func (s *Service) workerLoop(ctx context.Context) {
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.dispatchPendingJobs(ctx)
+		}
+	}
+}
+
+// dispatchPendingJobs claims pending jobs from the DB and starts workers.
+func (s *Service) dispatchPendingJobs(ctx context.Context) {
+	// Use SELECT ... FOR UPDATE SKIP LOCKED to safely claim jobs even if
+	// we ever scale to multiple instances. SKIP LOCKED ensures no contention.
+	const claimQ = `
+		UPDATE llms_jobs
+		SET status = 'crawling', updated_at = NOW()
+		WHERE id = (
+			SELECT id FROM llms_jobs
+			WHERE status = 'pending'
+			ORDER BY created_at ASC
+			LIMIT 1
+			FOR UPDATE SKIP LOCKED
+		)
+		RETURNING id`
+
+	for {
+		// Check if we have capacity
+		select {
+		case s.sem <- struct{}{}:
+			// Acquired a slot — try to claim a job
+		default:
+			// All workers busy
+			return
+		}
+
+		var jobID string
+		err := s.db.QueryRowContext(ctx, claimQ).Scan(&jobID)
+		if err == sql.ErrNoRows {
+			// No pending jobs — release the slot
+			<-s.sem
+			return
+		}
+		if err != nil {
+			log.Printf("llms: failed to claim job: %v", err)
+			<-s.sem
+			return
+		}
+
+		// Dispatch the worker
+		s.wg.Add(1)
+		go func(id string) {
+			defer s.wg.Done()
+			defer func() { <-s.sem }() // release the semaphore slot
+			s.processJob(id)
+		}(jobID)
+	}
+}
+
+// recoverStaleJobs resets jobs that were in-flight when the server stopped.
+// Called once on startup.
+func (s *Service) recoverStaleJobs() {
+	const q = `
+		UPDATE llms_jobs
+		SET status = 'pending', error_message = NULL, updated_at = NOW()
+		WHERE status IN ('crawling', 'processing')
+		  AND updated_at < NOW() - INTERVAL '10 minutes'`
+
+	result, err := s.db.Exec(q)
+	if err != nil {
+		log.Printf("llms: failed to recover stale jobs: %v", err)
+		return
+	}
+	if n, _ := result.RowsAffected(); n > 0 {
+		log.Printf("llms: recovered %d stale jobs back to pending", n)
 	}
 }
 
 // ─── Job processing ──────────────────────────────────────────────────────────
 
-// RunJob performs the full pipeline (crawl → generate → upload → record)
-// for a single llms_jobs row. Called by the River worker in cmd/worker.
-// Sets llms_jobs.status to 'failed' + error_message on error so the API is
-// consistent; returns the error to River for retry accounting.
-func (s *Service) RunJob(ctx context.Context, jobID string) error {
-	// Move from 'pending' to 'crawling'. If the row is already in a terminal
-	// state (cancelled, completed, failed) skip entirely.
-	const claimQ = `
-		UPDATE llms_jobs
-		SET status = 'crawling', updated_at = NOW()
-		WHERE id = $1 AND status = 'pending'
-		RETURNING id`
-	var claimed string
-	if err := s.db.QueryRowContext(ctx, claimQ, jobID).Scan(&claimed); err != nil {
-		if err == sql.ErrNoRows {
-			// Already in a non-pending state — skip silently (cancelled or
-			// retried after the worker crashed mid-flight).
-			return nil
-		}
-		return fmt.Errorf("claim job: %w", err)
-	}
+// processJob runs the full pipeline for a single job. It is called by a
+// worker goroutine managed by the semaphore.
+func (s *Service) processJob(jobID string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.activeJobs.Store(jobID, cancel)
+	defer func() {
+		cancel()
+		s.activeJobs.Delete(jobID)
+	}()
 
 	if err := s.runJob(ctx, jobID); err != nil {
 		log.Printf("llms: job %s failed: %v", jobID, err)
 		s.db.ExecContext(context.Background(),
 			`UPDATE llms_jobs SET status = 'failed', error_message = $1, updated_at = NOW() WHERE id = $2`,
 			err.Error(), jobID)
-		return err
 	}
-	return nil
 }
 
 // runJob performs the actual crawl/clone + AI generation + upload work.
@@ -504,8 +599,7 @@ func (s *Service) StartJob(ctx context.Context, userID string, req GenerateReque
 		log.Printf("llms: result cache check failed: %v", cacheErr)
 	}
 
-	// No cache hit — insert the job row and enqueue a River job. River owns
-	// retries/attempts; the DB row is the source of truth for UI status.
+	// No cache hit — insert a pending job for the worker loop.
 	const insertQ = `
 		INSERT INTO llms_jobs
 			(id, user_id, url, normalized_url, status, scan_depth, max_pages, detail_level, file_name,
@@ -517,19 +611,6 @@ func (s *Service) StartJob(ctx context.Context, userID string, req GenerateReque
 		nullableString(req.NotifyEmail), now,
 	); err != nil {
 		return nil, fmt.Errorf("failed to create job")
-	}
-
-	if s.riverClient != nil {
-		if _, err := s.riverClient.Insert(ctx, jobs.LlmsProcessArgs{JobID: jobID}, &river.InsertOpts{
-			Queue:       jobs.QueueIngest,
-			MaxAttempts: 3,
-		}); err != nil {
-			log.Printf("llms: river insert for job %s failed: %v", jobID, err)
-			// DB row exists; a re-enqueue from cmd/worker startup sweep will
-			// recover it if we add that later. For now the job is orphaned —
-			// surface the error.
-			return nil, fmt.Errorf("failed to enqueue job")
-		}
 	}
 
 	return &Job{
@@ -664,10 +745,19 @@ func (s *Service) CancelJob(ctx context.Context, userID, jobID string) error {
 		return fmt.Errorf("job is already %s", status)
 	}
 
-	// Mark the DB row cancelled. The running worker checks the DB status at
-	// phase transitions (see RunJob) and aborts. River's own retry accounting
-	// is separate; the worker returns nil on cancelled rows so River doesn't
-	// retry.
+	// If it's still pending (not yet picked up by a worker), just mark cancelled
+	if status == "pending" {
+		s.db.ExecContext(context.Background(),
+			`UPDATE llms_jobs SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+			jobID)
+		return nil
+	}
+
+	// If in-flight, signal the worker goroutine to stop
+	if cancelFn, ok := s.activeJobs.Load(jobID); ok {
+		cancelFn.(context.CancelFunc)()
+	}
+
 	s.db.ExecContext(context.Background(),
 		`UPDATE llms_jobs SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
 		jobID)

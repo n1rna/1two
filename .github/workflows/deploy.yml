@@ -164,6 +164,13 @@ jobs:
         working-directory: workers/api-container
         run: bun install
 
+      - name: Ensure Cloudflare Queues exist
+        working-directory: workers/api-container
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler queues create life-scheduler 2>/dev/null || echo "Queue already exists or creation skipped"
+
       - name: Deploy API Container
         uses: cloudflare/wrangler-action@v3
         with:

@@ -20,6 +20,16 @@ tag = "v1"
 enabled = true
 invocation_logs = true
 
-# Cron + Queue bindings were removed: scheduler, summary regeneration, and
-# cleanup all run as River PeriodicJobs in the always-on worker container
-# (workers/worker-container). See cmd/worker/main.go.
+[triggers]
+crons = ["0 3 * * *", "*/15 * * * *"]
+
+# Queue: producer binding (used by cron to enqueue work items)
+[[queues.producers]]
+queue = "life-scheduler"
+binding = "SCHEDULER_QUEUE"
+
+# Queue: consumer binding (processes work items one at a time)
+[[queues.consumers]]
+queue = "life-scheduler"
+max_batch_size = 1
+max_retries = 2
