@@ -250,6 +250,26 @@ export async function listLifeActionables(
   return res.actionables;
 }
 
+/**
+ * Fetch a single actionable by id. There is no dedicated GET-by-id endpoint
+ * on the backend yet (see QBL-112), so this fetches the list (pending first,
+ * falling back to all statuses) and filters client-side. The list is small
+ * and cached in the provider, so the overhead is negligible.
+ */
+export async function getLifeActionable(
+  id: string,
+): Promise<LifeActionable | null> {
+  // Prefer the pending list for hot-path fetches right after creation.
+  const pending = await listLifeActionables("pending").catch(
+    () => [] as LifeActionable[],
+  );
+  const hit = pending.find((a) => a.id === id);
+  if (hit) return hit;
+  // Fall through to the full list for resolved items.
+  const all = await listLifeActionables().catch(() => [] as LifeActionable[]);
+  return all.find((a) => a.id === id) ?? null;
+}
+
 export async function respondToActionable(
   id: string,
   action: string,

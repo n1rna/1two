@@ -1,0 +1,93 @@
+{
+  "meal_plan": {
+    "regenerate": "Wygeneruj dzień ponownie",
+    "swap_cuisine": "Zmień kuchnię",
+    "change_macros": "Zmień makro",
+    "scale_day": "Przeskaluj dzień",
+    "grocery_list": "Utwórz listę zakupów"
+  },
+  "meal_item": {
+    "swap": "Zamień na alternatywę",
+    "scale_portion": "Dostosuj porcję",
+    "pantry_subs": "Znajdź zamienniki ze spiżarni",
+    "mark_eaten": "Oznacz jako zjedzone",
+    "details": "Pokaż szczegóły"
+  },
+  "exercise": {
+    "alternatives": "Pokaż alternatywy",
+    "change_reps": "Zmień powtórzenia",
+    "change_sets": "Zmień serie",
+    "mark_skipped": "Oznacz jako pominięte",
+    "explain": "Wyjaśnij ćwiczenie"
+  },
+  "event": {
+    "reschedule": "Zmień termin",
+    "draft_message": "Napisz wiadomość do uczestników",
+    "cancel_with_note": "Anuluj z notatką",
+    "find_commute": "Znajdź czas dojazdu"
+  },
+  "task": {
+    "complete": "Zakończ",
+    "break_down": "Podziel na podzadania",
+    "schedule_block": "Zaplanuj blok",
+    "snooze": "Odłóż",
+    "delegate": "Deleguj / udostępnij"
+  },
+  "metric": {
+    "explain_trend": "Wyjaśnij trend",
+    "suggest_interventions": "Zasugeruj interwencje",
+    "compare_last_month": "Porównaj z zeszłym miesiącem",
+    "correlate": "Skoreluj z inną metryką",
+    "set_target": "Ustaw cel"
+  },
+  "session": {
+    "start": "Rozpocznij sesję",
+    "finish_early": "Zakończ wcześniej",
+    "add_exercise": "Dodaj ćwiczenie",
+    "swap": "Zamień ćwiczenie",
+    "explain_progression": "Wyjaśnij progresję",
+    "warmup": "Zaproponuj rozgrzewkę"
+  },
+  "routine": {
+    "edit_schedule": "Edytuj harmonogram",
+    "pause": "Wstrzymaj rutynę",
+    "resume": "Wznów rutynę",
+    "link_calendar": "Połącz z kalendarzem",
+    "explain": "Wyjaśnij rutynę",
+    "archive": "Archiwizuj rutynę"
+  },
+  "diet_profile": {
+    "change_diet_type": "Zmień typ diety",
+    "update_macros": "Zaktualizuj makro",
+    "set_calories": "Ustaw kalorie docelowe",
+    "set_goal_weight": "Ustaw wagę docelową",
+    "restrictions": "Zaktualizuj ograniczenia",
+    "activity_level": "Poziom aktywności",
+    "explain": "Wyjaśnij tę dietę"
+  },
+  "gym_profile": {
+    "change_goal": "Zmień cel fitness",
+    "set_days": "Ustaw dni w tygodniu",
+    "set_duration": "Ustaw długość sesji",
+    "equipment": "Zaktualizuj sprzęt",
+    "preferences": "Upodobania i awersje",
+    "explain": "Wyjaśnij ten plan"
+  },
+  "ack": {
+    "done": "Gotowe.",
+    "failed": "Nie powiodło się.",
+    "completed": "Ukończono.",
+    "marked_eaten": "Oznaczono jako zjedzone.",
+    "reps_updated": "Powtórzenia zaktualizowane.",
+    "sets_updated": "Serie zaktualizowane.",
+    "target_set": "Cel ustawiony."
+  },
+  "common": {
+    "commit": "Potwierdź",
+    "cancel": "Anuluj",
+    "video_demo": "Demo wideo",
+    "open_in_gcal": "Otwórz w Google Calendar",
+    "not_supported": "Jeszcze nieobsługiwane dla tej metryki.",
+    "days_suffix": "dni"
+  }
+}

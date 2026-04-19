@@ -9,11 +9,16 @@ const displayFont = { fontFamily: "var(--font-display), Georgia, serif" };
 const monoFont = { fontFamily: "var(--font-geist-mono), ui-monospace, monospace" };
 
 /**
- * Primary "Chat with Kim" CTA. Uses the Kim wordmark (Instrument Serif italic)
- * and an amber ink palette so it reads as a Kim control even on the warm
- * beige host surface.
+ * Primary "Chat with Kim" CTA used on hero / empty-state surfaces. Uses the
+ * Kim wordmark (Instrument Serif italic) and an amber ink palette so it reads
+ * as a Kim control even on the warm beige host surface.
+ *
+ * For item-surface "add to Kim context" CTAs (meal rows, routine cards,
+ * health metrics, etc.), use {@link AskKimButton} from
+ * `./ask-kim-button.tsx` instead — that variant handles selection + opening
+ * the drawer in one step.
  */
-export function AskKimButton({
+export function AskKimHeroButton({
   onClick,
   label,
   className,

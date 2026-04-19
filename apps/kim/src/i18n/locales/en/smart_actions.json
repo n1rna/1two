@@ -1,0 +1,93 @@
+{
+  "meal_plan": {
+    "regenerate": "Regenerate day",
+    "swap_cuisine": "Swap cuisine",
+    "change_macros": "Change macros",
+    "scale_day": "Scale the day",
+    "grocery_list": "Build grocery list"
+  },
+  "meal_item": {
+    "swap": "Swap for alternative",
+    "scale_portion": "Scale portion",
+    "pantry_subs": "Find pantry subs",
+    "mark_eaten": "Mark eaten",
+    "details": "Show details"
+  },
+  "exercise": {
+    "alternatives": "Show alternatives",
+    "change_reps": "Change reps",
+    "change_sets": "Change sets",
+    "mark_skipped": "Mark skipped",
+    "explain": "Explain the lift"
+  },
+  "event": {
+    "reschedule": "Reschedule",
+    "draft_message": "Draft message to attendees",
+    "cancel_with_note": "Cancel with note",
+    "find_commute": "Find commute time"
+  },
+  "task": {
+    "complete": "Complete",
+    "break_down": "Break down into subtasks",
+    "schedule_block": "Schedule a block",
+    "snooze": "Snooze",
+    "delegate": "Delegate / share"
+  },
+  "metric": {
+    "explain_trend": "Explain the trend",
+    "suggest_interventions": "Suggest interventions",
+    "compare_last_month": "Compare to last month",
+    "correlate": "Correlate with another metric",
+    "set_target": "Set target"
+  },
+  "session": {
+    "start": "Start session",
+    "finish_early": "Finish early",
+    "add_exercise": "Add exercise",
+    "swap": "Swap an exercise",
+    "explain_progression": "Explain progression",
+    "warmup": "Suggest warm-up"
+  },
+  "routine": {
+    "edit_schedule": "Edit schedule",
+    "pause": "Pause routine",
+    "resume": "Resume routine",
+    "link_calendar": "Link to calendar",
+    "explain": "Explain routine",
+    "archive": "Archive routine"
+  },
+  "diet_profile": {
+    "change_diet_type": "Change diet type",
+    "update_macros": "Update macros",
+    "set_calories": "Set target calories",
+    "set_goal_weight": "Set goal weight",
+    "restrictions": "Update restrictions",
+    "activity_level": "Activity level",
+    "explain": "Explain this diet"
+  },
+  "gym_profile": {
+    "change_goal": "Change fitness goal",
+    "set_days": "Set days per week",
+    "set_duration": "Set session duration",
+    "equipment": "Update equipment",
+    "preferences": "Likes & dislikes",
+    "explain": "Explain this plan"
+  },
+  "ack": {
+    "done": "Done.",
+    "failed": "Failed.",
+    "completed": "Completed.",
+    "marked_eaten": "Marked eaten.",
+    "reps_updated": "Reps updated.",
+    "sets_updated": "Sets updated.",
+    "target_set": "Target set."
+  },
+  "common": {
+    "commit": "Commit",
+    "cancel": "Cancel",
+    "video_demo": "Video demo",
+    "open_in_gcal": "Open in Google Calendar",
+    "not_supported": "Not supported for this metric yet.",
+    "days_suffix": "days"
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Utensils, Clock, Tag } from "lucide-react";
+import { Utensils, Clock, Tag } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { MealItem } from "@/lib/health";
-import { useKim } from "@/components/kim";
+import { AskKimButton } from "@/components/kim";
 
 interface Props {
   open: boolean;
@@ -29,8 +29,6 @@ export function MealDetailDialog({
   context,
   selectionId,
 }: Props) {
-  const { addSelection, setOpen: setKimOpen, setMode } = useKim();
-
   if (!meal) return null;
 
   const totalMacros =
@@ -38,20 +36,6 @@ export function MealDetailDialog({
   const pPct = totalMacros > 0 ? ((meal.protein_g ?? 0) / totalMacros) * 100 : 0;
   const cPct = totalMacros > 0 ? ((meal.carbs_g ?? 0) / totalMacros) * 100 : 0;
   const fPct = totalMacros > 0 ? ((meal.fat_g ?? 0) / totalMacros) * 100 : 0;
-
-  const askKimToEdit = () => {
-    if (selectionId) {
-      addSelection({
-        kind: "meal-item",
-        id: selectionId,
-        label: meal.name,
-        snapshot: meal as unknown as Record<string, unknown>,
-      });
-    }
-    setMode("meals", true);
-    setKimOpen(true);
-    onOpenChange(false);
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -156,9 +140,16 @@ export function MealDetailDialog({
           <Button size="sm" variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={askKimToEdit}>
-            <Sparkles className="h-3 w-3" /> Edit with Kim
-          </Button>
+          {selectionId && (
+            <AskKimButton
+              kind="meal-item"
+              id={selectionId}
+              title={meal.name}
+              snapshot={meal as unknown as Record<string, unknown>}
+              className="h-8"
+              title_="Edit with Kim"
+            />
+          )}
         </div>
       </DialogContent>
     </Dialog>

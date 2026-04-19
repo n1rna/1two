@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ListShell, ListRows } from "@/components/list-shell";
 import { ActiveToggle } from "@/components/active-toggle";
-import { SelectCheckbox } from "@/components/kim";
+import { SelectCheckbox, AskKimButton } from "@/components/kim";
 import {
   createLifeRoutine,
   deleteLifeRoutine,
@@ -254,6 +254,21 @@ function RoutineCard({
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <AskKimButton
+            kind="routine"
+            id={routine.id}
+            title={routine.name}
+            snapshot={{
+              name: routine.name,
+              description: routine.description,
+              active: routine.active,
+              schedule: routine.schedule,
+            }}
+            variant="icon-button"
+            className="h-6 w-6"
+          />
+        </div>
         <ActiveToggle
           active={routine.active}
           onChange={(next) => onToggleActive(routine.id, next)}

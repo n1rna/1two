@@ -1,0 +1,93 @@
+{
+  "meal_plan": {
+    "regenerate": "Régénérer la journée",
+    "swap_cuisine": "Changer de cuisine",
+    "change_macros": "Changer les macros",
+    "scale_day": "Mettre à l'échelle la journée",
+    "grocery_list": "Créer la liste de courses"
+  },
+  "meal_item": {
+    "swap": "Remplacer par une alternative",
+    "scale_portion": "Ajuster la portion",
+    "pantry_subs": "Trouver des substituts du garde-manger",
+    "mark_eaten": "Marquer comme mangé",
+    "details": "Voir les détails"
+  },
+  "exercise": {
+    "alternatives": "Voir les alternatives",
+    "change_reps": "Modifier les répétitions",
+    "change_sets": "Modifier les séries",
+    "mark_skipped": "Marquer comme sauté",
+    "explain": "Expliquer l'exercice"
+  },
+  "event": {
+    "reschedule": "Reprogrammer",
+    "draft_message": "Rédiger un message aux participants",
+    "cancel_with_note": "Annuler avec note",
+    "find_commute": "Trouver le temps de trajet"
+  },
+  "task": {
+    "complete": "Terminer",
+    "break_down": "Décomposer en sous-tâches",
+    "schedule_block": "Planifier un créneau",
+    "snooze": "Reporter",
+    "delegate": "Déléguer / partager"
+  },
+  "metric": {
+    "explain_trend": "Expliquer la tendance",
+    "suggest_interventions": "Suggérer des interventions",
+    "compare_last_month": "Comparer au mois dernier",
+    "correlate": "Corréler avec une autre métrique",
+    "set_target": "Définir un objectif"
+  },
+  "session": {
+    "start": "Démarrer la séance",
+    "finish_early": "Terminer plus tôt",
+    "add_exercise": "Ajouter un exercice",
+    "swap": "Changer un exercice",
+    "explain_progression": "Expliquer la progression",
+    "warmup": "Suggérer un échauffement"
+  },
+  "routine": {
+    "edit_schedule": "Modifier l'horaire",
+    "pause": "Mettre en pause",
+    "resume": "Reprendre la routine",
+    "link_calendar": "Lier au calendrier",
+    "explain": "Expliquer la routine",
+    "archive": "Archiver la routine"
+  },
+  "diet_profile": {
+    "change_diet_type": "Changer de type de régime",
+    "update_macros": "Mettre à jour les macros",
+    "set_calories": "Définir les calories cibles",
+    "set_goal_weight": "Définir le poids cible",
+    "restrictions": "Mettre à jour les restrictions",
+    "activity_level": "Niveau d'activité",
+    "explain": "Expliquer ce régime"
+  },
+  "gym_profile": {
+    "change_goal": "Changer l'objectif fitness",
+    "set_days": "Définir les jours par semaine",
+    "set_duration": "Définir la durée de séance",
+    "equipment": "Mettre à jour l'équipement",
+    "preferences": "Préférences et aversions",
+    "explain": "Expliquer ce programme"
+  },
+  "ack": {
+    "done": "Fait.",
+    "failed": "Échec.",
+    "completed": "Terminé.",
+    "marked_eaten": "Marqué comme mangé.",
+    "reps_updated": "Répétitions mises à jour.",
+    "sets_updated": "Séries mises à jour.",
+    "target_set": "Objectif défini."
+  },
+  "common": {
+    "commit": "Valider",
+    "cancel": "Annuler",
+    "video_demo": "Démo vidéo",
+    "open_in_gcal": "Ouvrir dans Google Agenda",
+    "not_supported": "Pas encore pris en charge pour cette métrique.",
+    "days_suffix": "jours"
+  }
+}

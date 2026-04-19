@@ -16,7 +16,7 @@ import { PageShell, Card, EmptyState } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { ActiveToggle } from "@/components/active-toggle";
 import { PublishControl } from "@/components/marketplace/PublishControl";
-import { Selectable, useKimAutoContext } from "@/components/kim";
+import { Selectable, useKimAutoContext, AskKimButton } from "@/components/kim";
 import {
   getHealthSession,
   deleteHealthSession,
@@ -473,6 +473,14 @@ function ExerciseRow({ ex, index, onRemove, onSave, nested = false }: {
             {ex.notes && <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{ex.notes}</div>}
           </div>
           <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <AskKimButton
+              kind="exercise"
+              id={ex.id}
+              title={ex.exerciseName}
+              snapshot={ex as unknown as Record<string, unknown>}
+              variant="icon-button"
+              className="h-6 w-6"
+            />
             <button onClick={startEdit} aria-label="Edit exercise" className="mt-0.5 text-muted-foreground hover:text-foreground"><Edit2 size={12} /></button>
             <button onClick={onRemove} aria-label="Remove exercise" className="mt-0.5 text-muted-foreground hover:text-destructive"><Trash2 size={12} /></button>
           </div>

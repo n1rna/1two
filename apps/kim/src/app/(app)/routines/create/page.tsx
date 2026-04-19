@@ -15,7 +15,7 @@ import { routes } from "@/lib/routes";
 import {
   useKim,
   useKimForm,
-  AskKimButton,
+  AskKimHeroButton,
   AskKimEyebrow,
   KimPromptChip,
 } from "@/components/kim";
@@ -133,7 +133,7 @@ export default function RoutineCreatePage() {
           </div>
 
           <div className="mt-6 flex items-center gap-3">
-            <AskKimButton onClick={() => setOpen(true)} />
+            <AskKimHeroButton onClick={() => setOpen(true)} />
             <span
               className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground"
               style={{ fontFamily: "var(--font-geist-mono), ui-monospace, monospace" }}

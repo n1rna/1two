@@ -10,21 +10,25 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertCircle,
   ArrowUp,
   ChevronDown,
   FileEdit,
   History,
   Plus,
+  RotateCw,
   X,
   Maximize2,
   Minimize2,
-  Sparkles,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useKim } from "./kim-provider";
 import { routes } from "@/lib/routes";
 import { MODE_LABELS, type KimMode } from "./types";
 import { KimMessageList } from "./kim-message-list";
+import { KimGreeting } from "./kim-greeting";
+import { CtxChip } from "./ctx-chip";
+import { SmartUiSlot } from "./smart-ui/smart-ui-slot";
 import { commandsForMode } from "./slash-commands";
 import { SlashCommandMenu, useSlashCommands } from "@/components/ui/slash-commands";
 import type { SlashCommand } from "@/components/ui/slash-commands";
@@ -58,6 +62,7 @@ export function KimDrawer() {
     error,
     selection,
     removeSelection,
+    promoteSelection,
     clearSelection,
     send,
     conversations,
@@ -66,6 +71,7 @@ export function KimDrawer() {
     newConversation,
     setOpen,
     activeForm,
+    registerComposer,
   } = kim;
   const activeCommands = useMemo(() => commandsForMode(mode), [mode]);
   const slash = useSlashCommands(activeCommands);
@@ -83,6 +89,27 @@ export function KimDrawer() {
       requestAnimationFrame(() => textareaRef.current?.focus());
     }
   }, [open]);
+
+  // Expose composer imperative handle to the provider so smart-UI actions
+  // (e.g. smartPrompt) can prefill + focus without threading refs through
+  // React.
+  useEffect(() => {
+    registerComposer({
+      setInput: (v: string) => {
+        setInput(v);
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (!el) return;
+          el.style.height = "auto";
+          el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+        });
+      },
+      focus: () => {
+        requestAnimationFrame(() => textareaRef.current?.focus());
+      },
+    });
+    return () => registerComposer(null);
+  }, [registerComposer]);
 
   // Autoscroll on stream
   useEffect(() => {
@@ -219,6 +246,7 @@ export function KimDrawer() {
           >
             {t("drawer_subtitle")}
           </span>
+          <KimStatusPill streaming={streaming} />
         </div>
         <div className="flex items-center gap-1">
           <HeaderButton
@@ -385,7 +413,19 @@ export function KimDrawer() {
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 relative">
         {messages.length === 0 && !streamingText && (
-          <KimGreeting mode={mode} />
+          <KimGreeting
+            mode={mode}
+            onStarterClick={(text) => {
+              setInput(text);
+              requestAnimationFrame(() => {
+                const el = textareaRef.current;
+                if (!el) return;
+                el.focus();
+                el.style.height = "auto";
+                el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+              });
+            }}
+          />
         )}
         <KimMessageList
           messages={messages}
@@ -396,58 +436,52 @@ export function KimDrawer() {
         />
         {error && (
           <div
-            className="mt-3 text-xs kim-mono px-3 py-2 rounded-sm"
+            className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-sm"
             style={{
               background: "rgb(232 120 130 / 0.08)",
               border: "1px solid rgb(232 120 130 / 0.3)",
               color: "var(--kim-rose)",
             }}
           >
-            {t("error_prefix", { message: error })}
+            <AlertCircle size={12} className="mt-0.5 shrink-0" strokeWidth={1.75} />
+            <div className="flex-1 min-w-0">
+              <div
+                className="kim-mono text-[9.5px] uppercase tracking-[0.16em] mb-0.5 opacity-80"
+              >
+                {t("error_label")}
+              </div>
+              <div className="text-xs kim-mono break-words">{error}</div>
+            </div>
+            {(() => {
+              const lastUser = [...messages].reverse().find((m) => m.role === "user");
+              if (!lastUser) return null;
+              return (
+                <button
+                  onClick={() => void send(lastUser.content)}
+                  disabled={sending}
+                  className="shrink-0 inline-flex items-center gap-1 kim-mono text-[10px] uppercase tracking-[0.14em] px-2 py-1 rounded-sm border transition-colors disabled:opacity-50"
+                  style={{
+                    borderColor: "rgb(232 120 130 / 0.4)",
+                    color: "var(--kim-rose)",
+                  }}
+                  title={t("retry", { ns: "common" })}
+                >
+                  <RotateCw size={10} strokeWidth={1.75} />
+                  {t("retry", { ns: "common" })}
+                </button>
+              );
+            })()}
           </div>
         )}
       </div>
 
-      {/* Selection chips */}
-      {selection.length > 0 && (
-        <div
-          className="px-5 py-2 border-t flex flex-wrap gap-1.5 items-center"
-          style={{ borderColor: "var(--kim-border)" }}
-        >
-          <span
-            className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-1"
-            style={{ color: "var(--kim-ink-faint)" }}
-          >
-            {t("drawer_context_label")}
-          </span>
-          {selection.map((s) => (
-            <span key={`${s.kind}-${s.id}`} className="kim-chip">
-              <span
-                className="kim-mono text-[9px] uppercase tracking-[0.14em] opacity-70"
-                style={{ color: "var(--kim-amber)" }}
-              >
-                {s.kind}
-              </span>
-              <span className="max-w-[140px] truncate">{s.label}</span>
-              <button
-                onClick={() => removeSelection(s.kind, s.id)}
-                className="opacity-50 hover:opacity-100"
-              >
-                <X size={10} />
-              </button>
-            </span>
-          ))}
-          <button
-            onClick={clearSelection}
-            className="kim-mono text-[9.5px] uppercase tracking-[0.16em] ml-auto opacity-60 hover:opacity-100"
-            style={{ color: "var(--kim-ink-dim)" }}
-          >
-            {t("drawer_clear_context")}
-          </button>
-        </div>
-      )}
+      {/* Smart-UI slot — renders a card matching the primary selection
+          kind (meal, exercise, etc.). Sits between the thread and composer
+          so the user can act on the item without leaving the drawer. */}
+      <SmartUiSlot />
 
-      {/* Input */}
+      {/* Composer region — context chips directly above the textarea so
+          users can see what Kim is reasoning over. */}
       <div
         className="relative px-5 pt-3 pb-4 border-t"
         style={{ borderColor: "var(--kim-border)" }}
@@ -511,6 +545,33 @@ export function KimDrawer() {
   );
 }
 
+function KimStatusPill({ streaming }: { streaming: boolean }) {
+  const { t } = useTranslation("kim");
+  return (
+    <span
+      className="kim-mono text-[9px] uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-sm inline-flex items-center gap-1 ml-1"
+      style={{
+        background: streaming ? "var(--kim-teal-soft)" : "transparent",
+        border: "1px solid var(--kim-border)",
+        color: streaming ? "var(--kim-amber)" : "var(--kim-ink-faint)",
+      }}
+      aria-live="polite"
+    >
+      <span
+        aria-hidden
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{
+          background: streaming
+            ? "var(--kim-amber)"
+            : "var(--kim-ink-faint)",
+          animation: streaming ? "kim-pulse-dot 1.4s ease-in-out infinite" : undefined,
+        }}
+      />
+      {streaming ? t("status_thinking") : t("status_ready")}
+    </span>
+  );
+}
+
 function HeaderButton({
   children,
   onClick,
@@ -529,28 +590,6 @@ function HeaderButton({
     >
       {children}
     </button>
-  );
-}
-
-function KimGreeting({ mode }: { mode: KimMode }) {
-  return (
-    <div className="flex flex-col items-start gap-2 py-6">
-      <div className="flex items-center gap-2">
-        <Sparkles size={14} style={{ color: "var(--kim-amber)" }} />
-        <span
-          className="kim-mono text-[10px] uppercase tracking-[0.2em]"
-          style={{ color: "var(--kim-ink-faint)" }}
-        >
-          ready · {MODE_LABELS[mode]}
-        </span>
-      </div>
-      <p
-        className="text-xs mt-1"
-        style={{ color: "var(--kim-ink-faint)" }}
-      >
-        select items on the page to add them as context.
-      </p>
-    </div>
   );
 }
 

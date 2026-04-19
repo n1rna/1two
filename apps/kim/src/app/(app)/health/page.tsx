@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ListShell } from "@/components/list-shell";
-import { useKim, useKimAutoContext } from "@/components/kim";
+import { useKim, useKimAutoContext, AskKimButton } from "@/components/kim";
 import { cn } from "@/lib/utils";
 import { getHealthProfile, type HealthProfile } from "@/lib/health";
 import { routes } from "@/lib/routes";
@@ -274,7 +274,10 @@ interface SectionCardProps {
   title: string;
   subtitle: string;
   complete: boolean;
-  onEdit: () => void;
+  /** Fallback free-form "ask kim to update" handler. Used when `editSlot` isn't provided. */
+  onEdit?: () => void;
+  /** Optional header-right slot, e.g. a kind-specific <AskKimButton>. When set, takes precedence over onEdit. */
+  editSlot?: ReactNode;
   children: ReactNode;
 }
 
@@ -284,6 +287,7 @@ function SectionCard({
   subtitle,
   complete,
   onEdit,
+  editSlot,
   children,
 }: SectionCardProps) {
   const { t } = useTranslation("health");
@@ -310,13 +314,15 @@ function SectionCard({
             </p>
           </div>
         </div>
-        <button
-          onClick={onEdit}
-          className="shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
-        >
-          <Sparkles className="h-3 w-3" />
-          {t("ask_kim")}
-        </button>
+        {editSlot ?? (
+          <button
+            onClick={onEdit}
+            className="shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <Sparkles className="h-3 w-3" />
+            {t("ask_kim")}
+          </button>
+        )}
       </header>
       <div className="p-5 space-y-4">{children}</div>
     </section>
@@ -397,14 +403,18 @@ function Stat({
   value,
   sub,
   subColor,
+  metricId,
+  snapshot,
 }: {
   label: string;
   value: string;
   sub?: string;
   subColor?: string;
+  metricId?: string;
+  snapshot?: Record<string, unknown>;
 }) {
   return (
-    <div className="rounded-md bg-muted/40 px-3 py-2">
+    <div className="relative rounded-md bg-muted/40 px-3 py-2 group">
       <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </div>
@@ -412,6 +422,18 @@ function Stat({
       {sub && (
         <div className={cn("text-[10px] mt-0.5", subColor ?? "text-muted-foreground")}>
           {sub}
+        </div>
+      )}
+      {metricId && snapshot && (
+        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <AskKimButton
+            kind="metric"
+            id={metricId}
+            title={`${label}: ${value}`}
+            snapshot={snapshot}
+            variant="icon-button"
+            className="h-5 w-5"
+          />
         </div>
       )}
     </div>
@@ -436,6 +458,18 @@ function BodyCard({
       "I want to update my body info — things like weight, goal weight, height, age, gender, or activity level. Ask me whichever of these need changing.",
     );
 
+  const bodySnapshot = {
+    weightKg: profile.weightKg,
+    heightCm: profile.heightCm,
+    age: profile.age,
+    gender: profile.gender,
+    activityLevel: profile.activityLevel,
+    goalWeightKg: profile.goalWeightKg,
+    bmi: profile.bmi,
+    bmr: profile.bmr,
+    tdee: profile.tdee,
+  };
+
   return (
     <SectionCard
       icon={<UserIcon className="h-4 w-4" />}
@@ -443,6 +477,16 @@ function BodyCard({
       subtitle={t("section_body_subtitle")}
       complete={complete}
       onEdit={edit}
+      editSlot={
+        <AskKimButton
+          kind="diet-profile"
+          id="health-profile-body"
+          title={t("section_body_title")}
+          snapshot={bodySnapshot}
+          className="h-7"
+          title_={t("ask_kim")}
+        />
+      }
     >
       {!complete && !profile.weightKg && !profile.heightCm ? (
         <MissingCta
@@ -503,16 +547,42 @@ function BodyCard({
               value={profile.bmi ? profile.bmi.toFixed(1) : "—"}
               sub={cat?.label}
               subColor={cat?.color}
+              metricId="bmi"
+              snapshot={{
+                metric: "bmi",
+                value: profile.bmi,
+                category: cat?.label,
+                weightKg: profile.weightKg,
+                heightCm: profile.heightCm,
+              }}
             />
             <Stat
               label="BMR"
               value={profile.bmr ? Math.round(profile.bmr).toString() : "—"}
               sub="kcal/day"
+              metricId="bmr"
+              snapshot={{
+                metric: "bmr",
+                value: profile.bmr,
+                unit: "kcal/day",
+                weightKg: profile.weightKg,
+                heightCm: profile.heightCm,
+                age: profile.age,
+                gender: profile.gender,
+              }}
             />
             <Stat
               label="TDEE"
               value={profile.tdee ? Math.round(profile.tdee).toString() : "—"}
               sub="kcal/day"
+              metricId="tdee"
+              snapshot={{
+                metric: "tdee",
+                value: profile.tdee,
+                unit: "kcal/day",
+                activityLevel: profile.activityLevel,
+                bmr: profile.bmr,
+              }}
             />
           </div>
         </div>
@@ -543,6 +613,17 @@ function FitnessCard({
       "I want to update my fitness preferences — things like training level, goal, how many days a week I train, session length, available equipment, or any limitations. Ask me whichever of these need changing.",
     );
 
+  const gymSnapshot = {
+    fitnessLevel: profile.fitnessLevel,
+    fitnessGoal: profile.fitnessGoal,
+    daysPerWeek: profile.daysPerWeek,
+    preferredDurationMin: profile.preferredDurationMin,
+    availableEquipment: profile.availableEquipment,
+    physicalLimitations: profile.physicalLimitations,
+    workoutLikes: profile.workoutLikes,
+    workoutDislikes: profile.workoutDislikes,
+  };
+
   return (
     <SectionCard
       icon={<Dumbbell className="h-4 w-4" />}
@@ -550,6 +631,16 @@ function FitnessCard({
       subtitle={t("section_fitness_subtitle")}
       complete={complete}
       onEdit={edit}
+      editSlot={
+        <AskKimButton
+          kind="gym-profile"
+          id="health-profile-gym"
+          title={t("section_fitness_title")}
+          snapshot={gymSnapshot}
+          className="h-7"
+          title_={t("ask_kim")}
+        />
+      }
     >
       {!hasAnyFitness ? (
         <MissingCta
@@ -647,6 +738,19 @@ function DietCard({
     hasMacros ||
     hasRestrictions;
 
+  const dietSnapshot = {
+    dietType: profile.dietType,
+    dietGoal: profile.dietGoal,
+    dietaryRestrictions: profile.dietaryRestrictions,
+    targetCalories: profile.targetCalories,
+    proteinG: profile.proteinG,
+    carbsG: profile.carbsG,
+    fatG: profile.fatG,
+    goalWeightKg: profile.goalWeightKg,
+    weightKg: profile.weightKg,
+    activityLevel: profile.activityLevel,
+  };
+
   return (
     <SectionCard
       icon={<UtensilsCrossed className="h-4 w-4" />}
@@ -654,6 +758,16 @@ function DietCard({
       subtitle={t("section_diet_subtitle")}
       complete={complete}
       onEdit={edit}
+      editSlot={
+        <AskKimButton
+          kind="diet-profile"
+          id="health-profile-diet"
+          title={t("section_diet_title")}
+          snapshot={dietSnapshot}
+          className="h-7"
+          title_={t("ask_kim")}
+        />
+      }
     >
       {!anyDietField ? (
         <MissingCta

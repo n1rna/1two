@@ -1,0 +1,93 @@
+{
+  "meal_plan": {
+    "regenerate": "Tag neu generieren",
+    "swap_cuisine": "Küche tauschen",
+    "change_macros": "Makros ändern",
+    "scale_day": "Tag skalieren",
+    "grocery_list": "Einkaufsliste erstellen"
+  },
+  "meal_item": {
+    "swap": "Gegen Alternative tauschen",
+    "scale_portion": "Portion anpassen",
+    "pantry_subs": "Vorrats-Ersatz finden",
+    "mark_eaten": "Als gegessen markieren",
+    "details": "Details anzeigen"
+  },
+  "exercise": {
+    "alternatives": "Alternativen anzeigen",
+    "change_reps": "Wiederholungen ändern",
+    "change_sets": "Sätze ändern",
+    "mark_skipped": "Als übersprungen markieren",
+    "explain": "Übung erklären"
+  },
+  "event": {
+    "reschedule": "Verschieben",
+    "draft_message": "Nachricht an Teilnehmer entwerfen",
+    "cancel_with_note": "Mit Notiz absagen",
+    "find_commute": "Fahrzeit ermitteln"
+  },
+  "task": {
+    "complete": "Abschließen",
+    "break_down": "In Unteraufgaben aufteilen",
+    "schedule_block": "Zeitblock planen",
+    "snooze": "Später erinnern",
+    "delegate": "Delegieren / teilen"
+  },
+  "metric": {
+    "explain_trend": "Trend erklären",
+    "suggest_interventions": "Maßnahmen vorschlagen",
+    "compare_last_month": "Mit letztem Monat vergleichen",
+    "correlate": "Mit anderer Metrik korrelieren",
+    "set_target": "Ziel setzen"
+  },
+  "session": {
+    "start": "Workout starten",
+    "finish_early": "Früher beenden",
+    "add_exercise": "Übung hinzufügen",
+    "swap": "Übung tauschen",
+    "explain_progression": "Progression erklären",
+    "warmup": "Aufwärmen vorschlagen"
+  },
+  "routine": {
+    "edit_schedule": "Zeitplan bearbeiten",
+    "pause": "Routine pausieren",
+    "resume": "Routine fortsetzen",
+    "link_calendar": "Mit Kalender verknüpfen",
+    "explain": "Routine erklären",
+    "archive": "Routine archivieren"
+  },
+  "diet_profile": {
+    "change_diet_type": "Ernährungstyp ändern",
+    "update_macros": "Makros aktualisieren",
+    "set_calories": "Zielkalorien festlegen",
+    "set_goal_weight": "Zielgewicht setzen",
+    "restrictions": "Einschränkungen aktualisieren",
+    "activity_level": "Aktivitätslevel",
+    "explain": "Ernährung erklären"
+  },
+  "gym_profile": {
+    "change_goal": "Fitnessziel ändern",
+    "set_days": "Tage pro Woche festlegen",
+    "set_duration": "Trainingsdauer festlegen",
+    "equipment": "Ausrüstung aktualisieren",
+    "preferences": "Vorlieben & Abneigungen",
+    "explain": "Plan erklären"
+  },
+  "ack": {
+    "done": "Erledigt.",
+    "failed": "Fehlgeschlagen.",
+    "completed": "Abgeschlossen.",
+    "marked_eaten": "Als gegessen markiert.",
+    "reps_updated": "Wiederholungen aktualisiert.",
+    "sets_updated": "Sätze aktualisiert.",
+    "target_set": "Ziel gesetzt."
+  },
+  "common": {
+    "commit": "Bestätigen",
+    "cancel": "Abbrechen",
+    "video_demo": "Video-Demo",
+    "open_in_gcal": "In Google Kalender öffnen",
+    "not_supported": "Für diese Metrik noch nicht unterstützt.",
+    "days_suffix": "Tage"
+  }
+}
