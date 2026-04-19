@@ -40,6 +40,13 @@ interface KimState {
   sending: boolean;
   error: string | null;
   selection: KimSelection[];
+  /**
+   * Key of the currently-primary selection (the one the smart-UI card
+   * represents). Null when no selection exists. Tracked separately from
+   * the `selection` array so attaching or promoting doesn't reorder the
+   * stack — it just re-points this pointer.
+   */
+  primaryKey: { kind: SelectableKind; id: string } | null;
   selectionMode: boolean;
   /**
    * Cache of full actionable records keyed by id. Populated from streaming
@@ -665,37 +672,47 @@ export function KimProvider({ children }: { children: ReactNode }) {
     sendRef.current = send;
   }, [send]);
 
+  const [primaryKey, setPrimaryKey] = useState<
+    { kind: SelectableKind; id: string } | null
+  >(null);
+
   const addSelection = useCallback((s: KimSelection) => {
-    setSelection((cur) => {
-      const without = cur.filter((x) => !(x.kind === s.kind && x.id === s.id));
-      return [s, ...without];
-    });
+    setSelection((cur) =>
+      cur.some((x) => x.kind === s.kind && x.id === s.id) ? cur : [...cur, s],
+    );
+    setPrimaryKey({ kind: s.kind, id: s.id });
   }, []);
   const removeSelection = useCallback(
-    (kind: SelectableKind, id: string) =>
+    (kind: SelectableKind, id: string) => {
       setSelection((cur) =>
         cur.filter((x) => !(x.kind === kind && x.id === id)),
-      ),
+      );
+      setPrimaryKey((cur) =>
+        cur && cur.kind === kind && cur.id === id ? null : cur,
+      );
+    },
     [],
   );
   const toggleSelection = useCallback((s: KimSelection) => {
-    setSelection((cur) =>
-      cur.some((x) => x.kind === s.kind && x.id === s.id)
+    setSelection((cur) => {
+      const exists = cur.some((x) => x.kind === s.kind && x.id === s.id);
+      return exists
         ? cur.filter((x) => !(x.kind === s.kind && x.id === s.id))
-        : [...cur, s],
-    );
+        : [...cur, s];
+    });
+    setPrimaryKey((cur) => {
+      if (cur && cur.kind === s.kind && cur.id === s.id) return null;
+      return { kind: s.kind, id: s.id };
+    });
   }, []);
-  const clearSelection = useCallback(() => setSelection([]), []);
+  const clearSelection = useCallback(() => {
+    setSelection([]);
+    setPrimaryKey(null);
+  }, []);
   const promoteSelection = useCallback(
-    (kind: SelectableKind, id: string) =>
-      setSelection((cur) => {
-        const idx = cur.findIndex((x) => x.kind === kind && x.id === id);
-        if (idx <= 0) return cur;
-        const next = cur.slice();
-        const [picked] = next.splice(idx, 1);
-        next.unshift(picked);
-        return next;
-      }),
+    (kind: SelectableKind, id: string) => {
+      setPrimaryKey({ kind, id });
+    },
     [],
   );
   const isSelected = useCallback(
@@ -716,12 +733,20 @@ export function KimProvider({ children }: { children: ReactNode }) {
   // to the item the user last acted on rather than leaking across swaps.
   // (QBL-113)
   useEffect(() => {
-    const currentId = selection[0]?.id ?? null;
-    if (currentId !== prevPrimaryIdRef.current) {
-      prevPrimaryIdRef.current = currentId;
+    const effective =
+      primaryKey &&
+      selection.find(
+        (s) => s.kind === primaryKey.kind && s.id === primaryKey.id,
+      )
+        ? `${primaryKey.kind}:${primaryKey.id}`
+        : selection[0]
+          ? `${selection[0].kind}:${selection[0].id}`
+          : null;
+    if (effective !== prevPrimaryIdRef.current) {
+      prevPrimaryIdRef.current = effective;
       setSmartUiCollapsed(false);
     }
-  }, [selection]);
+  }, [selection, primaryKey]);
 
   const value = useMemo(
     () => ({
@@ -738,6 +763,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
       sending,
       error,
       selection,
+      primaryKey,
       selectionMode,
       activeForm,
       actionables,
@@ -784,6 +810,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
       sending,
       error,
       selection,
+      primaryKey,
       selectionMode,
       activeForm,
       actionables,

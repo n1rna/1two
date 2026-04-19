@@ -14,6 +14,12 @@ export interface CtxChipProps {
    * supporting chip promotes it to primary. (QBL-114)
    */
   onClick?: () => void;
+  /**
+   * When true, renders the chip with an emphasised outline + dot to indicate
+   * this is the currently-primary context (the one the smart-UI card above
+   * represents).
+   */
+  highlight?: boolean;
   size?: "sm" | "md";
   className?: string;
 }
@@ -49,6 +55,7 @@ export function CtxChip({
   selection,
   onRemove,
   onClick,
+  highlight = false,
   size = "sm",
   className,
 }: CtxChipProps) {
@@ -110,11 +117,18 @@ export function CtxChip({
     className,
   );
 
-  const baseStyle: React.CSSProperties = {
-    background: "var(--kim-bg-sunken)",
-    border: "1px solid var(--kim-border)",
-    color: "var(--kim-ink-dim)",
-  };
+  const baseStyle: React.CSSProperties = highlight
+    ? {
+        background: "var(--kim-teal-soft)",
+        border: `1px solid ${color}`,
+        color: "var(--kim-ink)",
+        boxShadow: `0 0 0 1px ${color}33 inset`,
+      }
+    : {
+        background: "var(--kim-bg-sunken)",
+        border: "1px solid var(--kim-border)",
+        color: "var(--kim-ink-dim)",
+      };
 
   if (onClick) {
     return (

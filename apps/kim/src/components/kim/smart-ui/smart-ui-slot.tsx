@@ -56,14 +56,22 @@ const KIND_I18N_KEY: Partial<Record<SelectableKind, string>> = {
 export function SmartUiSlot() {
   const {
     selection,
+    primaryKey,
     smartUiCollapsed,
     expandSmartUi,
     removeSelection,
     promoteSelection,
   } = useKim();
   const { t } = useTranslation("kim");
-  const primary = selection[0];
-  if (!primary) return null;
+
+  if (selection.length === 0) return null;
+
+  const primary =
+    (primaryKey &&
+      selection.find(
+        (s) => s.kind === primaryKey.kind && s.id === primaryKey.id,
+      )) ||
+    selection[0];
 
   let card: React.ReactNode = null;
   switch (primary.kind) {
@@ -103,25 +111,31 @@ export function SmartUiSlot() {
 
   if (!card) return null;
 
-  const supporting = selection.slice(1);
-
+  // Stack shows EVERY attached item in insertion order. Primary is
+  // highlighted so users know which one the card above represents.
   const stack =
-    supporting.length > 0 ? (
-      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+    selection.length > 0 ? (
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span
           className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-0.5 shrink-0"
           style={{ color: "var(--kim-ink-faint)" }}
         >
           {t("smart_ui_stack_label", { defaultValue: "stack" })}
         </span>
-        {supporting.map((s) => (
-          <CtxChip
-            key={`${s.kind}-${s.id}`}
-            selection={s}
-            onRemove={() => removeSelection(s.kind, s.id)}
-            onClick={() => promoteSelection(s.kind, s.id)}
-          />
-        ))}
+        {selection.map((s) => {
+          const isPrimary = s.kind === primary.kind && s.id === primary.id;
+          return (
+            <CtxChip
+              key={`${s.kind}-${s.id}`}
+              selection={s}
+              highlight={isPrimary}
+              onRemove={() => removeSelection(s.kind, s.id)}
+              onClick={
+                isPrimary ? undefined : () => promoteSelection(s.kind, s.id)
+              }
+            />
+          );
+        })}
       </div>
     ) : null;
 
@@ -131,7 +145,6 @@ export function SmartUiSlot() {
     const kindLabel = kindKey ? t(kindKey) : primary.kind;
     return (
       <div className="px-5 pb-3 pt-1">
-        {stack}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -166,13 +179,13 @@ export function SmartUiSlot() {
             <X className="h-3.5 w-3.5" aria-hidden />
           </button>
         </div>
+        {stack}
       </div>
     );
   }
 
   return (
     <div className="px-5 pb-3 pt-1">
-      {stack}
       <div className="relative">
         {card}
         <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5">
@@ -187,6 +200,7 @@ export function SmartUiSlot() {
           </button>
         </div>
       </div>
+      {stack}
     </div>
   );
 }
