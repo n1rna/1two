@@ -71,3 +71,30 @@ func TestBuildMealPlanChangeSummary_MentionsTargetCalories(t *testing.T) {
 		t.Errorf("summary missing calorie target: %s", got)
 	}
 }
+
+// ─── buildRoutineChangeSummary ──────────────────────────────────────────────
+
+func TestBuildRoutineChangeSummary_ScheduleChangeMentionsCalendarDrift(t *testing.T) {
+	got := buildRoutineChangeSummary(nil, nil, true, false, false, nil)
+	if !strings.Contains(got, "schedule updated") {
+		t.Errorf("expected schedule change to be flagged: %s", got)
+	}
+	if !strings.Contains(got, "calendar") {
+		t.Errorf("schedule-change summary should hint at calendar impact: %s", got)
+	}
+}
+
+func TestBuildRoutineChangeSummary_NoChanges_ReturnsEmpty(t *testing.T) {
+	got := buildRoutineChangeSummary(nil, nil, false, false, false, nil)
+	if got != "" {
+		t.Errorf("expected empty summary, got %q", got)
+	}
+}
+
+func TestBuildRoutineChangeSummary_NameChangeIncluded(t *testing.T) {
+	name := "Morning stretch"
+	got := buildRoutineChangeSummary(&name, nil, false, false, false, nil)
+	if !strings.Contains(got, "Morning stretch") {
+		t.Errorf("summary should include new name: %s", got)
+	}
+}

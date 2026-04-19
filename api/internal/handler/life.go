@@ -2211,7 +2211,41 @@ func CreateLifeRoutine(db *sql.DB) http.HandlerFunc {
 
 // UpdateLifeRoutine handles PUT /life/routines/{id}.
 // Body: partial update of name, description, schedule, config, active.
-func UpdateLifeRoutine(db *sql.DB) http.HandlerFunc {
+// buildRoutineChangeSummary produces a compact summary of which routine
+// fields changed, for the journey agent's prompt. We flag JSON fields as
+// "updated" rather than diff them — the agent can always re-read the row.
+func buildRoutineChangeSummary(
+	name, description *string,
+	scheduleChanged, configChanged, schemaChanged bool,
+	active *bool,
+) string {
+	var parts []string
+	if name != nil {
+		parts = append(parts, fmt.Sprintf("name → %q", *name))
+	}
+	if description != nil {
+		parts = append(parts, "description updated")
+	}
+	if scheduleChanged {
+		parts = append(parts, "schedule updated (calendar events may drift)")
+	}
+	if configChanged {
+		parts = append(parts, "config updated")
+	}
+	if schemaChanged {
+		parts = append(parts, "config_schema updated")
+	}
+	if active != nil {
+		if *active {
+			parts = append(parts, "activated")
+		} else {
+			parts = append(parts, "deactivated")
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+func UpdateLifeRoutine(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -2287,6 +2321,19 @@ func UpdateLifeRoutine(db *sql.DB) http.HandlerFunc {
 		rec.ConfigSchema = json.RawMessage(configSchema)
 		rec.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		rec.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		// Journey cascade — routine change may require calendar rescheduling.
+		fireJourneyEventAsync(db, agent, life.JourneyEvent{
+			UserID:      userID,
+			Trigger:     life.JourneyTriggerRoutineUpdated,
+			EntityID:    rec.ID,
+			EntityTitle: rec.Name,
+			ChangeSummary: buildRoutineChangeSummary(
+				req.Name, req.Description,
+				scheduleParam != nil, configParam != nil, schemaParam != nil,
+				req.Active,
+			),
+		})
 
 		json.NewEncoder(w).Encode(map[string]any{"routine": rec})
 	}

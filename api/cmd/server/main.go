@@ -355,7 +355,7 @@ func main() {
 				r.Get("/life/routines", handler.ListLifeRoutines(db))
 				r.Get("/life/routines/{id}", handler.GetLifeRoutine(db))
 				r.Post("/life/routines", handler.CreateLifeRoutine(db))
-				r.Put("/life/routines/{id}", handler.UpdateLifeRoutine(db))
+				r.Put("/life/routines/{id}", handler.UpdateLifeRoutine(db, lifeAgent))
 				r.Delete("/life/routines/{id}", handler.DeleteLifeRoutine(db))
 				// Marketplace
 				r.Post("/life/marketplace/publish", handler.PublishMarketplaceItem(db))
