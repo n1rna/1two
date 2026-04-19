@@ -19,8 +19,6 @@
   "select_title": "Auswählen",
   "deselect_title": "Abwählen",
 
-  "journey_group_title": "Verlauf",
-  "journey_group_subtitle": "Folgeänderungen aus kürzlichen Aktualisierungen",
   "journey_trigger_gym_session_updated": "Gym-Session aktualisiert",
   "journey_trigger_meal_plan_updated": "Essensplan aktualisiert",
   "journey_trigger_routine_updated": "Routine aktualisiert",
@@ -29,5 +27,24 @@
   "run_filter_banner": "Zeige {{count}} Aufgaben aus {{source}}",
   "run_filter_loading": "Lauf wird geladen…",
   "run_filter_missing": "Lauf nicht gefunden — leerer Filter",
-  "run_filter_clear": "Filter entfernen"
+  "run_filter_clear": "Filter entfernen",
+
+  "search_placeholder": "Aufgaben suchen…",
+  "filter_clear_all": "Filter löschen",
+
+  "bucket_tomorrow": "Morgen",
+  "bucket_today": "Heute",
+  "bucket_yesterday": "Gestern",
+  "bucket_older": "Älter",
+
+  "domain_calendar": "Kalender",
+  "domain_task": "Aufgabe",
+  "domain_routine": "Routine",
+  "domain_meal": "Essen",
+  "domain_memory": "Gedächtnis",
+  "domain_suggestion": "Vorschlag",
+  "domain_other": "Sonstiges",
+
+  "empty_filtered_title": "Nichts passt zu diesen Filtern",
+  "empty_filtered_body": "Versuche, Filter zu entfernen oder die Suche zu ändern."
 }

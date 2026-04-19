@@ -19,8 +19,6 @@
   "select_title": "Seleziona",
   "deselect_title": "Deseleziona",
 
-  "journey_group_title": "Percorso",
-  "journey_group_subtitle": "Modifiche a cascata dai recenti aggiornamenti",
   "journey_trigger_gym_session_updated": "Sessione di palestra aggiornata",
   "journey_trigger_meal_plan_updated": "Piano pasti aggiornato",
   "journey_trigger_routine_updated": "Routine aggiornata",
@@ -29,5 +27,24 @@
   "run_filter_banner": "Mostrando {{count}} azioni da {{source}}",
   "run_filter_loading": "Caricamento esecuzione…",
   "run_filter_missing": "Esecuzione non trovata — filtro vuoto",
-  "run_filter_clear": "Rimuovi filtro"
+  "run_filter_clear": "Rimuovi filtro",
+
+  "search_placeholder": "Cerca elementi…",
+  "filter_clear_all": "Azzera filtri",
+
+  "bucket_tomorrow": "Domani",
+  "bucket_today": "Oggi",
+  "bucket_yesterday": "Ieri",
+  "bucket_older": "Più vecchi",
+
+  "domain_calendar": "Calendario",
+  "domain_task": "Attività",
+  "domain_routine": "Routine",
+  "domain_meal": "Pasto",
+  "domain_memory": "Memoria",
+  "domain_suggestion": "Suggerimento",
+  "domain_other": "Altro",
+
+  "empty_filtered_title": "Nessun risultato per questi filtri",
+  "empty_filtered_body": "Prova a togliere filtri o cambiare la ricerca."
 }
