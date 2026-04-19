@@ -27,6 +27,7 @@ import { routes } from "@/lib/routes";
 import { MODE_LABELS, type KimMode } from "./types";
 import { KimMessageList } from "./kim-message-list";
 import { KimGreeting } from "./kim-greeting";
+import { CtxChip } from "./ctx-chip";
 import { commandsForMode } from "./slash-commands";
 import { SlashCommandMenu, useSlashCommands } from "@/components/ui/slash-commands";
 import type { SlashCommand } from "@/components/ui/slash-commands";
@@ -472,50 +473,36 @@ export function KimDrawer() {
         )}
       </div>
 
-      {/* Selection chips */}
-      {selection.length > 0 && (
-        <div
-          className="px-5 py-2 border-t flex flex-wrap gap-1.5 items-center"
-          style={{ borderColor: "var(--kim-border)" }}
-        >
-          <span
-            className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-1"
-            style={{ color: "var(--kim-ink-faint)" }}
-          >
-            {t("drawer_context_label")}
-          </span>
-          {selection.map((s) => (
-            <span key={`${s.kind}-${s.id}`} className="kim-chip">
-              <span
-                className="kim-mono text-[9px] uppercase tracking-[0.14em] opacity-70"
-                style={{ color: "var(--kim-amber)" }}
-              >
-                {s.kind}
-              </span>
-              <span className="max-w-[140px] truncate">{s.label}</span>
-              <button
-                onClick={() => removeSelection(s.kind, s.id)}
-                className="opacity-50 hover:opacity-100"
-              >
-                <X size={10} />
-              </button>
-            </span>
-          ))}
-          <button
-            onClick={clearSelection}
-            className="kim-mono text-[9.5px] uppercase tracking-[0.16em] ml-auto opacity-60 hover:opacity-100"
-            style={{ color: "var(--kim-ink-dim)" }}
-          >
-            {t("drawer_clear_context")}
-          </button>
-        </div>
-      )}
-
-      {/* Input */}
+      {/* Composer region — context chips directly above the textarea so
+          users can see what Kim is reasoning over. */}
       <div
         className="relative px-5 pt-3 pb-4 border-t"
         style={{ borderColor: "var(--kim-border)" }}
       >
+        {selection.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5 items-center">
+            <span
+              className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-0.5 shrink-0"
+              style={{ color: "var(--kim-ink-faint)" }}
+            >
+              {t("drawer_context_label")}
+            </span>
+            {selection.map((s) => (
+              <CtxChip
+                key={`${s.kind}-${s.id}`}
+                selection={s}
+                onRemove={() => removeSelection(s.kind, s.id)}
+              />
+            ))}
+            <button
+              onClick={clearSelection}
+              className="kim-mono text-[9.5px] uppercase tracking-[0.16em] ml-auto opacity-60 hover:opacity-100 shrink-0"
+              style={{ color: "var(--kim-ink-dim)" }}
+            >
+              {t("drawer_clear_context")}
+            </button>
+          </div>
+        )}
         <SlashCommandMenu
           commands={activeCommands}
           input={input}
