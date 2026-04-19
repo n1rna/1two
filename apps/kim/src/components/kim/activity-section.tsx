@@ -53,7 +53,7 @@ export function ActivitySection({ open }: ActivitySectionProps) {
 
   const tick = useCallback(async () => {
     try {
-      const res = await listLifeAgentRuns({ status: "active", limit: 20 });
+      const res = await listLifeAgentRuns({ status: "all", limit: 20 });
       if (!mountedRef.current) return;
       setRuns(res.runs);
       setHasActive(res.hasActive);
