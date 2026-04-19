@@ -250,7 +250,8 @@
   "slash_health_remember": "Etwas merken",
   "slash_health_remember_desc": "Eine gesundheitsbezogene Info, Allergie oder Verletzung speichern",
 
-  "kind_meal": "Mahlzeit",
+  "kind_meal_plan": "Tagesplan",
+  "kind_meal_item": "Mahlzeit",
   "kind_exercise": "Übung",
   "kind_event": "Termin",
   "kind_task": "Aufgabe",

@@ -250,7 +250,8 @@
   "slash_health_remember": "Retenir un fait",
   "slash_health_remember_desc": "Sauvegarder un fait santé, une allergie ou une blessure",
 
-  "kind_meal": "repas",
+  "kind_meal_plan": "plan du jour",
+  "kind_meal_item": "repas",
   "kind_exercise": "exercice",
   "kind_event": "événement",
   "kind_task": "tâche",

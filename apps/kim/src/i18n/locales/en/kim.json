@@ -250,7 +250,8 @@
   "slash_health_remember": "Remember a fact",
   "slash_health_remember_desc": "Save a health-related fact, allergy, or injury",
 
-  "kind_meal": "meal",
+  "kind_meal_plan": "day plan",
+  "kind_meal_item": "meal",
   "kind_exercise": "exercise",
   "kind_event": "event",
   "kind_task": "task",

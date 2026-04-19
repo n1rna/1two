@@ -16,7 +16,8 @@ import { useKim } from "../kim-provider";
 import type { SelectableKind } from "../types";
 import { EventSmartCard } from "./event";
 import { ExerciseSmartCard } from "./exercise";
-import { MealSmartCard } from "./meal";
+import { MealItemSmartCard } from "./meal-item";
+import { MealPlanSmartCard } from "./meal-plan";
 import { MetricSmartCard } from "./metric";
 import { RoutineSmartCard } from "./routine";
 import { SessionSmartCard } from "./session";
@@ -40,8 +41,8 @@ const KIND_ICON: Partial<Record<SelectableKind, LucideIcon>> = {
 
 /** i18n key for the pretty-print kind label (see kim.json: `kind_*`). */
 const KIND_I18N_KEY: Partial<Record<SelectableKind, string>> = {
-  "meal-item": "kind_meal",
-  "meal-plan": "kind_meal",
+  "meal-item": "kind_meal_item",
+  "meal-plan": "kind_meal_plan",
   exercise: "kind_exercise",
   event: "kind_event",
   task: "kind_task",
@@ -77,8 +78,10 @@ export function SmartUiSlot() {
   let card: React.ReactNode = null;
   switch (primary.kind) {
     case "meal-item":
+      card = <MealItemSmartCard item={primary} />;
+      break;
     case "meal-plan":
-      card = <MealSmartCard item={primary} />;
+      card = <MealPlanSmartCard item={primary} />;
       break;
     case "exercise":
       card = <ExerciseSmartCard item={primary} />;

@@ -250,7 +250,8 @@
   "slash_health_remember": "Zapamiętaj fakt",
   "slash_health_remember_desc": "Zapisz fakt zdrowotny, alergię lub kontuzję",
 
-  "kind_meal": "posiłek",
+  "kind_meal_plan": "plan dnia",
+  "kind_meal_item": "posiłek",
   "kind_exercise": "ćwiczenie",
   "kind_event": "wydarzenie",
   "kind_task": "zadanie",

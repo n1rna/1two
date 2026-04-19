@@ -27,7 +27,8 @@ export {
   useSmartActions,
 } from "./actions";
 export { SmartUiSlot } from "./smart-ui-slot";
-export { MealSmartCard } from "./meal";
+export { MealItemSmartCard } from "./meal-item";
+export { MealPlanSmartCard } from "./meal-plan";
 export { ExerciseSmartCard } from "./exercise";
 export { EventSmartCard } from "./event";
 export { TaskSmartCard } from "./task";

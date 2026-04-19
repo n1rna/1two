@@ -250,7 +250,8 @@
   "slash_health_remember": "Onthoud een feit",
   "slash_health_remember_desc": "Sla een gezondheidsfeit, allergie of blessure op",
 
-  "kind_meal": "maaltijd",
+  "kind_meal_plan": "dagplan",
+  "kind_meal_item": "maaltijd",
   "kind_exercise": "oefening",
   "kind_event": "afspraak",
   "kind_task": "taak",

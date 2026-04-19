@@ -1,7 +1,14 @@
 {
-  "meal": {
+  "meal_plan": {
+    "regenerate": "Wygeneruj dzień ponownie",
+    "swap_cuisine": "Zmień kuchnię",
+    "change_macros": "Zmień makro",
+    "scale_day": "Przeskaluj dzień",
+    "grocery_list": "Utwórz listę zakupów"
+  },
+  "meal_item": {
     "swap": "Zamień na alternatywę",
-    "scale_portions": "Dostosuj porcje",
+    "scale_portion": "Dostosuj porcję",
     "pantry_subs": "Znajdź zamienniki ze spiżarni",
     "mark_eaten": "Oznacz jako zjedzone",
     "details": "Pokaż szczegóły"

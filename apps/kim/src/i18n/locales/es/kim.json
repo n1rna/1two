@@ -250,7 +250,8 @@
   "slash_health_remember": "Recordar un dato",
   "slash_health_remember_desc": "Guardar un dato de salud, alergia o lesión",
 
-  "kind_meal": "comida",
+  "kind_meal_plan": "plan del día",
+  "kind_meal_item": "comida",
   "kind_exercise": "ejercicio",
   "kind_event": "evento",
   "kind_task": "tarea",

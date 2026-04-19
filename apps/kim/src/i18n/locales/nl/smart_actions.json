@@ -1,7 +1,14 @@
 {
-  "meal": {
+  "meal_plan": {
+    "regenerate": "Dag opnieuw genereren",
+    "swap_cuisine": "Keuken wisselen",
+    "change_macros": "Macro's wijzigen",
+    "scale_day": "Dag schalen",
+    "grocery_list": "Boodschappenlijst maken"
+  },
+  "meal_item": {
     "swap": "Wissel voor alternatief",
-    "scale_portions": "Porties aanpassen",
+    "scale_portion": "Portie aanpassen",
     "pantry_subs": "Voorraad-alternatieven zoeken",
     "mark_eaten": "Gegeten markeren",
     "details": "Details tonen"

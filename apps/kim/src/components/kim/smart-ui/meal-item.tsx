@@ -26,7 +26,7 @@ import { useSmartActions } from "./actions";
  * module works against whatever `AskKimButton` attached (which may be
  * a partial snapshot for older items).
  */
-interface MealSnapshot {
+interface MealItemSnapshot {
   name?: string;
   meal_type?: string;
   calories?: number;
@@ -36,10 +36,10 @@ interface MealSnapshot {
   tags?: string[];
 }
 
-export function MealSmartCard({ item }: { item: KimSelection }) {
+export function MealItemSmartCard({ item }: { item: KimSelection }) {
   const { t } = useTranslation("smart_actions");
   const { smartAgent, smartQuick } = useSmartActions();
-  const meal = (item.snapshot ?? {}) as MealSnapshot;
+  const meal = (item.snapshot ?? {}) as MealItemSnapshot;
 
   const [scaleOpen, setScaleOpen] = useState(false);
   const [portions, setPortions] = useState(1);
@@ -63,8 +63,8 @@ export function MealSmartCard({ item }: { item: KimSelection }) {
 
   const fireSwap = (extra?: string) =>
     smartAgent({
-      actionKey: "meal.swap",
-      label: t("meal.swap"),
+      actionKey: "meal_item.swap",
+      label: t("meal_item.swap"),
       item,
       systemContext: extra,
     });
@@ -106,40 +106,39 @@ export function MealSmartCard({ item }: { item: KimSelection }) {
         <QaGrid>
           <QaBtn
             icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
-            label={t("meal.swap")}
+            label={t("meal_item.swap")}
             onClick={() => fireSwap()}
           />
           <QaBtn
             icon={<Scale className="h-3.5 w-3.5" />}
-            label={t("meal.scale_portions")}
+            label={t("meal_item.scale_portion")}
             onClick={() => setScaleOpen((v) => !v)}
           />
           <QaBtn
             icon={<ChefHat className="h-3.5 w-3.5" />}
-            label={t("meal.pantry_subs")}
+            label={t("meal_item.pantry_subs")}
             onClick={() =>
               smartAgent({
-                actionKey: "meal.pantry_subs",
-                label: t("meal.pantry_subs"),
+                actionKey: "meal_item.pantry_subs",
+                label: t("meal_item.pantry_subs"),
                 item,
               })
             }
           />
           <QaBtn
             icon={<Check className="h-3.5 w-3.5" />}
-            label={t("meal.mark_eaten")}
+            label={t("meal_item.mark_eaten")}
             onClick={() =>
-              // No "eaten" field on MealItem today — route through the agent
-              // so Kim can log the meal into memory / daily review.
+              // No "eaten" field on MealItem today — still fires smartQuick
+              // with a no-op so the silent "Done." marker is consistent with
+              // other quick actions. Replace with a real endpoint once meal
+              // items support an `eaten` flag.
               void smartQuick({
-                label: t("meal.mark_eaten"),
+                label: t("meal_item.mark_eaten"),
                 item,
                 successAck: t("ack.marked_eaten"),
                 errorAck: t("ack.failed"),
                 apiCall: async () => {
-                  // Optimistic local-only: record in memory via agent noop.
-                  // Replace with a real endpoint once meal-plan items support
-                  // an `eaten` flag.
                   return;
                 },
               })
@@ -147,11 +146,11 @@ export function MealSmartCard({ item }: { item: KimSelection }) {
           />
           <QaBtn
             icon={<Info className="h-3.5 w-3.5" />}
-            label={t("meal.details")}
+            label={t("meal_item.details")}
             onClick={() =>
               smartAgent({
-                actionKey: "meal.details",
-                label: t("meal.details"),
+                actionKey: "meal_item.details",
+                label: t("meal_item.details"),
                 item,
               })
             }
@@ -173,8 +172,8 @@ export function MealSmartCard({ item }: { item: KimSelection }) {
               type="button"
               onClick={() => {
                 smartAgent({
-                  actionKey: "meal.scale_portions",
-                  label: `${t("meal.scale_portions")} × ${portions}`,
+                  actionKey: "meal_item.scale_portion",
+                  label: `${t("meal_item.scale_portion")} × ${portions}`,
                   item,
                   systemContext: `Scale this meal to ${portions}× portions.`,
                 });

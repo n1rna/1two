@@ -9,11 +9,16 @@ import type { KimSelection } from "../types";
  * (see `smart_actions.json`) and used in analytics/telemetry.
  */
 export const SMART_ACTION_KEYS = [
-  "meal.swap",
-  "meal.scale_portions",
-  "meal.pantry_subs",
-  "meal.mark_eaten",
-  "meal.details",
+  "meal_plan.regenerate",
+  "meal_plan.swap_cuisine",
+  "meal_plan.change_macros",
+  "meal_plan.scale_day",
+  "meal_plan.grocery_list",
+  "meal_item.swap",
+  "meal_item.scale_portion",
+  "meal_item.pantry_subs",
+  "meal_item.mark_eaten",
+  "meal_item.details",
   "exercise.alternatives",
   "exercise.change_reps",
   "exercise.change_sets",
