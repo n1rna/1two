@@ -7,6 +7,7 @@ export { useKimEffect } from "./use-kim-effect";
 export { AskKimHeroButton, KimPromptChip, AskKimEyebrow } from "./kim-buttons";
 export { AskKimButton } from "./ask-kim-button";
 export type { AskKimButtonProps, KimSelectionKind } from "./ask-kim-button";
+export * from "./smart-ui";
 export type {
   KimMode,
   KimSelection,
