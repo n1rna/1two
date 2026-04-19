@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -57,7 +58,9 @@ func HandleInternalMessage(cfg *config.Config, db *sql.DB, r2 *storage.R2Client,
 	}
 }
 
-// handleCleanup deletes expired files from R2 and the database.
+// handleCleanup deletes expired files from R2 and the database, and trims
+// the life_agent_runs retention table. Both operations run in a single
+// internal call to keep the cron surface area small.
 func handleCleanup(r *http.Request, w http.ResponseWriter, db *sql.DB, r2 *storage.R2Client) {
 	if db == nil || r2 == nil {
 		json.NewEncoder(w).Encode(map[string]string{"error": "cleanup not configured"})
@@ -95,7 +98,40 @@ func handleCleanup(r *http.Request, w http.ResponseWriter, db *sql.DB, r2 *stora
 		deleted++
 	}
 
-	json.NewEncoder(w).Encode(map[string]int{"deleted": deleted})
+	agentRunsDeleted, archiveErr := archiveOldAgentRuns(r.Context(), db)
+	if archiveErr != nil {
+		log.Printf("cleanup: agent runs archive failed: %v", archiveErr)
+	}
+
+	json.NewEncoder(w).Encode(map[string]int{
+		"deleted":           deleted,
+		"agent_runs_pruned": agentRunsDeleted,
+	})
+}
+
+// archiveOldAgentRuns deletes life_agent_runs rows older than 30 days
+// (based on started_at), except the most recent 100 rows per user so a
+// quiet user can still scroll back through their history. Returns the
+// number of rows removed.
+func archiveOldAgentRuns(ctx context.Context, db *sql.DB) (int, error) {
+	const q = `
+		WITH ranked AS (
+		    SELECT id, user_id, started_at,
+		           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY started_at DESC) AS rn
+		    FROM life_agent_runs
+		)
+		DELETE FROM life_agent_runs
+		 WHERE id IN (
+		     SELECT id FROM ranked
+		     WHERE started_at < NOW() - INTERVAL '30 days'
+		       AND rn > 100
+		 )`
+	res, err := db.ExecContext(ctx, q)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
 }
 
 // handleSchedulerCheck returns which user/cycle pairs are due right now.
