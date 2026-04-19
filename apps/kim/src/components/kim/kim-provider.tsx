@@ -48,6 +48,14 @@ interface KimState {
    * inline card. (QBL-112)
    */
   actionables: Record<string, LifeActionable>;
+  /**
+   * When true, the Smart-UI module above the composer is collapsed down to a
+   * one-row bar so actionables / agent responses have room in the drawer.
+   * Set automatically after the user picks a smart action; reset whenever
+   * the primary selection changes. User can re-expand by clicking the bar.
+   * (QBL-113)
+   */
+  smartUiCollapsed: boolean;
 }
 
 export type KimFormKind = "routine" | "meal_plan" | "session";
@@ -101,6 +109,10 @@ interface KimActions {
   focusComposer: () => void;
   /** Internal: lets the drawer register its composer refs. */
   registerComposer: (h: ComposerHandle | null) => void;
+  /** Collapses the Smart-UI module down to a one-row bar. (QBL-113) */
+  collapseSmartUi: () => void;
+  /** Re-expands a collapsed Smart-UI module. (QBL-113) */
+  expandSmartUi: () => void;
 }
 
 export interface ComposerHandle {
@@ -171,6 +183,8 @@ export function KimProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<KimSelection[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [actionables, setActionables] = useState<Record<string, LifeActionable>>({});
+  const [smartUiCollapsed, setSmartUiCollapsed] = useState(false);
+  const prevPrimaryIdRef = useRef<string | null>(null);
   const [activeForm, setActiveFormState] = useState<KimActiveForm | null>(null);
   const activeFormRef = useRef<KimActiveForm | null>(null);
   const formDraftHandlersRef = useRef<
@@ -674,6 +688,21 @@ export function KimProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const collapseSmartUi = useCallback(() => setSmartUiCollapsed(true), []);
+  const expandSmartUi = useCallback(() => setSmartUiCollapsed(false), []);
+
+  // Auto-expand the Smart-UI module whenever the primary selection id
+  // changes (including initial attachment). Keeps the collapsed state tied
+  // to the item the user last acted on rather than leaking across swaps.
+  // (QBL-113)
+  useEffect(() => {
+    const currentId = selection[0]?.id ?? null;
+    if (currentId !== prevPrimaryIdRef.current) {
+      prevPrimaryIdRef.current = currentId;
+      setSmartUiCollapsed(false);
+    }
+  }, [selection]);
+
   const value = useMemo(
     () => ({
       open,
@@ -692,6 +721,9 @@ export function KimProvider({ children }: { children: ReactNode }) {
       selectionMode,
       activeForm,
       actionables,
+      smartUiCollapsed,
+      collapseSmartUi,
+      expandSmartUi,
       refreshActionable,
       setOpen,
       toggle: () => setOpen((o) => !o),
@@ -734,6 +766,9 @@ export function KimProvider({ children }: { children: ReactNode }) {
       selectionMode,
       activeForm,
       actionables,
+      smartUiCollapsed,
+      collapseSmartUi,
+      expandSmartUi,
       refreshActionable,
       setMode,
       newConversation,

@@ -50,6 +50,7 @@ export interface KimContext {
   focusComposer: ReturnType<typeof useKim>["focusComposer"];
   postSilent: ReturnType<typeof useKim>["postSilent"];
   setOpen: ReturnType<typeof useKim>["setOpen"];
+  collapseSmartUi: ReturnType<typeof useKim>["collapseSmartUi"];
 }
 
 export interface SmartQuickOpts {
@@ -76,6 +77,9 @@ export async function smartQuick(
   const { label, apiCall, successAck = "Done.", errorAck = "Failed." } = opts;
   // Post optimistic marker.
   kim.postSilent(label);
+  // Collapse the Smart-UI module so the silent marker + ack have room to
+  // breathe. Auto re-expands when the user picks a different item. (QBL-113)
+  kim.collapseSmartUi();
   try {
     await apiCall();
     // Re-post a finished marker with ack. A second silent message keeps the
@@ -112,6 +116,9 @@ export function smartAgent(opts: SmartAgentOpts, kim: KimContext): void {
   const extra = systemContext ? `\n\n(${systemContext})` : "";
   const message = `→ ${label} [action=${actionKey}]${extra}`;
   void kim.send(message);
+  // Collapse immediately so the streaming agent response has the drawer's
+  // vertical space. (QBL-113)
+  kim.collapseSmartUi();
 }
 
 export interface SmartPromptOpts {
@@ -132,6 +139,8 @@ export function smartPrompt(opts: SmartPromptOpts, kim: KimContext): void {
   }
   kim.setInput(prefill);
   kim.focusComposer();
+  // Free up drawer height for the composer / agent response. (QBL-113)
+  kim.collapseSmartUi();
 }
 
 /**
@@ -149,6 +158,7 @@ export function useSmartActions() {
       focusComposer: kim.focusComposer,
       postSilent: kim.postSilent,
       setOpen: kim.setOpen,
+      collapseSmartUi: kim.collapseSmartUi,
     };
     return {
       smartQuick: (opts: SmartQuickOpts) => smartQuick(opts, ctx),
@@ -163,5 +173,6 @@ export function useSmartActions() {
     kim.focusComposer,
     kim.postSilent,
     kim.setOpen,
+    kim.collapseSmartUi,
   ]);
 }

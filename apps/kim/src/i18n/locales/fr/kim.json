@@ -248,5 +248,12 @@
   "slash_goal": "Définir un objectif fitness",
   "slash_goal_desc": "Force, hypertrophie, endurance, etc.",
   "slash_health_remember": "Retenir un fait",
-  "slash_health_remember_desc": "Sauvegarder un fait santé, une allergie ou une blessure"
+  "slash_health_remember_desc": "Sauvegarder un fait santé, une allergie ou une blessure",
+
+  "kind_meal": "repas",
+  "kind_exercise": "exercice",
+  "kind_event": "événement",
+  "kind_task": "tâche",
+  "kind_metric": "métrique",
+  "smart_ui_expand": "déplier"
 }

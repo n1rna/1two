@@ -248,5 +248,12 @@
   "slash_goal": "Imposta obiettivo fitness",
   "slash_goal_desc": "Forza, ipertrofia, resistenza, ecc.",
   "slash_health_remember": "Ricorda un fatto",
-  "slash_health_remember_desc": "Salva un fatto sulla salute, un'allergia o un infortunio"
+  "slash_health_remember_desc": "Salva un fatto sulla salute, un'allergia o un infortunio",
+
+  "kind_meal": "pasto",
+  "kind_exercise": "esercizio",
+  "kind_event": "evento",
+  "kind_task": "attività",
+  "kind_metric": "metrica",
+  "smart_ui_expand": "espandi"
 }

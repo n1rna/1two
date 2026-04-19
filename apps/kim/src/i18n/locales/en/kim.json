@@ -248,5 +248,12 @@
   "slash_goal": "Set fitness goal",
   "slash_goal_desc": "Strength, hypertrophy, endurance, etc.",
   "slash_health_remember": "Remember a fact",
-  "slash_health_remember_desc": "Save a health-related fact, allergy, or injury"
+  "slash_health_remember_desc": "Save a health-related fact, allergy, or injury",
+
+  "kind_meal": "meal",
+  "kind_exercise": "exercise",
+  "kind_event": "event",
+  "kind_task": "task",
+  "kind_metric": "metric",
+  "smart_ui_expand": "expand"
 }

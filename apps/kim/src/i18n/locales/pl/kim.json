@@ -248,5 +248,12 @@
   "slash_goal": "Ustaw cel fitness",
   "slash_goal_desc": "Siła, hipertrofia, wytrzymałość itp.",
   "slash_health_remember": "Zapamiętaj fakt",
-  "slash_health_remember_desc": "Zapisz fakt zdrowotny, alergię lub kontuzję"
+  "slash_health_remember_desc": "Zapisz fakt zdrowotny, alergię lub kontuzję",
+
+  "kind_meal": "posiłek",
+  "kind_exercise": "ćwiczenie",
+  "kind_event": "wydarzenie",
+  "kind_task": "zadanie",
+  "kind_metric": "metryka",
+  "smart_ui_expand": "rozwiń"
 }

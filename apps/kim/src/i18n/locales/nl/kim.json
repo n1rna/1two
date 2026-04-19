@@ -248,5 +248,12 @@
   "slash_goal": "Fitnessdoel instellen",
   "slash_goal_desc": "Kracht, hypertrofie, uithoudingsvermogen, etc.",
   "slash_health_remember": "Onthoud een feit",
-  "slash_health_remember_desc": "Sla een gezondheidsfeit, allergie of blessure op"
+  "slash_health_remember_desc": "Sla een gezondheidsfeit, allergie of blessure op",
+
+  "kind_meal": "maaltijd",
+  "kind_exercise": "oefening",
+  "kind_event": "afspraak",
+  "kind_task": "taak",
+  "kind_metric": "meetwaarde",
+  "smart_ui_expand": "uitklappen"
 }

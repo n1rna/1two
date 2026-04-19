@@ -248,5 +248,12 @@
   "slash_goal": "Fitnessziel setzen",
   "slash_goal_desc": "Kraft, Hypertrophie, Ausdauer usw.",
   "slash_health_remember": "Etwas merken",
-  "slash_health_remember_desc": "Eine gesundheitsbezogene Info, Allergie oder Verletzung speichern"
+  "slash_health_remember_desc": "Eine gesundheitsbezogene Info, Allergie oder Verletzung speichern",
+
+  "kind_meal": "Mahlzeit",
+  "kind_exercise": "Übung",
+  "kind_event": "Termin",
+  "kind_task": "Aufgabe",
+  "kind_metric": "Kennzahl",
+  "smart_ui_expand": "ausklappen"
 }
