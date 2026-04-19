@@ -317,7 +317,7 @@ func main() {
 				r.Get("/health/meal-plans", handler.ListHealthMealPlans(db))
 				r.Post("/health/meal-plans", handler.CreateHealthMealPlan(db))
 				r.Get("/health/meal-plans/{id}", handler.GetHealthMealPlan(db))
-				r.Put("/health/meal-plans/{id}", handler.UpdateHealthMealPlan(db))
+				r.Put("/health/meal-plans/{id}", handler.UpdateHealthMealPlan(db, lifeAgent))
 				r.Delete("/health/meal-plans/{id}", handler.DeleteHealthMealPlan(db))
 				r.Get("/health/sessions", handler.ListHealthSessions(db))
 				r.Post("/health/sessions", handler.CreateHealthSession(db))

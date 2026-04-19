@@ -885,7 +885,7 @@ func CreateHealthMealPlan(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
+func UpdateHealthMealPlan(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		userID := middleware.GetUserID(r.Context())
@@ -976,6 +976,20 @@ func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
 		p.Content = json.RawMessage(content)
 		p.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		p.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		// Journey cascade — meal plan change may require grocery/task updates.
+		// Bulk edits from the frontend save once per plan (QBL-50), so this
+		// fires exactly once per user-initiated save regardless of edit count.
+		fireJourneyEventAsync(db, agent, life.JourneyEvent{
+			UserID:      userID,
+			Trigger:     life.JourneyTriggerMealPlanUpdated,
+			EntityID:    p.ID,
+			EntityTitle: p.Title,
+			ChangeSummary: buildMealPlanChangeSummary(
+				req.Title, req.PlanType, req.DietType, req.TargetCalories,
+				req.Content != nil, req.Active,
+			),
+		})
 
 		json.NewEncoder(w).Encode(map[string]any{"plan": p})
 	}
