@@ -4,6 +4,7 @@ import { useKim } from "../kim-provider";
 import { EventSmartCard } from "./event";
 import { ExerciseSmartCard } from "./exercise";
 import { MealSmartCard } from "./meal";
+import { MetricSmartCard } from "./metric";
 import { TaskSmartCard } from "./task";
 
 /**
@@ -35,6 +36,9 @@ export function SmartUiSlot() {
       break;
     case "task":
       card = <TaskSmartCard item={primary} />;
+      break;
+    case "metric":
+      card = <MetricSmartCard item={primary} />;
       break;
     default:
       card = null;

@@ -31,6 +31,7 @@ export { MealSmartCard } from "./meal";
 export { ExerciseSmartCard } from "./exercise";
 export { EventSmartCard } from "./event";
 export { TaskSmartCard } from "./task";
+export { MetricSmartCard } from "./metric";
 export type {
   KimContext,
   SmartActionKey,
