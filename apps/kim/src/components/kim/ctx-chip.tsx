@@ -7,6 +7,13 @@ import type { KimSelection, SelectableKind } from "./types";
 export interface CtxChipProps {
   selection: KimSelection;
   onRemove?: () => void;
+  /**
+   * Optional click handler for the chip body (the × button is excluded via
+   * stopPropagation). When provided, the chip body becomes a <button> with a
+   * subtle hover affordance. Used by the composer ctx-chip row so clicking a
+   * supporting chip promotes it to primary. (QBL-114)
+   */
+  onClick?: () => void;
   size?: "sm" | "md";
   className?: string;
 }
@@ -39,28 +46,16 @@ const KIND_COLORS: Record<SelectableKind, string> = {
 export function CtxChip({
   selection,
   onRemove,
+  onClick,
   size = "sm",
   className,
 }: CtxChipProps) {
   const color = KIND_COLORS[selection.kind];
   const padY = size === "md" ? "py-1" : "py-[3px]";
   const textSize = size === "md" ? "text-[11px]" : "text-[10px]";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2 rounded-full max-w-full",
-        "whitespace-nowrap",
-        padY,
-        textSize,
-        className,
-      )}
-      style={{
-        background: "var(--kim-bg-sunken)",
-        border: "1px solid var(--kim-border)",
-        color: "var(--kim-ink-dim)",
-      }}
-      title={`${selection.kind} · ${selection.label}`}
-    >
+
+  const inner = (
+    <>
       <span
         aria-hidden
         className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
@@ -101,6 +96,45 @@ export function CtxChip({
           <X size={10} />
         </button>
       )}
+    </>
+  );
+
+  const baseClass = cn(
+    "inline-flex items-center gap-1.5 px-2 rounded-full max-w-full",
+    "whitespace-nowrap",
+    padY,
+    textSize,
+    onClick && "cursor-pointer hover:bg-[var(--kim-teal-soft)] transition-colors",
+    className,
+  );
+
+  const baseStyle: React.CSSProperties = {
+    background: "var(--kim-bg-sunken)",
+    border: "1px solid var(--kim-border)",
+    color: "var(--kim-ink-dim)",
+  };
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={baseClass}
+        style={baseStyle}
+        title={`${selection.kind} · ${selection.label}`}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <span
+      className={baseClass}
+      style={baseStyle}
+      title={`${selection.kind} · ${selection.label}`}
+    >
+      {inner}
     </span>
   );
 }

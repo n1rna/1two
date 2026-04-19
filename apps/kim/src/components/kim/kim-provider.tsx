@@ -84,6 +84,13 @@ interface KimActions {
   toggleSelection: (s: KimSelection) => void;
   clearSelection: () => void;
   isSelected: (kind: SelectableKind, id: string) => boolean;
+  /**
+   * Promote a supporting selection to primary. Finds the matching item in
+   * `selection`; if found and not already at index 0, swaps it with
+   * `selection[0]`. No-op otherwise. Used by the composer ctx-chip row so
+   * clicking a supporting chip makes it the smart-UI primary. (QBL-114)
+   */
+  promoteSelection: (kind: SelectableKind, id: string) => void;
   updateActionableStatus: (msgId: string, actionableId: string, status: string) => void;
   /**
    * Refetch a single actionable by id and update the in-memory cache. Called
@@ -678,6 +685,18 @@ export function KimProvider({ children }: { children: ReactNode }) {
     );
   }, []);
   const clearSelection = useCallback(() => setSelection([]), []);
+  const promoteSelection = useCallback(
+    (kind: SelectableKind, id: string) =>
+      setSelection((cur) => {
+        const idx = cur.findIndex((x) => x.kind === kind && x.id === id);
+        if (idx <= 0) return cur;
+        const next = cur.slice();
+        const [picked] = next.splice(idx, 1);
+        next.unshift(picked);
+        return next;
+      }),
+    [],
+  );
   const isSelected = useCallback(
     (kind: SelectableKind, id: string) =>
       selection.some((x) => x.kind === kind && x.id === id),
@@ -739,6 +758,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
       toggleSelection,
       clearSelection,
       isSelected,
+      promoteSelection,
       updateActionableStatus,
       setActiveForm,
       registerFormDraft,
@@ -780,6 +800,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
       toggleSelection,
       clearSelection,
       isSelected,
+      promoteSelection,
       toggleSelectionMode,
       updateActionableStatus,
       setActiveForm,
