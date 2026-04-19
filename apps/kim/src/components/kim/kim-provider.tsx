@@ -12,9 +12,11 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import {
+  getLifeActionable,
   listLifeConversations,
   getLifeConversationMessages,
   streamLifeChat,
+  type LifeActionable,
   type LifeConversation,
 } from "@/lib/life";
 import {
@@ -39,6 +41,13 @@ interface KimState {
   error: string | null;
   selection: KimSelection[];
   selectionMode: boolean;
+  /**
+   * Cache of full actionable records keyed by id. Populated from streaming
+   * tool_result events, from effect.actionable payloads after save, and
+   * refreshed via getLifeActionable(id) after the user responds to an
+   * inline card. (QBL-112)
+   */
+  actionables: Record<string, LifeActionable>;
 }
 
 export type KimFormKind = "routine" | "meal_plan" | "session";
@@ -68,6 +77,13 @@ interface KimActions {
   clearSelection: () => void;
   isSelected: (kind: SelectableKind, id: string) => boolean;
   updateActionableStatus: (msgId: string, actionableId: string, status: string) => void;
+  /**
+   * Refetch a single actionable by id and update the in-memory cache. Called
+   * after a user responds to an inline ActionableCard so the card reflects
+   * the new status / resolved state without a full conversation reload.
+   * (QBL-112)
+   */
+  refreshActionable: (id: string) => Promise<void>;
   setActiveForm: (form: KimActiveForm | null) => void;
   registerFormDraft: (form: KimFormKind, handler: KimFormDraftHandler) => () => void;
   registerEffectListener: (tool: string, handler: KimEffectHandler) => () => void;
@@ -154,6 +170,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<KimSelection[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
+  const [actionables, setActionables] = useState<Record<string, LifeActionable>>({});
   const [activeForm, setActiveFormState] = useState<KimActiveForm | null>(null);
   const activeFormRef = useRef<KimActiveForm | null>(null);
   const formDraftHandlersRef = useRef<
@@ -341,6 +358,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
     setStreamingTool(null);
     setStreamingToolHistory([]);
     setError(null);
+    setActionables({});
   }, []);
 
   const updateActionableStatus = useCallback(
@@ -359,16 +377,52 @@ export function KimProvider({ children }: { children: ReactNode }) {
             : m,
         ),
       );
+      // Mirror the status bump into the per-id cache so inline cards rendered
+      // via actionableIds update too.
+      setActionables((prev) => {
+        const cur = prev[actionableId];
+        if (!cur) return prev;
+        return { ...prev, [actionableId]: { ...cur, status } };
+      });
     },
     [],
   );
+
+  const refreshActionable = useCallback(async (id: string) => {
+    try {
+      const fresh = await getLifeActionable(id);
+      if (fresh) {
+        setActionables((prev) => ({ ...prev, [id]: fresh }));
+      }
+    } catch (e) {
+      console.error("kim: refresh actionable failed", id, e);
+    }
+  }, []);
 
   const loadConversation = useCallback(async (id: string) => {
     setConversationId(id);
     setError(null);
     try {
       const msgs = await getLifeConversationMessages(id);
-      setMessages(msgs.map(messageFromLife));
+      const kimMsgs = msgs.map(messageFromLife);
+      setMessages(kimMsgs);
+      // Prime the actionables cache from historical effect.actionable
+      // payloads so inline cards in prior turns render without a refetch.
+      const seed: Record<string, LifeActionable> = {};
+      for (const m of msgs) {
+        for (const eff of m.toolCalls ?? []) {
+          if (
+            eff.tool === "create_actionable" &&
+            eff.actionable &&
+            !seed[eff.actionable.id]
+          ) {
+            seed[eff.actionable.id] = eff.actionable as LifeActionable;
+          }
+        }
+      }
+      if (Object.keys(seed).length > 0) {
+        setActionables((prev) => ({ ...seed, ...prev }));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     }
@@ -381,6 +435,10 @@ export function KimProvider({ children }: { children: ReactNode }) {
       const userMsgId = `tmp-user-${Date.now()}`;
       const placeholderId = `streaming-${Date.now()}`;
       let placeholderAdded = false;
+      // IDs of actionables produced during this streaming turn, accumulated
+      // from onToolResult events so inline cards can render before the final
+      // save event arrives with the fully-hydrated effects payload.
+      const turnActionableIds: string[] = [];
 
       const userMsg: KimMessage = {
         id: userMsgId,
@@ -436,7 +494,58 @@ export function KimProvider({ children }: { children: ReactNode }) {
               setStreamingTool(name);
               setStreamingToolHistory((prev) => [...prev, name]);
             },
-            onToolResult: () => setStreamingTool(null),
+            onToolResult: (result) => {
+              setStreamingTool(null);
+              // Detect create_actionable results by presence of an
+              // actionable_id field in the JSON payload. Other tool results
+              // are ignored here. Malformed JSON (e.g. error strings) is
+              // silently skipped.
+              const aid = extractActionableId(result);
+              if (!aid || turnActionableIds.includes(aid)) return;
+              turnActionableIds.push(aid);
+              // Ensure a placeholder assistant message exists (tools can run
+              // before any assistant tokens stream) and append the id to it.
+              if (!placeholderAdded) {
+                placeholderAdded = true;
+                setMessages((cur) => [
+                  ...cur,
+                  {
+                    id: placeholderId,
+                    role: "assistant",
+                    content: "",
+                    createdAt: new Date().toISOString(),
+                    actionableIds: [aid],
+                  },
+                ]);
+              } else {
+                setMessages((cur) =>
+                  cur.map((m) =>
+                    m.id === placeholderId
+                      ? {
+                          ...m,
+                          actionableIds: [
+                            ...(m.actionableIds ?? []),
+                            aid,
+                          ],
+                        }
+                      : m,
+                  ),
+                );
+              }
+              // Fetch the full record into the cache so the inline card can
+              // render immediately. Best-effort — failure just delays the card
+              // until the final save event carries the hydrated effect.
+              void (async () => {
+                try {
+                  const fresh = await getLifeActionable(aid);
+                  if (fresh) {
+                    setActionables((prev) => ({ ...prev, [aid]: fresh }));
+                  }
+                } catch {
+                  /* silent */
+                }
+              })();
+            },
             onComplete: ({ conversationId: newId, message, effects }) => {
               setConversationId(newId);
               // Fire any form-draft handlers registered for this form kind.
@@ -454,16 +563,45 @@ export function KimProvider({ children }: { children: ReactNode }) {
                   ...userMsg,
                   id: `user-${Date.now()}`,
                 };
+                const finalEffects =
+                  effects && effects.length > 0 ? effects : message.toolCalls;
+                // Merge ids collected live during streaming with ids surfaced
+                // in the save-event effects so nothing is dropped.
+                const idsFromEffects = (finalEffects ?? [])
+                  .filter((e) => e.tool === "create_actionable" && e.actionable)
+                  .map((e) => e.actionable!.id);
+                const allIds = Array.from(
+                  new Set([...turnActionableIds, ...idsFromEffects]),
+                );
                 const assistantMsg: KimMessage = {
                   id: message.id,
                   role: "assistant",
                   content: message.content,
-                  effects:
-                    effects && effects.length > 0 ? effects : message.toolCalls,
+                  effects: finalEffects,
                   createdAt: message.createdAt,
+                  actionableIds: allIds.length > 0 ? allIds : undefined,
                 };
                 return [...withoutTmp, confirmedUser, assistantMsg];
               });
+              // Prime the cache from any effect.actionable payloads that
+              // showed up on the final save event (covers the edge case
+              // where the inline fetch during streaming lost the race).
+              if (effects && effects.length > 0) {
+                const seed: Record<string, LifeActionable> = {};
+                for (const eff of effects) {
+                  if (
+                    eff.tool === "create_actionable" &&
+                    eff.actionable &&
+                    !seed[eff.actionable.id]
+                  ) {
+                    seed[eff.actionable.id] =
+                      eff.actionable as LifeActionable;
+                  }
+                }
+                if (Object.keys(seed).length > 0) {
+                  setActionables((prev) => ({ ...seed, ...prev }));
+                }
+              }
               setStreamingText("");
               setStreamingTool(null);
               setStreamingToolHistory([]);
@@ -553,6 +691,8 @@ export function KimProvider({ children }: { children: ReactNode }) {
       selection,
       selectionMode,
       activeForm,
+      actionables,
+      refreshActionable,
       setOpen,
       toggle: () => setOpen((o) => !o),
       setWidth,
@@ -593,6 +733,8 @@ export function KimProvider({ children }: { children: ReactNode }) {
       selection,
       selectionMode,
       activeForm,
+      actionables,
+      refreshActionable,
       setMode,
       newConversation,
       loadConversation,
@@ -623,6 +765,24 @@ export function useKim() {
   const ctx = useContext(KimCtx);
   if (!ctx) throw new Error("useKim must be used within KimProvider");
   return ctx;
+}
+
+/**
+ * Parse a stream `tool_result` payload and pull out an `actionable_id` if
+ * present. The backend emits the raw tool-result JSON string; for
+ * `create_actionable` that shape is `{ "actionable_id": "<uuid>", ... }`.
+ * Other tools produce unrelated payloads which we skip. Malformed JSON is
+ * handled silently so we never throw inside a stream handler. (QBL-112)
+ */
+function extractActionableId(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const id = parsed?.actionable_id;
+    return typeof id === "string" && id.length > 0 ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 function buildSystemContext(

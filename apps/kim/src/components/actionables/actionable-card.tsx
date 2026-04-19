@@ -377,13 +377,24 @@ function ActionableContent({ actionable }: { actionable: LifeActionable }) {
 export function ActionableCard({
   actionable,
   onRespond,
+  variant = "default",
+  className,
 }: {
   actionable: LifeActionable;
   onRespond: (id: string, action: string, data?: unknown) => Promise<void>;
+  /**
+   * "default" matches the /actionables page (800+px container). "compact"
+   * shrinks padding and suppresses the AskKim CTA for rendering inside
+   * the Kim drawer (~460px). Everything else — response modes, content
+   * templates, resolved state — is shared across variants. (QBL-112)
+   */
+  variant?: "default" | "compact";
+  className?: string;
 }) {
   const [textInput, setTextInput] = useState("");
   const [acting, setActing] = useState(false);
 
+  const compact = variant === "compact";
   const isPending = actionable.status === "pending";
   const isDueSoon =
     actionable.dueAt &&
@@ -427,9 +438,10 @@ export function ActionableCard({
         "rounded-lg border bg-card transition-all",
         isDueSoon && !isOverdue && "border-teal-500/30",
         isOverdue && "border-red-500/30",
+        className,
       )}
     >
-      <div className="flex items-start gap-3 p-4 pb-0">
+      <div className={cn("flex items-start gap-3 pb-0", compact ? "p-3" : "p-4")}>
         <div className="mt-0.5 shrink-0">
           {TEMPLATE_META[actionable.actionPayload?.template ?? ""]?.icon ??
             actionMeta?.icon ??
@@ -471,17 +483,19 @@ export function ActionableCard({
             )}
           </div>
         </div>
-        <AskKimButton
-          kind="actionable"
-          id={actionable.id}
-          title={actionable.title}
-          snapshot={actionable as unknown as Record<string, unknown>}
-          variant="icon-button"
-          className="shrink-0"
-        />
+        {!compact && (
+          <AskKimButton
+            kind="actionable"
+            id={actionable.id}
+            title={actionable.title}
+            snapshot={actionable as unknown as Record<string, unknown>}
+            variant="icon-button"
+            className="shrink-0"
+          />
+        )}
       </div>
 
-      <div className="p-3 pt-3">
+      <div className={cn("pt-3", compact ? "p-2.5" : "p-3")}>
         {actionable.type === "confirm" && (
           <div className="flex items-center gap-2">
             <button

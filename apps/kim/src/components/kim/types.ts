@@ -48,15 +48,30 @@ export interface KimMessage {
    * the silent marker (e.g. "Marked as eaten."). Only used on silent messages.
    */
   ack?: string;
+  /**
+   * IDs of actionables created during this assistant turn. Populated live
+   * from `tool_result` stream events so the inline ActionableCard can render
+   * mid-stream (before the final save event carries the full effect with an
+   * embedded `actionable` record). Deduped against `effects[*].actionable.id`
+   * at render time. (QBL-112)
+   */
+  actionableIds?: string[];
 }
 
 export function messageFromLife(m: LifeMessage): KimMessage {
+  const ids: string[] = [];
+  for (const eff of m.toolCalls ?? []) {
+    if (eff.tool === "create_actionable" && eff.actionable) {
+      ids.push(eff.actionable.id);
+    }
+  }
   return {
     id: m.id,
     role: (m.role as KimMessage["role"]) ?? "user",
     content: m.content,
     effects: m.toolCalls,
     createdAt: m.createdAt,
+    actionableIds: ids.length > 0 ? ids : undefined,
   };
 }
 

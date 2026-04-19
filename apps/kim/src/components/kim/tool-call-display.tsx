@@ -1,67 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Check, ExternalLink } from "lucide-react";
+import { AlertCircle, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
-import type { ChatEffect, LifeActionable } from "@/lib/life";
-import { InlineChatActionable } from "./inline-actionable";
-import { toolMeta, READ_ONLY_TOOLS } from "./tool-labels";
+import type { ChatEffect } from "@/lib/life";
+import { toolMeta } from "./tool-labels";
 import { useTranslation } from "react-i18next";
-
-// ─── Per-effect rendering (actionables, etc) ─────────────────────────────────
-
-export function ToolCallDisplay({
-  effect,
-  msgId,
-  onActionableRespond,
-  onActionableStatusChange,
-}: {
-  effect: ChatEffect;
-  msgId: string;
-  onActionableRespond: (id: string, action: string, data?: unknown) => Promise<void>;
-  onActionableStatusChange?: (msgId: string, actionableId: string, status: string) => void;
-}) {
-  // Interactive actionables are special — they render an inline form rather
-  // than a one-line trace row.
-  if (effect.tool === "create_actionable" && effect.actionable) {
-    const a = effect.actionable as LifeActionable;
-    const resolved = a.status !== "pending";
-    if (resolved) {
-      return (
-        <div className="mt-1.5">
-          <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--kim-ink-dim)" }}>
-            <Check className="size-3.5" />
-            <span>{a.title}</span>
-            <span className="opacity-50">· {a.status}</span>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="mt-2 max-w-[90%]">
-        <InlineChatActionable
-          actionable={a}
-          onRespond={async (action, data) => {
-            await onActionableRespond(effect.id, action, data);
-            onActionableStatusChange?.(
-              msgId,
-              effect.id,
-              action === "dismiss" ? "dismissed" : "confirmed",
-            );
-          }}
-        />
-      </div>
-    );
-  }
-
-  // Read-only lookups are hidden from the visible trace.
-  if (READ_ONLY_TOOLS.has(effect.tool)) return null;
-
-  return <TraceRow effect={effect} state="done" />;
-}
 
 // ─── Trace block ──────────────────────────────────────────────────────────────
 
