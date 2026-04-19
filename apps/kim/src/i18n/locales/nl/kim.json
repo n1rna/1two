@@ -241,5 +241,14 @@
   "kind_diet_profile": "dieetprofiel",
   "kind_gym_profile": "sportprofiel",
   "smart_ui_expand": "uitklappen",
-  "smart_ui_stack_label": "stapel"
+  "smart_ui_stack_label": "stapel",
+  "activity_title": "activiteit",
+  "activity_running": "bezig",
+  "activity_completed": "klaar",
+  "activity_failed": "mislukt",
+  "activity_empty": "geen recente activiteit",
+  "activity_view_actionables": "Bekijk {{count}} acties →",
+  "activity_pulse_aria": "Kim is bezig ({{count}})",
+  "activity_view_all": "Alle activiteit bekijken · {{count}}",
+  "activity_back_to_chat": "Terug naar chat"
 }

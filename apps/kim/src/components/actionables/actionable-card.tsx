@@ -25,9 +25,10 @@ import {
   Utensils,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { AskKimButton } from "@/components/kim";
-import type { LifeActionable } from "@/lib/life";
+import type { JourneyTrigger, LifeActionable } from "@/lib/life";
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -393,8 +394,25 @@ export function ActionableCard({
 }) {
   const [textInput, setTextInput] = useState("");
   const [acting, setActing] = useState(false);
+  const { t } = useTranslation("actionables");
 
   const compact = variant === "compact";
+  const journeySource =
+    actionable.source?.kind === "journey" &&
+    typeof actionable.source.trigger === "string"
+      ? actionable.source
+      : null;
+  const journeyTriggerKey = journeySource?.trigger as JourneyTrigger | undefined;
+  const knownJourneyTriggers: JourneyTrigger[] = [
+    "gym_session_updated",
+    "meal_plan_updated",
+    "routine_updated",
+  ];
+  const journeyTriggerLabel = journeyTriggerKey
+    ? knownJourneyTriggers.includes(journeyTriggerKey)
+      ? t(`journey_trigger_${journeyTriggerKey}`)
+      : journeyTriggerKey
+    : null;
   const isPending = actionable.status === "pending";
   const isDueSoon =
     actionable.dueAt &&
@@ -466,6 +484,21 @@ export function ActionableCard({
           <p className="text-sm font-medium text-foreground leading-snug">
             {actionable.title}
           </p>
+          {journeySource && (
+            <div className="mt-1 flex items-center gap-1 text-[10px]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-primary">
+                <Sparkles className="h-2.5 w-2.5" />
+                {journeyTriggerLabel}
+              </span>
+              {journeySource.entity_title && (
+                <span className="text-muted-foreground/70 truncate">
+                  {t("journey_source_chip", {
+                    title: journeySource.entity_title,
+                  })}
+                </span>
+              )}
+            </div>
+          )}
           <ActionableContent actionable={actionable} />
 
           <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">

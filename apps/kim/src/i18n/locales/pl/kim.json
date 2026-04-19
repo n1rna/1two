@@ -241,5 +241,14 @@
   "kind_diet_profile": "profil diety",
   "kind_gym_profile": "profil siłowni",
   "smart_ui_expand": "rozwiń",
-  "smart_ui_stack_label": "stos"
+  "smart_ui_stack_label": "stos",
+  "activity_title": "aktywność",
+  "activity_running": "w toku",
+  "activity_completed": "gotowe",
+  "activity_failed": "nieudane",
+  "activity_empty": "brak ostatniej aktywności",
+  "activity_view_actionables": "Zobacz {{count}} akcji →",
+  "activity_pulse_aria": "Kim pracuje ({{count}})",
+  "activity_view_all": "Zobacz całą aktywność · {{count}}",
+  "activity_back_to_chat": "Wróć do czatu"
 }

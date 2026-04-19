@@ -17,6 +17,7 @@ import (
 	"github.com/n1rna/1tt/api/internal/ai"
 	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/tracked"
 )
 
 // ----- record types -----
@@ -1333,6 +1334,7 @@ type lifeActionableRecord struct {
 	RoutineID     *string         `json:"routineId,omitempty"`
 	ActionType    string          `json:"actionType"`
 	ActionPayload json.RawMessage `json:"actionPayload,omitempty"`
+	Source        json.RawMessage `json:"source,omitempty"`
 	CreatedAt     string          `json:"createdAt"`
 	ResolvedAt    *string         `json:"resolvedAt,omitempty"`
 }
@@ -1357,7 +1359,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			rows, err = db.QueryContext(r.Context(), `
 				SELECT id, user_id, type, status, title, description,
 				       options, response, due_at, snoozed_until, routine_id,
-				       action_type, action_payload, created_at, resolved_at
+				       action_type, action_payload, source, created_at, resolved_at
 				FROM life_actionables
 				WHERE user_id = $1 AND status = $2
 				ORDER BY created_at DESC
@@ -1366,7 +1368,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			rows, err = db.QueryContext(r.Context(), `
 				SELECT id, user_id, type, status, title, description,
 				       options, response, due_at, snoozed_until, routine_id,
-				       action_type, action_payload, created_at, resolved_at
+				       action_type, action_payload, source, created_at, resolved_at
 				FROM life_actionables
 				WHERE user_id = $1
 				ORDER BY created_at DESC
@@ -1381,7 +1383,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 		actionables := make([]lifeActionableRecord, 0)
 		for rows.Next() {
 			var a lifeActionableRecord
-			var options, response, actionPayload []byte
+			var options, response, actionPayload, source []byte
 			var dueAt, snoozedUntil sql.NullTime
 			var routineID, actionType sql.NullString
 			var createdAt time.Time
@@ -1390,7 +1392,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			if err := rows.Scan(
 				&a.ID, &a.UserID, &a.Type, &a.Status, &a.Title, &a.Description,
 				&options, &response, &dueAt, &snoozedUntil, &routineID,
-				&actionType, &actionPayload, &createdAt, &resolvedAt,
+				&actionType, &actionPayload, &source, &createdAt, &resolvedAt,
 			); err != nil {
 				http.Error(w, `{"error":"failed to read actionable"}`, http.StatusInternalServerError)
 				return
@@ -1418,6 +1420,9 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			}
 			if len(actionPayload) > 0 {
 				a.ActionPayload = json.RawMessage(actionPayload)
+			}
+			if len(source) > 0 {
+				a.Source = json.RawMessage(source)
 			}
 			a.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 			if resolvedAt.Valid {
@@ -1617,30 +1622,39 @@ func RespondToActionable(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 		}
 
 		// Feed the response to the agent so it can take follow-up actions
-		// (update calendar, create tasks, etc.). Run in background so we
-		// don't block the HTTP response.
+		// (update calendar, create tasks, etc.). Run in background through
+		// tracked.Run so every follow-up invocation lands a visible row in
+		// life_agent_runs.
 		if req.Action != "dismiss" {
-			go func() {
-				var title, aType string
-				_ = db.QueryRowContext(context.Background(),
-					`SELECT title, type FROM life_actionables WHERE id = $1`,
-					actionableID,
-				).Scan(&title, &aType)
+			var aTitle, aType string
+			_ = db.QueryRowContext(r.Context(),
+				`SELECT title, type FROM life_actionables WHERE id = $1`,
+				actionableID,
+			).Scan(&aTitle, &aType)
 
+			tracked.Run(context.Background(), db, tracked.Meta{
+				UserID:      userID,
+				Kind:        "actionable_followup",
+				Title:       "Following up on your response",
+				Subtitle:    aTitle,
+				Trigger:     actionableID,
+				EntityID:    actionableID,
+				EntityTitle: aTitle,
+			}, func(ctx context.Context, runID string) (tracked.RunOutput, error) {
 				responseStr, _ := json.Marshal(responseData)
 				chatResult, err := agent.ProcessActionableResponse(
-					context.Background(), db, userID,
-					life.ActionableRecord{ID: actionableID, Type: aType, Title: title},
+					ctx, db, userID,
+					life.ActionableRecord{ID: actionableID, Type: aType, Title: aTitle},
 					string(responseStr),
 				)
 				if err != nil {
 					log.Printf("life: process actionable response %s: %v", actionableID, err)
-					return
+					return tracked.RunOutput{Summary: "Follow-up failed"}, err
 				}
 
 				// Store the agent's follow-up effects on the actionable so we can
 				// verify that actions were actually taken.
-				if len(chatResult.Effects) > 0 {
+				if chatResult != nil && len(chatResult.Effects) > 0 {
 					var effectsSummary []map[string]any
 					for _, eff := range chatResult.Effects {
 						item := map[string]any{"tool": eff.Tool, "id": eff.ID}
@@ -1654,7 +1668,7 @@ func RespondToActionable(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 					// Merge effects into the existing response JSONB
 					var existing map[string]any
 					var existingJSON sql.NullString
-					_ = db.QueryRowContext(context.Background(),
+					_ = db.QueryRowContext(ctx,
 						`SELECT response FROM life_actionables WHERE id = $1`, actionableID,
 					).Scan(&existingJSON)
 					if existingJSON.Valid {
@@ -1665,13 +1679,15 @@ func RespondToActionable(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 					}
 					existing["follow_up_effects"] = effectsSummary
 					updatedJSON, _ := json.Marshal(existing)
-					_, _ = db.ExecContext(context.Background(),
+					_, _ = db.ExecContext(ctx,
 						`UPDATE life_actionables SET response = $1 WHERE id = $2`,
 						string(updatedJSON), actionableID,
 					)
 					log.Printf("life: stored %d follow-up effects on actionable %s", len(effectsSummary), actionableID)
 				}
-			}()
+
+				return tracked.FromToolResult(chatResult, ""), nil
+			})
 		}
 
 		json.NewEncoder(w).Encode(map[string]any{
@@ -2207,7 +2223,41 @@ func CreateLifeRoutine(db *sql.DB) http.HandlerFunc {
 
 // UpdateLifeRoutine handles PUT /life/routines/{id}.
 // Body: partial update of name, description, schedule, config, active.
-func UpdateLifeRoutine(db *sql.DB) http.HandlerFunc {
+// buildRoutineChangeSummary produces a compact summary of which routine
+// fields changed, for the journey agent's prompt. We flag JSON fields as
+// "updated" rather than diff them — the agent can always re-read the row.
+func buildRoutineChangeSummary(
+	name, description *string,
+	scheduleChanged, configChanged, schemaChanged bool,
+	active *bool,
+) string {
+	var parts []string
+	if name != nil {
+		parts = append(parts, fmt.Sprintf("name → %q", *name))
+	}
+	if description != nil {
+		parts = append(parts, "description updated")
+	}
+	if scheduleChanged {
+		parts = append(parts, "schedule updated (calendar events may drift)")
+	}
+	if configChanged {
+		parts = append(parts, "config updated")
+	}
+	if schemaChanged {
+		parts = append(parts, "config_schema updated")
+	}
+	if active != nil {
+		if *active {
+			parts = append(parts, "activated")
+		} else {
+			parts = append(parts, "deactivated")
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+func UpdateLifeRoutine(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -2283,6 +2333,19 @@ func UpdateLifeRoutine(db *sql.DB) http.HandlerFunc {
 		rec.ConfigSchema = json.RawMessage(configSchema)
 		rec.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		rec.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		// Journey cascade — routine change may require calendar rescheduling.
+		fireJourneyEventAsync(db, agent, life.JourneyEvent{
+			UserID:      userID,
+			Trigger:     life.JourneyTriggerRoutineUpdated,
+			EntityID:    rec.ID,
+			EntityTitle: rec.Name,
+			ChangeSummary: buildRoutineChangeSummary(
+				req.Name, req.Description,
+				scheduleParam != nil, configParam != nil, schemaParam != nil,
+				req.Active,
+			),
+		})
 
 		json.NewEncoder(w).Encode(map[string]any{"routine": rec})
 	}

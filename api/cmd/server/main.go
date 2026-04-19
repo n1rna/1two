@@ -26,6 +26,7 @@ import (
 	"github.com/n1rna/1tt/api/internal/neon"
 	"github.com/n1rna/1tt/api/internal/poker"
 	"github.com/n1rna/1tt/api/internal/storage"
+	"github.com/n1rna/1tt/api/internal/tracked"
 	"github.com/n1rna/1tt/api/internal/tunnel"
 	"github.com/n1rna/1tt/api/internal/turso"
 	"github.com/n1rna/1tt/api/internal/upstash"
@@ -317,12 +318,12 @@ func main() {
 				r.Get("/health/meal-plans", handler.ListHealthMealPlans(db))
 				r.Post("/health/meal-plans", handler.CreateHealthMealPlan(db))
 				r.Get("/health/meal-plans/{id}", handler.GetHealthMealPlan(db))
-				r.Put("/health/meal-plans/{id}", handler.UpdateHealthMealPlan(db))
+				r.Put("/health/meal-plans/{id}", handler.UpdateHealthMealPlan(db, lifeAgent))
 				r.Delete("/health/meal-plans/{id}", handler.DeleteHealthMealPlan(db))
 				r.Get("/health/sessions", handler.ListHealthSessions(db))
 				r.Post("/health/sessions", handler.CreateHealthSession(db))
 				r.Get("/health/sessions/{id}", handler.GetHealthSession(db))
-				r.Put("/health/sessions/{id}", handler.UpdateHealthSession(db))
+				r.Put("/health/sessions/{id}", handler.UpdateHealthSession(db, lifeAgent))
 				r.Delete("/health/sessions/{id}", handler.DeleteHealthSession(db))
 				r.Post("/health/sessions/{id}/exercises", handler.AddHealthSessionExercise(db))
 				r.Put("/health/sessions/{sid}/exercises/{eid}", handler.UpdateHealthSessionExercise(db))
@@ -352,10 +353,15 @@ func main() {
 				r.Get("/life/actionables", handler.ListLifeActionables(db))
 				r.Post("/life/actionables/bulk-dismiss", handler.BulkDismissActionables(db))
 				r.Post("/life/actionables/{id}/respond", handler.RespondToActionable(db, lifeAgent))
+				// Background agent activity (powered by tracked.Run).
+				r.Get("/life/agent-runs", handler.ListAgentRuns(db))
+				r.Get("/life/agent-runs/pulse", handler.AgentRunsPulse(db))
+				r.Get("/life/agent-runs/stream", handler.StreamLifeAgentRuns(db, tracked.DefaultBus()))
+				r.Get("/life/agent-runs/{id}", handler.GetAgentRun(db))
 				r.Get("/life/routines", handler.ListLifeRoutines(db))
 				r.Get("/life/routines/{id}", handler.GetLifeRoutine(db))
 				r.Post("/life/routines", handler.CreateLifeRoutine(db))
-				r.Put("/life/routines/{id}", handler.UpdateLifeRoutine(db))
+				r.Put("/life/routines/{id}", handler.UpdateLifeRoutine(db, lifeAgent))
 				r.Delete("/life/routines/{id}", handler.DeleteLifeRoutine(db))
 				// Marketplace
 				r.Post("/life/marketplace/publish", handler.PublishMarketplaceItem(db))

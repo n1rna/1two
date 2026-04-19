@@ -174,6 +174,27 @@ export async function deleteLifeConversation(id: string): Promise<void> {
 
 // ─── Actionables ──────────────────────────────────────────────────────────────
 
+/**
+ * Journey triggers that the async "journey flow" agent fires when a planning
+ * entity changes. The resulting actionables carry an `ActionableSource` tagged
+ * with the trigger so the UI can group and explain them.
+ */
+export type JourneyTrigger =
+  | "gym_session_updated"
+  | "meal_plan_updated"
+  | "routine_updated";
+
+/**
+ * Provenance metadata attached to agent-created actionables. Currently only
+ * populated for journey runs; regular chat-created actionables have no source.
+ */
+export interface ActionableSource {
+  kind: "journey" | string;
+  trigger?: JourneyTrigger | string;
+  entity_id?: string;
+  entity_title?: string;
+}
+
 export interface LifeActionable {
   id: string;
   userId: string;
@@ -188,6 +209,8 @@ export interface LifeActionable {
   routineId: string | null;
   actionType: string;
   actionPayload?: ActionablePayload;
+  /** Journey/source metadata; absent for regular chat-created actionables. */
+  source?: ActionableSource;
   createdAt: string;
   resolvedAt: string | null;
 }
@@ -612,6 +635,97 @@ export async function completeGTask(listId: string, taskId: string): Promise<GTa
     method: "POST",
     body: JSON.stringify({ listId, taskId }),
   });
+}
+
+// ─── Background agent activity ───────────────────────────────────────────────
+
+/**
+ * Kinds of background agent runs. `journey` covers cascading changes fired
+ * from entity updates; `actionable_followup` is the agent's follow-up chat
+ * after the user responds to an actionable; `scheduler` covers the cron-
+ * driven plan/review cycles.
+ */
+export type LifeAgentRunKind =
+  | "journey"
+  | "actionable_followup"
+  | "scheduler"
+  | string;
+
+export type LifeAgentRunStatus = "running" | "completed" | "failed";
+
+export interface LifeAgentRunToolCall {
+  tool: string;
+  id?: string;
+  args?: unknown;
+  result?: string;
+  error?: string;
+}
+
+export interface LifeAgentRun {
+  id: string;
+  userId: string;
+  kind: LifeAgentRunKind;
+  status: LifeAgentRunStatus;
+  title: string;
+  subtitle: string;
+  trigger: string;
+  entityId: string | null;
+  entityTitle: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  toolCalls: LifeAgentRunToolCall[];
+  resultSummary: string;
+  producedActionableIds: string[];
+  error: string;
+}
+
+export interface LifeAgentRunsResponse {
+  runs: LifeAgentRun[];
+  hasActive: boolean;
+}
+
+export interface LifeAgentRunsPulse {
+  running: boolean;
+  count: number;
+}
+
+/**
+ * List background agent runs for the signed-in user.
+ *
+ * - `status=active` (default) returns running runs plus anything that just
+ *   finished in the last 60s — the union the drawer renders live.
+ * - `status=running|completed|failed|all` filters to a single bucket.
+ * - `since` is an RFC3339 timestamp used to incrementally pull new rows
+ *   between polls.
+ * - `limit` is capped server-side at 200.
+ */
+export async function listLifeAgentRuns(
+  opts?: { status?: "running" | "completed" | "failed" | "active" | "all"; since?: string; limit?: number },
+): Promise<LifeAgentRunsResponse> {
+  const params = new URLSearchParams();
+  if (opts?.status) params.set("status", opts.status);
+  if (opts?.since) params.set("since", opts.since);
+  if (opts?.limit) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return lifeApiFetch<LifeAgentRunsResponse>(
+    `/agent-runs${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export async function getLifeAgentRun(id: string): Promise<LifeAgentRun> {
+  const res = await lifeApiFetch<{ run: LifeAgentRun }>(`/agent-runs/${id}`);
+  return res.run;
+}
+
+/**
+ * Cheap poll for the pulse dot. Returns `{ running, count }` — the drawer
+ * shows the dot when `running` is true and surfaces the count in its aria
+ * label. Clients should poll every ~5s while the drawer is open and every
+ * ~30s otherwise.
+ */
+export async function getLifeAgentRunsPulse(): Promise<LifeAgentRunsPulse> {
+  return lifeApiFetch<LifeAgentRunsPulse>("/agent-runs/pulse");
 }
 
 // ─── Day Summaries ────────────────────────────────────────────────────────────

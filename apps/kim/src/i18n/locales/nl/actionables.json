@@ -17,5 +17,17 @@
   "resolved_section": "Afgehandeld ({{count}})",
 
   "select_title": "Selecteer",
-  "deselect_title": "Deselecteer"
+  "deselect_title": "Deselecteer",
+
+  "journey_group_title": "Traject",
+  "journey_group_subtitle": "Vervolgwijzigingen van recente aanpassingen",
+  "journey_trigger_gym_session_updated": "Gym-sessie aangepast",
+  "journey_trigger_meal_plan_updated": "Maaltijdplan aangepast",
+  "journey_trigger_routine_updated": "Routine aangepast",
+  "journey_source_chip": "vanuit {{title}}",
+
+  "run_filter_banner": "Toont {{count}} acties uit {{source}}",
+  "run_filter_loading": "Run wordt geladen…",
+  "run_filter_missing": "Run niet gevonden — leeg filter",
+  "run_filter_clear": "Filter wissen"
 }

@@ -17,5 +17,17 @@
   "resolved_section": "Erledigt ({{count}})",
 
   "select_title": "Auswählen",
-  "deselect_title": "Abwählen"
+  "deselect_title": "Abwählen",
+
+  "journey_group_title": "Verlauf",
+  "journey_group_subtitle": "Folgeänderungen aus kürzlichen Aktualisierungen",
+  "journey_trigger_gym_session_updated": "Gym-Session aktualisiert",
+  "journey_trigger_meal_plan_updated": "Essensplan aktualisiert",
+  "journey_trigger_routine_updated": "Routine aktualisiert",
+  "journey_source_chip": "aus {{title}}",
+
+  "run_filter_banner": "Zeige {{count}} Aufgaben aus {{source}}",
+  "run_filter_loading": "Lauf wird geladen…",
+  "run_filter_missing": "Lauf nicht gefunden — leerer Filter",
+  "run_filter_clear": "Filter entfernen"
 }

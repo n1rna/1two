@@ -14,8 +14,132 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/n1rna/1tt/api/internal/health"
+	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/tracked"
 )
+
+// buildSessionChangeSummary produces a compact natural-language diff string
+// for a gym session update, consumed by the journey agent. Only the fields
+// actually present on the request are mentioned, so the summary reflects the
+// user's intent rather than the full row. Returns empty when nothing notable
+// changed (caller may still fire with "" and let the prompt fall back).
+func buildSessionChangeSummary(
+	title, description *string,
+	active *bool,
+	muscleGroups, equipment *[]string,
+	estimatedDuration *int,
+	difficultyLevel *string,
+) string {
+	var parts []string
+	if title != nil {
+		parts = append(parts, fmt.Sprintf("title → %q", *title))
+	}
+	if description != nil {
+		parts = append(parts, "description updated")
+	}
+	if active != nil {
+		if *active {
+			parts = append(parts, "activated")
+		} else {
+			parts = append(parts, "deactivated")
+		}
+	}
+	if muscleGroups != nil {
+		parts = append(parts, fmt.Sprintf("muscle_groups → [%s]", strings.Join(*muscleGroups, ", ")))
+	}
+	if equipment != nil {
+		parts = append(parts, fmt.Sprintf("equipment → [%s]", strings.Join(*equipment, ", ")))
+	}
+	if estimatedDuration != nil {
+		parts = append(parts, fmt.Sprintf("estimated_duration → %d min", *estimatedDuration))
+	}
+	if difficultyLevel != nil {
+		parts = append(parts, fmt.Sprintf("difficulty → %s", *difficultyLevel))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// buildMealPlanChangeSummary summarises a meal plan update for the journey
+// agent. We can't diff the `content` JSON safely from here (structure is
+// domain-specific) so we report that it changed; the agent can load the plan
+// to inspect specifics.
+func buildMealPlanChangeSummary(
+	title *string,
+	planType, dietType *string,
+	targetCalories *int,
+	contentChanged bool,
+	active *bool,
+) string {
+	var parts []string
+	if title != nil {
+		parts = append(parts, fmt.Sprintf("title → %q", *title))
+	}
+	if planType != nil {
+		parts = append(parts, fmt.Sprintf("plan_type → %s", *planType))
+	}
+	if dietType != nil {
+		parts = append(parts, fmt.Sprintf("diet_type → %s", *dietType))
+	}
+	if targetCalories != nil {
+		parts = append(parts, fmt.Sprintf("target_calories → %d kcal", *targetCalories))
+	}
+	if contentChanged {
+		parts = append(parts, "meals/content updated (grocery list may need refresh)")
+	}
+	if active != nil {
+		if *active {
+			parts = append(parts, "activated")
+		} else {
+			parts = append(parts, "deactivated")
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+// fireJourneyEventAsync kicks off a journey agent run in a detached goroutine
+// so the caller's HTTP response is unaffected. The invocation is wrapped in
+// tracked.Run so a row lands in life_agent_runs with the status, tool calls,
+// and any actionables the run produced — powering the drawer's activity
+// surface. Errors are logged and persisted to the run row; callers are
+// fire-and-forget.
+func fireJourneyEventAsync(db *sql.DB, agent life.ChatAgent, ev life.JourneyEvent) {
+	if agent == nil || ev.UserID == "" || ev.Trigger == "" {
+		return
+	}
+
+	tracked.Run(context.Background(), db, tracked.Meta{
+		UserID:      ev.UserID,
+		Kind:        "journey",
+		Title:       journeyRunTitle(ev.Trigger),
+		Subtitle:    ev.EntityTitle,
+		Trigger:     ev.Trigger,
+		EntityID:    ev.EntityID,
+		EntityTitle: ev.EntityTitle,
+	}, func(ctx context.Context, runID string) (tracked.RunOutput, error) {
+		result, err := life.ProcessJourneyEventWithResult(ctx, db, agent, ev)
+		if err != nil {
+			log.Printf("journey: %s for user %s: %v", ev.Trigger, ev.UserID, err)
+			return tracked.RunOutput{Summary: "Journey run failed"}, err
+		}
+		return tracked.FromToolResult(result, ""), nil
+	})
+}
+
+// journeyRunTitle returns a user-visible label for the activity feed given
+// a journey trigger constant. Falls back to the trigger string verbatim.
+func journeyRunTitle(trigger string) string {
+	switch trigger {
+	case life.JourneyTriggerGymSessionUpdated:
+		return "Processing gym session update"
+	case life.JourneyTriggerMealPlanUpdated:
+		return "Processing meal plan update"
+	case life.JourneyTriggerRoutineUpdated:
+		return "Processing routine update"
+	default:
+		return "Processing " + strings.ReplaceAll(trigger, "_", " ")
+	}
+}
 
 // Health is the API liveness check endpoint.
 func Health(w http.ResponseWriter, r *http.Request) {
@@ -790,7 +914,7 @@ func CreateHealthMealPlan(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
+func UpdateHealthMealPlan(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		userID := middleware.GetUserID(r.Context())
@@ -881,6 +1005,20 @@ func UpdateHealthMealPlan(db *sql.DB) http.HandlerFunc {
 		p.Content = json.RawMessage(content)
 		p.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		p.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		// Journey cascade — meal plan change may require grocery/task updates.
+		// Bulk edits from the frontend save once per plan (QBL-50), so this
+		// fires exactly once per user-initiated save regardless of edit count.
+		fireJourneyEventAsync(db, agent, life.JourneyEvent{
+			UserID:      userID,
+			Trigger:     life.JourneyTriggerMealPlanUpdated,
+			EntityID:    p.ID,
+			EntityTitle: p.Title,
+			ChangeSummary: buildMealPlanChangeSummary(
+				req.Title, req.PlanType, req.DietType, req.TargetCalories,
+				req.Content != nil, req.Active,
+			),
+		})
 
 		json.NewEncoder(w).Encode(map[string]any{"plan": p})
 	}
@@ -1150,7 +1288,7 @@ func GetHealthSession(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
+func UpdateHealthSession(db *sql.DB, agent life.ChatAgent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		userID := middleware.GetUserID(r.Context())
@@ -1258,6 +1396,19 @@ func UpdateHealthSession(db *sql.DB) http.HandlerFunc {
 		}
 		s.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		s.UpdatedAt = updatedAt.UTC().Format(time.RFC3339)
+
+		// Journey cascade — gym session change may ripple into calendar events
+		// or recovery reminders. Fire async so the HTTP response is unblocked.
+		fireJourneyEventAsync(db, agent, life.JourneyEvent{
+			UserID:      userID,
+			Trigger:     life.JourneyTriggerGymSessionUpdated,
+			EntityID:    s.ID,
+			EntityTitle: s.Title,
+			ChangeSummary: buildSessionChangeSummary(
+				req.Title, req.Description, req.Active,
+				req.TargetMuscleGroups, req.Equipment, req.EstimatedDuration, req.DifficultyLevel,
+			),
+		})
 
 		json.NewEncoder(w).Encode(map[string]any{"session": s})
 	}

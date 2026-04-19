@@ -92,7 +92,7 @@ func (a *Agent) buildConfig(req ChatRequest) ai.ToolAgentConfig {
 		Messages: ai.BuildMessages(systemPrompt, history, req.Message),
 		Tools:    tools,
 		Execute: func(ctx context.Context, call llms.ToolCall) string {
-			return life.ExecuteTool(ctx, a.db, a.gcal, req.UserID, req.AutoApprove, call)
+			return life.ExecuteToolWithSource(ctx, a.db, a.gcal, req.UserID, req.AutoApprove, call, req.ActionableSource)
 		},
 		MaxRounds:   5,
 		Temperature: 1.0,

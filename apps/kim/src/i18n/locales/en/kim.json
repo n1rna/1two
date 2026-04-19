@@ -241,5 +241,14 @@
   "kind_diet_profile": "diet profile",
   "kind_gym_profile": "gym profile",
   "smart_ui_expand": "expand",
-  "smart_ui_stack_label": "stack"
+  "smart_ui_stack_label": "stack",
+  "activity_title": "activity",
+  "activity_running": "running",
+  "activity_completed": "done",
+  "activity_failed": "failed",
+  "activity_empty": "no recent activity",
+  "activity_view_actionables": "View {{count}} actionables →",
+  "activity_pulse_aria": "Kim is working ({{count}})",
+  "activity_view_all": "View all activity · {{count}}",
+  "activity_back_to_chat": "Back to chat"
 }

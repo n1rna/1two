@@ -1,8 +1,7 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { MODE_LABELS, type KimMode } from "./types";
+import type { KimMode } from "./types";
 
 export interface KimGreetingProps {
   mode: KimMode;
@@ -17,20 +16,11 @@ const STARTER_KEYS: readonly string[] = [
   "starter_review_today",
 ] as const;
 
-export function KimGreeting({ mode, onStarterClick }: KimGreetingProps) {
+export function KimGreeting({ onStarterClick }: KimGreetingProps) {
   const { t } = useTranslation("kim");
 
   return (
     <div className="flex flex-col items-start gap-3 py-6">
-      <div className="flex items-center gap-2">
-        <Sparkles size={14} style={{ color: "var(--kim-amber)" }} strokeWidth={1.75} />
-        <span
-          className="kim-mono text-[10px] uppercase tracking-[0.2em]"
-          style={{ color: "var(--kim-ink-faint)" }}
-        >
-          {t("greeting_ready", { mode: MODE_LABELS[mode] })}
-        </span>
-      </div>
       <p
         className="text-xs"
         style={{ color: "var(--kim-ink-faint)" }}

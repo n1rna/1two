@@ -40,6 +40,7 @@ type ChatRequest struct {
 	ConversationCategory    string              // "life", "health", or "" (defaults to "life")
 	HealthProfile           *HealthProfile      // health profile data (loaded by handler)
 	ActiveSessions          []SessionSummary    // active workout sessions (loaded by handler)
+	ActionableSource        map[string]any      // journey source metadata attached to created actionables
 }
 
 // HealthProfile holds the user's health and fitness profile for the unified agent.
