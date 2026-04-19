@@ -45,7 +45,7 @@ function arrow(value: string, step: number, max: number) {
 // ─── HH:MM helpers ──────────────────────────────────────────────────────────
 
 function splitHHMM(v: string | null | undefined): { h: string; m: string } {
-  if (!v || !/^\d{1,2}:\d{1,2}$/.test(v)) return { h: "00", m: "00" };
+  if (!v || !/^\d{1,2}:\d{1,2}(:\d{1,2})?$/.test(v)) return { h: "00", m: "00" };
   const [h, m] = v.split(":");
   return { h: getValidHour(h), m: getValidMinute(m) };
 }
