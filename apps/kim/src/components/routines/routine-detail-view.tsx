@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Code2, Edit2, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Code2, Edit2, Loader2, Power, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageShell, EmptyState } from "@/components/page-shell";
+import type { PageMenuAction } from "@/components/page-shell";
 import { ActiveToggle } from "@/components/active-toggle";
-import { PublishControl } from "@/components/marketplace/PublishControl";
+import { PublishControl, type PublishControlHandle } from "@/components/marketplace/PublishControl";
 import { ForkedFromBadge } from "@/components/marketplace/ForkedFromBadge";
 import { useKimAutoContext } from "@/components/kim";
 import {
@@ -59,6 +60,7 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const publishRef = useRef<PublishControlHandle>(null);
 
   // Draft state while editing. Seeded from routine on load/cancel.
   const [name, setName] = useState("");
@@ -204,12 +206,32 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
   const displayName = editing ? name : routine.name;
   const scheduleSummary = formatSchedule(routine.schedule);
 
+  const routineMenuActions: PageMenuAction[] = editing
+    ? [
+        { label: t("save", { ns: "common" }), onClick: handleSave, icon: <Edit2 size={14} /> },
+        {
+          label: t("cancel", { ns: "common" }),
+          onClick: () => { setEditing(false); setSchemaEditorOpen(false); seedFromRoutine(routine); },
+          icon: <Power size={14} />,
+        },
+      ]
+    : [
+        {
+          label: routine.active ? t("detail_disable_routine") : t("detail_enable_routine"),
+          icon: <Power size={14} />,
+          onClick: () => toggleActive(!routine.active),
+        },
+        { label: t("edit", { ns: "common" }), icon: <Edit2 size={14} />, onClick: () => setEditing(true) },
+        { label: t("publish", { ns: "common" }), icon: <Upload size={14} />, onClick: () => publishRef.current?.open(), separator: true },
+      ];
+
   return (
     <PageShell
       title={displayName}
       subtitle={scheduleSummary || undefined}
       backHref={routes.routines}
       backLabel={t("detail_back_label")}
+      menuActions={routineMenuActions}
       actions={
         <>
           <div className="flex items-center gap-2 pr-1">
@@ -254,6 +276,7 @@ export function RoutineDetailView({ routineId }: { routineId: string }) {
                 kind="routine"
                 sourceId={routine.id}
                 defaultTitle={routine.name}
+                triggerRef={publishRef}
               />
             </>
           )}

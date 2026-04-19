@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { Globe, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,12 +12,18 @@ import { PublishDialog } from "./PublishDialog";
 import { PublishedStatsDialog } from "./PublishedStatsDialog";
 import { useTranslation } from "react-i18next";
 
+export interface PublishControlHandle {
+  open: () => void;
+}
+
 interface Props {
   kind: MarketplaceKind;
   sourceId: string;
   defaultTitle?: string;
   /** Called whenever the published state changes (fresh publish, new version, unpublish). */
   onChange?: (item: MarketplaceItem | null) => void;
+  /** Imperative handle to programmatically open the publish/stats dialog. */
+  triggerRef?: React.Ref<PublishControlHandle>;
 }
 
 /**
@@ -31,12 +37,20 @@ export function PublishControl({
   sourceId,
   defaultTitle,
   onChange,
+  triggerRef,
 }: Props) {
   const { t } = useTranslation("marketplace");
   const [item, setItem] = useState<MarketplaceItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [publishOpen, setPublishOpen] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
+
+  useImperativeHandle(triggerRef, () => ({
+    open: () => {
+      if (item) setStatsOpen(true);
+      else setPublishOpen(true);
+    },
+  }), [item]);
 
   const load = useCallback(async () => {
     setLoading(true);
