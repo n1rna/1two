@@ -8,28 +8,21 @@
   "drawer_close_title": "Sluiten (⌘K)",
   "drawer_send_title": "Versturen (Enter)",
   "drawer_open_title": "kim openen (⌘K)",
-
   "drawer_input_placeholder": "typ / voor commando's of vraag kim…",
   "drawer_shortcuts_hint": "⌘K toggle · ⇧enter nieuwe regel",
   "drawer_full_view": "volledig scherm →",
-
   "drawer_history_heading": "gesprekken",
   "drawer_history_empty": "nog geen",
   "drawer_history_untitled": "naamloos",
-
   "drawer_drafting_form": "formulier opstellen",
   "drawer_context_label": "context ·",
   "drawer_clear_context": "wissen",
-
   "drawer_collapsed_shortcut": "⌘K",
-
   "greeting_ready": "klaar · {{mode}}",
   "greeting_hint": "selecteer items op de pagina om ze als context toe te voegen.",
-
   "bubble_you": "jij",
   "bubble_kim": "kim",
   "bubble_copy_message": "Bericht kopiëren",
-
   "mode_general": "algemeen",
   "mode_calendar": "agenda",
   "mode_routines": "routines",
@@ -37,7 +30,6 @@
   "mode_gym": "gym",
   "mode_health": "gezondheid",
   "mode_onboarding": "onboarding",
-
   "mode_desc_general": "open gesprek met kim",
   "mode_desc_calendar": "agenda-events en taken in context",
   "mode_desc_routines": "routines aanmaken of bijwerken",
@@ -45,23 +37,17 @@
   "mode_desc_gym": "trainingssessies ontwerpen of wijzigen",
   "mode_desc_health": "profiel, gewicht en macro's",
   "mode_desc_onboarding": "eerste-keer onboarding",
-
   "mode_locked": "vergrendeld",
-
   "error_prefix": "fout: {{message}}",
   "error_label": "fout",
-
   "status_ready": "klaar",
   "status_thinking": "denkt",
-
   "trace_working": "Bezig · {{seconds}}s",
   "trace_done": "Klaar · {{count}} stappen",
-
   "starter_plan_day": "Plan mijn dag",
   "starter_log_meal": "Maaltijd loggen",
   "starter_whats_next": "Wat nu?",
   "starter_review_today": "Dag terugkijken",
-
   "tool_saved_to_memory": "Opgeslagen in geheugen",
   "tool_saving_to_memory": "Opslaan in geheugen",
   "tool_removed_memory": "Herinnering verwijderd",
@@ -127,7 +113,6 @@
   "tool_failed": "Mislukt",
   "tool_deleted": "Verwijderd",
   "tool_removed": "Verwijderd",
-
   "thinking_accomplishing": "Aan het regelen",
   "thinking_actioning": "Aan het uitvoeren",
   "thinking_architecting": "Aan het ontwerpen",
@@ -179,17 +164,14 @@
   "thinking_weaving": "Aan het weven",
   "thinking_working": "Aan het werken",
   "thinking_wrangling": "Aan het worstelen",
-
   "actionable_confirm_btn": "Bevestigen",
   "actionable_dismiss_btn": "Negeren",
   "actionable_select_btn": "Selecteren",
   "actionable_submit_btn": "Versturen",
   "actionable_got_it_btn": "Begrepen",
   "actionable_input_placeholder": "Jouw reactie...",
-
   "ask_kim_label": "Chat met",
   "ask_kim_eyebrow_ask": "vraag",
-
   "slash_today": "Plan mijn dag",
   "slash_today_desc": "Samenvatting en plan voor vandaag",
   "slash_week": "Weekoverzicht",
@@ -222,7 +204,6 @@
   "slash_forget_desc": "Verwijder een verouderde herinnering",
   "slash_review": "Weekreview",
   "slash_review_desc": "Reflecteer op de afgelopen week en plan vooruit",
-
   "slash_health_summary": "Gezondheidssamenvatting",
   "slash_health_summary_desc": "Profiel, gewicht, voeding, actieve sessies",
   "slash_weight": "Gewicht loggen",
@@ -249,7 +230,6 @@
   "slash_goal_desc": "Kracht, hypertrofie, uithoudingsvermogen, etc.",
   "slash_health_remember": "Onthoud een feit",
   "slash_health_remember_desc": "Sla een gezondheidsfeit, allergie of blessure op",
-
   "kind_meal_plan": "dagplan",
   "kind_meal_item": "maaltijd",
   "kind_exercise": "oefening",
@@ -260,5 +240,6 @@
   "kind_routine": "routine",
   "kind_diet_profile": "dieetprofiel",
   "kind_gym_profile": "sportprofiel",
-  "smart_ui_expand": "uitklappen"
+  "smart_ui_expand": "uitklappen",
+  "smart_ui_stack_label": "stapel"
 }

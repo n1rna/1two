@@ -5,31 +5,24 @@
   "drawer_restore_title": "Restore",
   "drawer_history_title": "History",
   "drawer_new_conversation_title": "New conversation",
-  "drawer_close_title": "Close (\u2318K)",
+  "drawer_close_title": "Close (⌘K)",
   "drawer_send_title": "Send (Enter)",
-  "drawer_open_title": "Open Kim (\u2318K)",
-
-  "drawer_input_placeholder": "type / for commands or ask kim\u2026",
-  "drawer_shortcuts_hint": "\u2318K toggle \u00b7 \u21e7enter newline",
-  "drawer_full_view": "full view \u2192",
-
+  "drawer_open_title": "Open Kim (⌘K)",
+  "drawer_input_placeholder": "type / for commands or ask kim…",
+  "drawer_shortcuts_hint": "⌘K toggle · ⇧enter newline",
+  "drawer_full_view": "full view →",
   "drawer_history_heading": "conversations",
   "drawer_history_empty": "none yet",
   "drawer_history_untitled": "untitled",
-
   "drawer_drafting_form": "drafting form",
-  "drawer_context_label": "context \u00b7",
+  "drawer_context_label": "context ·",
   "drawer_clear_context": "clear",
-
-  "drawer_collapsed_shortcut": "\u2318K",
-
-  "greeting_ready": "ready \u00b7 {{mode}}",
+  "drawer_collapsed_shortcut": "⌘K",
+  "greeting_ready": "ready · {{mode}}",
   "greeting_hint": "select items on the page to add them as context.",
-
   "bubble_you": "you",
   "bubble_kim": "kim",
   "bubble_copy_message": "Copy message",
-
   "mode_general": "general",
   "mode_calendar": "calendar",
   "mode_routines": "routines",
@@ -37,7 +30,6 @@
   "mode_gym": "gym",
   "mode_health": "health",
   "mode_onboarding": "onboarding",
-
   "mode_desc_general": "open conversation with Kim",
   "mode_desc_calendar": "calendar events and tasks in context",
   "mode_desc_routines": "create or update recurring routines",
@@ -45,23 +37,17 @@
   "mode_desc_gym": "design or modify gym sessions",
   "mode_desc_health": "profile, weight, and macros",
   "mode_desc_onboarding": "first-run onboarding flow",
-
   "mode_locked": "lock",
-
   "error_prefix": "error: {{message}}",
   "error_label": "error",
-
   "status_ready": "ready",
   "status_thinking": "thinking",
-
   "trace_working": "Working · {{seconds}}s",
   "trace_done": "Done · {{count}} steps",
-
   "starter_plan_day": "Plan my day",
   "starter_log_meal": "Log a meal",
   "starter_whats_next": "What's next?",
   "starter_review_today": "Review today",
-
   "tool_saved_to_memory": "Saved to memory",
   "tool_saving_to_memory": "Saving to memory",
   "tool_removed_memory": "Removed memory",
@@ -127,7 +113,6 @@
   "tool_failed": "Failed",
   "tool_deleted": "Deleted",
   "tool_removed": "Removed",
-
   "thinking_accomplishing": "Accomplishing",
   "thinking_actioning": "Actioning",
   "thinking_architecting": "Architecting",
@@ -179,17 +164,14 @@
   "thinking_weaving": "Weaving",
   "thinking_working": "Working",
   "thinking_wrangling": "Wrangling",
-
   "actionable_confirm_btn": "Confirm",
   "actionable_dismiss_btn": "Dismiss",
   "actionable_select_btn": "Select",
   "actionable_submit_btn": "Submit",
   "actionable_got_it_btn": "Got it",
   "actionable_input_placeholder": "Your response...",
-
   "ask_kim_label": "Chat with",
   "ask_kim_eyebrow_ask": "ask",
-
   "slash_today": "Plan my day",
   "slash_today_desc": "Summary and plan for today",
   "slash_week": "Weekly overview",
@@ -222,7 +204,6 @@
   "slash_forget_desc": "Remove an outdated memory",
   "slash_review": "Weekly review",
   "slash_review_desc": "Reflect on the past week and plan ahead",
-
   "slash_health_summary": "Health summary",
   "slash_health_summary_desc": "Profile, weight, nutrition, active sessions",
   "slash_weight": "Log weight",
@@ -249,7 +230,6 @@
   "slash_goal_desc": "Strength, hypertrophy, endurance, etc.",
   "slash_health_remember": "Remember a fact",
   "slash_health_remember_desc": "Save a health-related fact, allergy, or injury",
-
   "kind_meal_plan": "day plan",
   "kind_meal_item": "meal",
   "kind_exercise": "exercise",
@@ -260,5 +240,6 @@
   "kind_routine": "routine",
   "kind_diet_profile": "diet profile",
   "kind_gym_profile": "gym profile",
-  "smart_ui_expand": "expand"
+  "smart_ui_expand": "expand",
+  "smart_ui_stack_label": "stack"
 }

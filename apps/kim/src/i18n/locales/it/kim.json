@@ -8,28 +8,21 @@
   "drawer_close_title": "Chiudi (⌘K)",
   "drawer_send_title": "Invia (Invio)",
   "drawer_open_title": "Apri Kim (⌘K)",
-
   "drawer_input_placeholder": "scrivi / per i comandi o chiedi a kim…",
   "drawer_shortcuts_hint": "⌘K apri/chiudi · ⇧invio a capo",
   "drawer_full_view": "vista completa →",
-
   "drawer_history_heading": "conversazioni",
   "drawer_history_empty": "nessuna ancora",
   "drawer_history_untitled": "senza titolo",
-
   "drawer_drafting_form": "sto preparando il modulo",
   "drawer_context_label": "contesto ·",
   "drawer_clear_context": "cancella",
-
   "drawer_collapsed_shortcut": "⌘K",
-
   "greeting_ready": "pronto · {{mode}}",
   "greeting_hint": "seleziona elementi nella pagina per aggiungerli come contesto.",
-
   "bubble_you": "tu",
   "bubble_kim": "kim",
   "bubble_copy_message": "Copia messaggio",
-
   "mode_general": "generale",
   "mode_calendar": "calendario",
   "mode_routines": "routine",
@@ -37,7 +30,6 @@
   "mode_gym": "palestra",
   "mode_health": "salute",
   "mode_onboarding": "configurazione iniziale",
-
   "mode_desc_general": "conversazione libera con kim",
   "mode_desc_calendar": "eventi e attività del calendario in contesto",
   "mode_desc_routines": "crea o aggiorna routine ricorrenti",
@@ -45,23 +37,17 @@
   "mode_desc_gym": "progetta o modifica sessioni in palestra",
   "mode_desc_health": "profilo, peso e macro",
   "mode_desc_onboarding": "configurazione iniziale",
-
   "mode_locked": "bloccato",
-
   "error_prefix": "errore: {{message}}",
   "error_label": "errore",
-
   "status_ready": "pronto",
   "status_thinking": "pensa",
-
   "trace_working": "Lavorando · {{seconds}}s",
   "trace_done": "Fatto · {{count}} passi",
-
   "starter_plan_day": "Pianifica la giornata",
   "starter_log_meal": "Registra un pasto",
   "starter_whats_next": "Cosa segue?",
   "starter_review_today": "Rivedi oggi",
-
   "tool_saved_to_memory": "Salvato nei ricordi",
   "tool_saving_to_memory": "Salvataggio nei ricordi",
   "tool_removed_memory": "Ricordo rimosso",
@@ -127,7 +113,6 @@
   "tool_failed": "Fallito",
   "tool_deleted": "Eliminato",
   "tool_removed": "Rimosso",
-
   "thinking_accomplishing": "Realizzo",
   "thinking_actioning": "Metto in moto",
   "thinking_architecting": "Architetto",
@@ -179,17 +164,14 @@
   "thinking_weaving": "Intreccio",
   "thinking_working": "Lavoro",
   "thinking_wrangling": "Domo",
-
   "actionable_confirm_btn": "Conferma",
   "actionable_dismiss_btn": "Ignora",
   "actionable_select_btn": "Seleziona",
   "actionable_submit_btn": "Invia",
   "actionable_got_it_btn": "Capito",
   "actionable_input_placeholder": "La tua risposta...",
-
   "ask_kim_label": "Chatta con",
   "ask_kim_eyebrow_ask": "chiedi",
-
   "slash_today": "Pianifica la mia giornata",
   "slash_today_desc": "Riepilogo e piano per oggi",
   "slash_week": "Panoramica settimanale",
@@ -222,7 +204,6 @@
   "slash_forget_desc": "Rimuovi un ricordo obsoleto",
   "slash_review": "Revisione settimanale",
   "slash_review_desc": "Rifletti sulla settimana passata e pianifica la prossima",
-
   "slash_health_summary": "Riepilogo salute",
   "slash_health_summary_desc": "Profilo, peso, nutrizione, sessioni attive",
   "slash_weight": "Registra peso",
@@ -249,7 +230,6 @@
   "slash_goal_desc": "Forza, ipertrofia, resistenza, ecc.",
   "slash_health_remember": "Ricorda un fatto",
   "slash_health_remember_desc": "Salva un fatto sulla salute, un'allergia o un infortunio",
-
   "kind_meal_plan": "piano del giorno",
   "kind_meal_item": "pasto",
   "kind_exercise": "esercizio",
@@ -260,5 +240,6 @@
   "kind_routine": "routine",
   "kind_diet_profile": "profilo dieta",
   "kind_gym_profile": "profilo palestra",
-  "smart_ui_expand": "espandi"
+  "smart_ui_expand": "espandi",
+  "smart_ui_stack_label": "pila"
 }

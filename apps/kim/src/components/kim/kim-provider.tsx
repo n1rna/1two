@@ -666,11 +666,10 @@ export function KimProvider({ children }: { children: ReactNode }) {
   }, [send]);
 
   const addSelection = useCallback((s: KimSelection) => {
-    setSelection((cur) =>
-      cur.some((x) => x.kind === s.kind && x.id === s.id)
-        ? cur
-        : [...cur, s],
-    );
+    setSelection((cur) => {
+      const without = cur.filter((x) => !(x.kind === s.kind && x.id === s.id));
+      return [s, ...without];
+    });
   }, []);
   const removeSelection = useCallback(
     (kind: SelectableKind, id: string) =>

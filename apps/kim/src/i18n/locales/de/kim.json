@@ -8,28 +8,21 @@
   "drawer_close_title": "Schließen (⌘K)",
   "drawer_send_title": "Senden (Enter)",
   "drawer_open_title": "kim öffnen (⌘K)",
-
   "drawer_input_placeholder": "tippe / für Befehle oder frag kim…",
   "drawer_shortcuts_hint": "⌘K umschalten · ⇧Enter neue Zeile",
   "drawer_full_view": "Vollansicht →",
-
   "drawer_history_heading": "Unterhaltungen",
   "drawer_history_empty": "noch keine",
   "drawer_history_untitled": "ohne Titel",
-
   "drawer_drafting_form": "Formular entwerfen",
   "drawer_context_label": "Kontext ·",
   "drawer_clear_context": "leeren",
-
   "drawer_collapsed_shortcut": "⌘K",
-
   "greeting_ready": "bereit · {{mode}}",
   "greeting_hint": "wähle Elemente auf der Seite aus, um sie als Kontext hinzuzufügen.",
-
   "bubble_you": "du",
   "bubble_kim": "kim",
   "bubble_copy_message": "Nachricht kopieren",
-
   "mode_general": "allgemein",
   "mode_calendar": "Kalender",
   "mode_routines": "Routinen",
@@ -37,7 +30,6 @@
   "mode_gym": "Training",
   "mode_health": "Gesundheit",
   "mode_onboarding": "Onboarding",
-
   "mode_desc_general": "offenes Gespräch mit kim",
   "mode_desc_calendar": "Kalendertermine und Aufgaben im Kontext",
   "mode_desc_routines": "wiederkehrende Routinen erstellen oder ändern",
@@ -45,23 +37,17 @@
   "mode_desc_gym": "Trainingseinheiten entwerfen oder ändern",
   "mode_desc_health": "Profil, Gewicht und Makros",
   "mode_desc_onboarding": "Ersteinrichtung",
-
   "mode_locked": "sperren",
-
   "error_prefix": "Fehler: {{message}}",
   "error_label": "fehler",
-
   "status_ready": "bereit",
   "status_thinking": "denkt",
-
   "trace_working": "Arbeite · {{seconds}}s",
   "trace_done": "Fertig · {{count}} Schritte",
-
   "starter_plan_day": "Tag planen",
   "starter_log_meal": "Mahlzeit erfassen",
   "starter_whats_next": "Was kommt als Nächstes?",
   "starter_review_today": "Heute zusammenfassen",
-
   "tool_saved_to_memory": "In Erinnerung gespeichert",
   "tool_saving_to_memory": "In Erinnerung speichern",
   "tool_removed_memory": "Erinnerung entfernt",
@@ -127,7 +113,6 @@
   "tool_failed": "Fehlgeschlagen",
   "tool_deleted": "Gelöscht",
   "tool_removed": "Entfernt",
-
   "thinking_accomplishing": "Bewerkstelligen",
   "thinking_actioning": "Umsetzen",
   "thinking_architecting": "Entwerfen",
@@ -179,17 +164,14 @@
   "thinking_weaving": "Verweben",
   "thinking_working": "Werkeln",
   "thinking_wrangling": "Jonglieren",
-
   "actionable_confirm_btn": "Bestätigen",
   "actionable_dismiss_btn": "Verwerfen",
   "actionable_select_btn": "Auswählen",
   "actionable_submit_btn": "Absenden",
   "actionable_got_it_btn": "Verstanden",
   "actionable_input_placeholder": "Deine Antwort...",
-
   "ask_kim_label": "Chatte mit",
   "ask_kim_eyebrow_ask": "frag",
-
   "slash_today": "Meinen Tag planen",
   "slash_today_desc": "Zusammenfassung und Plan für heute",
   "slash_week": "Wochenübersicht",
@@ -222,7 +204,6 @@
   "slash_forget_desc": "Eine veraltete Erinnerung entfernen",
   "slash_review": "Wochenrückblick",
   "slash_review_desc": "Die vergangene Woche reflektieren und vorausplanen",
-
   "slash_health_summary": "Gesundheitsübersicht",
   "slash_health_summary_desc": "Profil, Gewicht, Ernährung, aktive Sessions",
   "slash_weight": "Gewicht eintragen",
@@ -249,7 +230,6 @@
   "slash_goal_desc": "Kraft, Hypertrophie, Ausdauer usw.",
   "slash_health_remember": "Etwas merken",
   "slash_health_remember_desc": "Eine gesundheitsbezogene Info, Allergie oder Verletzung speichern",
-
   "kind_meal_plan": "Tagesplan",
   "kind_meal_item": "Mahlzeit",
   "kind_exercise": "Übung",
@@ -260,5 +240,6 @@
   "kind_routine": "Routine",
   "kind_diet_profile": "Ernährungsprofil",
   "kind_gym_profile": "Trainingsprofil",
-  "smart_ui_expand": "ausklappen"
+  "smart_ui_expand": "ausklappen",
+  "smart_ui_stack_label": "stapel"
 }

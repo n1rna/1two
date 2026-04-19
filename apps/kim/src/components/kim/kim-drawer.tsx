@@ -486,31 +486,6 @@ export function KimDrawer() {
         className="relative px-5 pt-3 pb-4 border-t"
         style={{ borderColor: "var(--kim-border)" }}
       >
-        {selection.length > 1 && (
-          <div className="mb-2 flex flex-wrap gap-1.5 items-center">
-            <span
-              className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-0.5 shrink-0"
-              style={{ color: "var(--kim-ink-faint)" }}
-            >
-              {t("drawer_context_label")}
-            </span>
-            {selection.slice(1).map((s) => (
-              <CtxChip
-                key={`${s.kind}-${s.id}`}
-                selection={s}
-                onRemove={() => removeSelection(s.kind, s.id)}
-                onClick={() => promoteSelection(s.kind, s.id)}
-              />
-            ))}
-            <button
-              onClick={clearSelection}
-              className="kim-mono text-[9.5px] uppercase tracking-[0.16em] ml-auto opacity-60 hover:opacity-100 shrink-0"
-              style={{ color: "var(--kim-ink-dim)" }}
-            >
-              {t("drawer_clear_context")}
-            </button>
-          </div>
-        )}
         <SlashCommandMenu
           commands={activeCommands}
           input={input}

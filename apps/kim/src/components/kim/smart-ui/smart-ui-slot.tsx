@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useKim } from "../kim-provider";
+import { CtxChip } from "../ctx-chip";
 import type { SelectableKind } from "../types";
 import { DietProfileSmartCard } from "./diet-profile";
 import { EventSmartCard } from "./event";
@@ -26,11 +27,6 @@ import { RoutineSmartCard } from "./routine";
 import { SessionSmartCard } from "./session";
 import { TaskSmartCard } from "./task";
 
-/**
- * Lucide icon per selection kind. Mirrors the icons each module uses in its
- * SmartHead, so the collapsed bar and the expanded card feel visually
- * consistent. Kinds without a registered module render null further down.
- */
 const KIND_ICON: Partial<Record<SelectableKind, LucideIcon>> = {
   "meal-item": Utensils,
   "meal-plan": Utensils,
@@ -44,7 +40,6 @@ const KIND_ICON: Partial<Record<SelectableKind, LucideIcon>> = {
   "gym-profile": Dumbbell,
 };
 
-/** i18n key for the pretty-print kind label (see kim.json: `kind_*`). */
 const KIND_I18N_KEY: Partial<Record<SelectableKind, string>> = {
   "meal-item": "kind_meal_item",
   "meal-plan": "kind_meal_plan",
@@ -58,26 +53,14 @@ const KIND_I18N_KEY: Partial<Record<SelectableKind, string>> = {
   "gym-profile": "kind_gym_profile",
 };
 
-/**
- * Renders the smart-UI card matching the first (primary) selection. Mounted
- * above the composer inside the kim drawer. Returns null when the selection
- * is empty or its kind has no registered module yet.
- *
- * Render flow:
- *   selection[0].kind === "meal-item" | "meal-plan" → <MealSmartCard />
- *   selection[0].kind === "exercise"                → <ExerciseSmartCard />
- *   (future) event / task / metric                  → their respective cards
- *
- * When `smartUiCollapsed` is true the module collapses to a one-row bar that
- * the user can click to re-expand. (QBL-113)
- *
- * When `selection.length > 1` a `+N` badge renders on both the collapsed bar
- * and the top-right of the expanded module so the user knows supporting
- * context exists. Primary × remove is also exposed so the slot is a
- * fully-controllable primary-context UI. (QBL-114)
- */
 export function SmartUiSlot() {
-  const { selection, smartUiCollapsed, expandSmartUi, removeSelection } = useKim();
+  const {
+    selection,
+    smartUiCollapsed,
+    expandSmartUi,
+    removeSelection,
+    promoteSelection,
+  } = useKim();
   const { t } = useTranslation("kim");
   const primary = selection[0];
   if (!primary) return null;
@@ -120,8 +103,27 @@ export function SmartUiSlot() {
 
   if (!card) return null;
 
-  const supportingCount = Math.max(0, selection.length - 1);
-  const hasSupporting = supportingCount > 0;
+  const supporting = selection.slice(1);
+
+  const stack =
+    supporting.length > 0 ? (
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        <span
+          className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-0.5 shrink-0"
+          style={{ color: "var(--kim-ink-faint)" }}
+        >
+          {t("smart_ui_stack_label", { defaultValue: "stack" })}
+        </span>
+        {supporting.map((s) => (
+          <CtxChip
+            key={`${s.kind}-${s.id}`}
+            selection={s}
+            onRemove={() => removeSelection(s.kind, s.id)}
+            onClick={() => promoteSelection(s.kind, s.id)}
+          />
+        ))}
+      </div>
+    ) : null;
 
   if (smartUiCollapsed) {
     const Icon = KIND_ICON[primary.kind];
@@ -129,6 +131,7 @@ export function SmartUiSlot() {
     const kindLabel = kindKey ? t(kindKey) : primary.kind;
     return (
       <div className="px-5 pb-3 pt-1">
+        {stack}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -148,15 +151,6 @@ export function SmartUiSlot() {
               <span className="mx-1.5 text-muted-foreground/60">·</span>
               <span className="text-foreground">{primary.label}</span>
             </span>
-            {hasSupporting && (
-              <span
-                className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground"
-                aria-label={`+${supportingCount} supporting`}
-                title={`+${supportingCount} supporting`}
-              >
-                +{supportingCount}
-              </span>
-            )}
             <ChevronDown
               className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-hover:rotate-180"
               aria-hidden
@@ -178,18 +172,10 @@ export function SmartUiSlot() {
 
   return (
     <div className="px-5 pb-3 pt-1">
+      {stack}
       <div className="relative">
         {card}
         <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1.5">
-          {hasSupporting && (
-            <span
-              className="pointer-events-auto rounded-full border border-border bg-muted px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-muted-foreground"
-              aria-label={`+${supportingCount} supporting`}
-              title={`+${supportingCount} supporting`}
-            >
-              +{supportingCount}
-            </span>
-          )}
           <button
             type="button"
             onClick={() => removeSelection(primary.kind, primary.id)}
