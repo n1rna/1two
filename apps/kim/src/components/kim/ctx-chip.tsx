@@ -36,6 +36,8 @@ const KIND_COLORS: Record<SelectableKind, string> = {
   routine: "rgb(232 152 188)",       // pink
   memory: "rgb(168 168 168)",        // gray
   session: "rgb(232 152 92)",        // orange (sessions group with exercise)
+  "diet-profile": "rgb(124 196 150)",// green (diet groups with meals)
+  "gym-profile": "rgb(232 152 92)",  // orange (gym groups with exercise)
 };
 
 /**

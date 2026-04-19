@@ -56,6 +56,23 @@
     "explain": "Explain routine",
     "archive": "Archive routine"
   },
+  "diet_profile": {
+    "change_diet_type": "Change diet type",
+    "update_macros": "Update macros",
+    "set_calories": "Set target calories",
+    "set_goal_weight": "Set goal weight",
+    "restrictions": "Update restrictions",
+    "activity_level": "Activity level",
+    "explain": "Explain this diet"
+  },
+  "gym_profile": {
+    "change_goal": "Change fitness goal",
+    "set_days": "Set days per week",
+    "set_duration": "Set session duration",
+    "equipment": "Update equipment",
+    "preferences": "Likes & dislikes",
+    "explain": "Explain this plan"
+  },
   "ack": {
     "done": "Done.",
     "failed": "Failed.",

@@ -19,7 +19,9 @@ export type SelectableKind =
   | "exercise"
   | "memory"
   | "actionable"
-  | "metric";
+  | "metric"
+  | "diet-profile"
+  | "gym-profile";
 
 export interface KimSelection {
   kind: SelectableKind;

@@ -56,6 +56,23 @@
     "explain": "Spiega la routine",
     "archive": "Archivia routine"
   },
+  "diet_profile": {
+    "change_diet_type": "Cambia tipo di dieta",
+    "update_macros": "Aggiorna macro",
+    "set_calories": "Imposta calorie obiettivo",
+    "set_goal_weight": "Imposta peso obiettivo",
+    "restrictions": "Aggiorna restrizioni",
+    "activity_level": "Livello di attività",
+    "explain": "Spiega questa dieta"
+  },
+  "gym_profile": {
+    "change_goal": "Cambia obiettivo fitness",
+    "set_days": "Imposta giorni a settimana",
+    "set_duration": "Imposta durata sessione",
+    "equipment": "Aggiorna attrezzatura",
+    "preferences": "Preferenze e avversioni",
+    "explain": "Spiega questo piano"
+  },
   "ack": {
     "done": "Fatto.",
     "failed": "Non riuscito.",

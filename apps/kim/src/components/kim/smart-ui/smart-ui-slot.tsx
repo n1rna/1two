@@ -3,6 +3,7 @@
 import { useTranslation } from "react-i18next";
 import {
   Activity,
+  Apple,
   Calendar,
   Check,
   ChevronDown,
@@ -14,8 +15,10 @@ import {
 } from "lucide-react";
 import { useKim } from "../kim-provider";
 import type { SelectableKind } from "../types";
+import { DietProfileSmartCard } from "./diet-profile";
 import { EventSmartCard } from "./event";
 import { ExerciseSmartCard } from "./exercise";
+import { GymProfileSmartCard } from "./gym-profile";
 import { MealItemSmartCard } from "./meal-item";
 import { MealPlanSmartCard } from "./meal-plan";
 import { MetricSmartCard } from "./metric";
@@ -37,6 +40,8 @@ const KIND_ICON: Partial<Record<SelectableKind, LucideIcon>> = {
   metric: Activity,
   session: Dumbbell,
   routine: Repeat,
+  "diet-profile": Apple,
+  "gym-profile": Dumbbell,
 };
 
 /** i18n key for the pretty-print kind label (see kim.json: `kind_*`). */
@@ -49,6 +54,8 @@ const KIND_I18N_KEY: Partial<Record<SelectableKind, string>> = {
   metric: "kind_metric",
   session: "kind_session",
   routine: "kind_routine",
+  "diet-profile": "kind_diet_profile",
+  "gym-profile": "kind_gym_profile",
 };
 
 /**
@@ -100,6 +107,12 @@ export function SmartUiSlot() {
       break;
     case "routine":
       card = <RoutineSmartCard item={primary} />;
+      break;
+    case "diet-profile":
+      card = <DietProfileSmartCard item={primary} />;
+      break;
+    case "gym-profile":
+      card = <GymProfileSmartCard item={primary} />;
       break;
     default:
       card = null;

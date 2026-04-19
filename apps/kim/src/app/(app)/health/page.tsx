@@ -274,7 +274,10 @@ interface SectionCardProps {
   title: string;
   subtitle: string;
   complete: boolean;
-  onEdit: () => void;
+  /** Fallback free-form "ask kim to update" handler. Used when `editSlot` isn't provided. */
+  onEdit?: () => void;
+  /** Optional header-right slot, e.g. a kind-specific <AskKimButton>. When set, takes precedence over onEdit. */
+  editSlot?: ReactNode;
   children: ReactNode;
 }
 
@@ -284,6 +287,7 @@ function SectionCard({
   subtitle,
   complete,
   onEdit,
+  editSlot,
   children,
 }: SectionCardProps) {
   const { t } = useTranslation("health");
@@ -310,13 +314,15 @@ function SectionCard({
             </p>
           </div>
         </div>
-        <button
-          onClick={onEdit}
-          className="shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
-        >
-          <Sparkles className="h-3 w-3" />
-          {t("ask_kim")}
-        </button>
+        {editSlot ?? (
+          <button
+            onClick={onEdit}
+            className="shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border text-[11px] text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+          >
+            <Sparkles className="h-3 w-3" />
+            {t("ask_kim")}
+          </button>
+        )}
       </header>
       <div className="p-5 space-y-4">{children}</div>
     </section>
@@ -585,6 +591,17 @@ function FitnessCard({
       "I want to update my fitness preferences — things like training level, goal, how many days a week I train, session length, available equipment, or any limitations. Ask me whichever of these need changing.",
     );
 
+  const gymSnapshot = {
+    fitnessLevel: profile.fitnessLevel,
+    fitnessGoal: profile.fitnessGoal,
+    daysPerWeek: profile.daysPerWeek,
+    preferredDurationMin: profile.preferredDurationMin,
+    availableEquipment: profile.availableEquipment,
+    physicalLimitations: profile.physicalLimitations,
+    workoutLikes: profile.workoutLikes,
+    workoutDislikes: profile.workoutDislikes,
+  };
+
   return (
     <SectionCard
       icon={<Dumbbell className="h-4 w-4" />}
@@ -592,6 +609,16 @@ function FitnessCard({
       subtitle={t("section_fitness_subtitle")}
       complete={complete}
       onEdit={edit}
+      editSlot={
+        <AskKimButton
+          kind="gym-profile"
+          id="health-profile-gym"
+          title={t("section_fitness_title")}
+          snapshot={gymSnapshot}
+          className="h-7"
+          title_={t("ask_kim")}
+        />
+      }
     >
       {!hasAnyFitness ? (
         <MissingCta
@@ -689,6 +716,19 @@ function DietCard({
     hasMacros ||
     hasRestrictions;
 
+  const dietSnapshot = {
+    dietType: profile.dietType,
+    dietGoal: profile.dietGoal,
+    dietaryRestrictions: profile.dietaryRestrictions,
+    targetCalories: profile.targetCalories,
+    proteinG: profile.proteinG,
+    carbsG: profile.carbsG,
+    fatG: profile.fatG,
+    goalWeightKg: profile.goalWeightKg,
+    weightKg: profile.weightKg,
+    activityLevel: profile.activityLevel,
+  };
+
   return (
     <SectionCard
       icon={<UtensilsCrossed className="h-4 w-4" />}
@@ -696,6 +736,16 @@ function DietCard({
       subtitle={t("section_diet_subtitle")}
       complete={complete}
       onEdit={edit}
+      editSlot={
+        <AskKimButton
+          kind="diet-profile"
+          id="health-profile-diet"
+          title={t("section_diet_title")}
+          snapshot={dietSnapshot}
+          className="h-7"
+          title_={t("ask_kim")}
+        />
+      }
     >
       {!anyDietField ? (
         <MissingCta

@@ -258,5 +258,7 @@
   "kind_metric": "métrique",
   "kind_session": "séance",
   "kind_routine": "routine",
+  "kind_diet_profile": "profil alimentaire",
+  "kind_gym_profile": "profil sportif",
   "smart_ui_expand": "déplier"
 }

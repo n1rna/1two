@@ -258,5 +258,7 @@
   "kind_metric": "Kennzahl",
   "kind_session": "Workout",
   "kind_routine": "Routine",
+  "kind_diet_profile": "Ernährungsprofil",
+  "kind_gym_profile": "Trainingsprofil",
   "smart_ui_expand": "ausklappen"
 }

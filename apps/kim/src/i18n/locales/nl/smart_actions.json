@@ -56,6 +56,23 @@
     "explain": "Routine uitleggen",
     "archive": "Routine archiveren"
   },
+  "diet_profile": {
+    "change_diet_type": "Dieettype wijzigen",
+    "update_macros": "Macro's bijwerken",
+    "set_calories": "Doelcalorieën instellen",
+    "set_goal_weight": "Doelgewicht instellen",
+    "restrictions": "Beperkingen bijwerken",
+    "activity_level": "Activiteitsniveau",
+    "explain": "Dieet uitleggen"
+  },
+  "gym_profile": {
+    "change_goal": "Fitnessdoel wijzigen",
+    "set_days": "Dagen per week instellen",
+    "set_duration": "Sessieduur instellen",
+    "equipment": "Materiaal bijwerken",
+    "preferences": "Voorkeuren & afkeuren",
+    "explain": "Plan uitleggen"
+  },
   "ack": {
     "done": "Klaar.",
     "failed": "Mislukt.",

@@ -50,6 +50,19 @@ export const SMART_ACTION_KEYS = [
   "routine.link_calendar",
   "routine.explain",
   "routine.archive",
+  "diet_profile.change_diet_type",
+  "diet_profile.update_macros",
+  "diet_profile.set_calories",
+  "diet_profile.set_goal_weight",
+  "diet_profile.restrictions",
+  "diet_profile.activity_level",
+  "diet_profile.explain",
+  "gym_profile.change_goal",
+  "gym_profile.set_days",
+  "gym_profile.set_duration",
+  "gym_profile.equipment",
+  "gym_profile.preferences",
+  "gym_profile.explain",
 ] as const;
 
 export type SmartActionKey = (typeof SMART_ACTION_KEYS)[number];

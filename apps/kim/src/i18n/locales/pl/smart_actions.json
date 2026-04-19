@@ -56,6 +56,23 @@
     "explain": "Wyjaśnij rutynę",
     "archive": "Archiwizuj rutynę"
   },
+  "diet_profile": {
+    "change_diet_type": "Zmień typ diety",
+    "update_macros": "Zaktualizuj makro",
+    "set_calories": "Ustaw kalorie docelowe",
+    "set_goal_weight": "Ustaw wagę docelową",
+    "restrictions": "Zaktualizuj ograniczenia",
+    "activity_level": "Poziom aktywności",
+    "explain": "Wyjaśnij tę dietę"
+  },
+  "gym_profile": {
+    "change_goal": "Zmień cel fitness",
+    "set_days": "Ustaw dni w tygodniu",
+    "set_duration": "Ustaw długość sesji",
+    "equipment": "Zaktualizuj sprzęt",
+    "preferences": "Upodobania i awersje",
+    "explain": "Wyjaśnij ten plan"
+  },
   "ack": {
     "done": "Gotowe.",
     "failed": "Nie powiodło się.",

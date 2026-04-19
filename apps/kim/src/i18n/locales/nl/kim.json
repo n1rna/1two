@@ -258,5 +258,7 @@
   "kind_metric": "meetwaarde",
   "kind_session": "workout",
   "kind_routine": "routine",
+  "kind_diet_profile": "dieetprofiel",
+  "kind_gym_profile": "sportprofiel",
   "smart_ui_expand": "uitklappen"
 }

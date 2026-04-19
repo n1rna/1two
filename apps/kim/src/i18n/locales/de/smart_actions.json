@@ -56,6 +56,23 @@
     "explain": "Routine erklären",
     "archive": "Routine archivieren"
   },
+  "diet_profile": {
+    "change_diet_type": "Ernährungstyp ändern",
+    "update_macros": "Makros aktualisieren",
+    "set_calories": "Zielkalorien festlegen",
+    "set_goal_weight": "Zielgewicht setzen",
+    "restrictions": "Einschränkungen aktualisieren",
+    "activity_level": "Aktivitätslevel",
+    "explain": "Ernährung erklären"
+  },
+  "gym_profile": {
+    "change_goal": "Fitnessziel ändern",
+    "set_days": "Tage pro Woche festlegen",
+    "set_duration": "Trainingsdauer festlegen",
+    "equipment": "Ausrüstung aktualisieren",
+    "preferences": "Vorlieben & Abneigungen",
+    "explain": "Plan erklären"
+  },
   "ack": {
     "done": "Erledigt.",
     "failed": "Fehlgeschlagen.",
