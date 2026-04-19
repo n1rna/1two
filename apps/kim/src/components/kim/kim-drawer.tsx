@@ -198,6 +198,15 @@ export function KimDrawer() {
     [slash, submitText],
   );
 
+  // Maximum drawer width that leaves enough room for the sidebar + main
+  // content.  We reserve ~400px so the page behind the drawer stays usable.
+  const maxDrawerWidth = useCallback(() => {
+    if (typeof window === "undefined") return 1000;
+    // LifeNav is 56px (compact) or 208px (extended) — use 56 as the safe minimum.
+    const reserved = 56 + 400; // nav + min main content width
+    return Math.max(360, window.innerWidth - reserved);
+  }, []);
+
   // Drag to resize left edge
   const dragRef = useRef<{ startX: number; startW: number } | null>(null);
   const onDragStart = useCallback(
@@ -206,7 +215,8 @@ export function KimDrawer() {
       const onMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
         const dx = dragRef.current.startX - ev.clientX;
-        const next = Math.min(1000, Math.max(360, dragRef.current.startW + dx));
+        const cap = maxDrawerWidth();
+        const next = Math.min(cap, Math.max(360, dragRef.current.startW + dx));
         setWidth(next);
       };
       const onUp = () => {
@@ -217,12 +227,12 @@ export function KimDrawer() {
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     },
-    [width, setWidth],
+    [width, setWidth, maxDrawerWidth],
   );
 
   const effectiveWidth = maximized
-    ? (typeof window !== "undefined" ? Math.min(920, window.innerWidth * 0.55) : width)
-    : width;
+    ? (typeof window !== "undefined" ? Math.min(maxDrawerWidth(), window.innerWidth * 0.55) : width)
+    : Math.min(width, typeof window !== "undefined" ? maxDrawerWidth() : width);
   const streaming = sending || !!streamingText || !!streamingTool;
   const pulse = useAgentRunsPulse({ open });
 

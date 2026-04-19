@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Sun, Sandwich, Moon, Cookie } from "lucide-react";
 import { PageShell, Card, EmptyState } from "@/components/page-shell";
+import type { PageMenuAction } from "@/components/page-shell";
 import { ActiveToggle } from "@/components/active-toggle";
-import { PublishControl } from "@/components/marketplace/PublishControl";
+import { PublishControl, type PublishControlHandle } from "@/components/marketplace/PublishControl";
 import { Selectable, useKim, useKimAutoContext, useKimEffect } from "@/components/kim";
 import { MealDetailDialog } from "@/components/meals/meal-detail-dialog";
 import { GroceryListCard } from "@/components/meals/grocery-list-card";
@@ -22,7 +23,7 @@ import {
   type MealItem,
   type SupplementItem,
 } from "@/lib/health";
-import { CheckSquare, Pill } from "lucide-react";
+import { CheckSquare, Pill, Power, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 import { useTranslation } from "react-i18next";
@@ -115,6 +116,7 @@ export default function MealPlanDetailPage() {
     proposals: MealEditProposal[];
   } | null>(null);
   const { addSelection, clearSelection, askKim, setMode } = useKim();
+  const publishRef = useRef<PublishControlHandle>(null);
 
   useEffect(() => {
     (async () => {
@@ -373,12 +375,32 @@ export default function MealPlanDetailPage() {
     exitBulkMode();
   };
 
+  const menuActions: PageMenuAction[] = [
+    {
+      label: plan.active ? t("disable_meal_plan") : t("enable_meal_plan"),
+      icon: <Power size={14} />,
+      onClick: () => toggleActive(!plan.active),
+    },
+    {
+      label: bulkMode ? "Done" : "Bulk edit",
+      icon: <CheckSquare size={14} />,
+      onClick: () => (bulkMode ? exitBulkMode() : setBulkMode(true)),
+    },
+    {
+      label: t("publish", { ns: "common" }),
+      icon: <Upload size={14} />,
+      onClick: () => publishRef.current?.open(),
+      separator: true,
+    },
+  ];
+
   return (
     <PageShell
       title={plan.title}
       subtitle={`${plan.planType || "plan"} · ${plan.dietType || "—"}${targetKcal ? ` · target ${targetKcal} kcal/day` : ""}`}
       backHref={routes.meals}
       backLabel={t("detail_back_label")}
+      menuActions={menuActions}
       actions={
         <>
           <div className="flex items-center gap-2 pr-1">
@@ -406,6 +428,7 @@ export default function MealPlanDetailPage() {
             kind="meal_plan"
             sourceId={plan.id}
             defaultTitle={plan.title}
+            triggerRef={publishRef}
           />
         </>
       }

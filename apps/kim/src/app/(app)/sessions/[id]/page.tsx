@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Trash2,
@@ -11,11 +11,14 @@ import {
   Edit2,
   Check,
   X,
+  Power,
+  Upload,
 } from "lucide-react";
 import { PageShell, Card, EmptyState } from "@/components/page-shell";
+import type { PageMenuAction } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { ActiveToggle } from "@/components/active-toggle";
-import { PublishControl } from "@/components/marketplace/PublishControl";
+import { PublishControl, type PublishControlHandle } from "@/components/marketplace/PublishControl";
 import { Selectable, useKimAutoContext, AskKimButton } from "@/components/kim";
 import {
   getHealthSession,
@@ -70,6 +73,7 @@ export default function SessionDetailPage() {
   const [draftMuscleGroups, setDraftMuscleGroups] = useState<string[]>([]);
   const [draftEquipment, setDraftEquipment] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const publishRef = useRef<PublishControlHandle>(null);
 
   const seedDraft = useCallback((s: HealthSession) => {
     setDraftTitle(s.title);
@@ -203,12 +207,29 @@ export default function SessionDetailPage() {
   const diffMeta = DIFFICULTY_META[session.difficultyLevel] ?? null;
   const supersetGroups = groupBySuperset(session.exercises ?? []);
 
+  const sessionMenuActions: PageMenuAction[] = editing
+    ? [
+        { label: "Save", onClick: saveMetadata, icon: <Check size={14} /> },
+        { label: "Cancel", onClick: () => { setEditing(false); seedDraft(session); }, icon: <X size={14} /> },
+      ]
+    : [
+        {
+          label: session.active ? "Deactivate" : "Activate",
+          icon: <Power size={14} />,
+          onClick: () => toggleActive(!session.active),
+        },
+        { label: "Edit", icon: <Edit2 size={14} />, onClick: () => setEditing(true) },
+        { label: "Publish", icon: <Upload size={14} />, onClick: () => publishRef.current?.open(), separator: true },
+        { label: "Delete", icon: <Trash2 size={14} />, onClick: remove, variant: "destructive" as const, separator: true },
+      ];
+
   return (
     <PageShell
       title={editing ? draftTitle : session.title}
       subtitle={editing ? undefined : session.description || undefined}
       backHref={routes.sessions}
       backLabel="All gym sessions"
+      menuActions={sessionMenuActions}
       actions={
         <>
           <div className="flex items-center gap-2 pr-1">
@@ -239,7 +260,7 @@ export default function SessionDetailPage() {
               <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing(true)}>
                 <Edit2 className="h-3 w-3" /> Edit
               </Button>
-              <PublishControl kind="gym_session" sourceId={session.id} defaultTitle={session.title} />
+              <PublishControl kind="gym_session" sourceId={session.id} defaultTitle={session.title} triggerRef={publishRef} />
               <Button variant="outline" size="sm" onClick={remove}>
                 <Trash2 size={13} className="mr-1.5" /> Delete
               </Button>
