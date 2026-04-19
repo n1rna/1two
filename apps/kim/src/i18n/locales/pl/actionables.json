@@ -17,5 +17,12 @@
   "resolved_section": "Rozwiązane ({{count}})",
 
   "select_title": "Zaznacz",
-  "deselect_title": "Odznacz"
+  "deselect_title": "Odznacz",
+
+  "journey_group_title": "Ścieżka",
+  "journey_group_subtitle": "Zmiany kaskadowe po ostatnich aktualizacjach",
+  "journey_trigger_gym_session_updated": "Aktualizacja sesji siłowni",
+  "journey_trigger_meal_plan_updated": "Aktualizacja planu posiłków",
+  "journey_trigger_routine_updated": "Aktualizacja rutyny",
+  "journey_source_chip": "z {{title}}"
 }

@@ -174,6 +174,27 @@ export async function deleteLifeConversation(id: string): Promise<void> {
 
 // ─── Actionables ──────────────────────────────────────────────────────────────
 
+/**
+ * Journey triggers that the async "journey flow" agent fires when a planning
+ * entity changes. The resulting actionables carry an `ActionableSource` tagged
+ * with the trigger so the UI can group and explain them.
+ */
+export type JourneyTrigger =
+  | "gym_session_updated"
+  | "meal_plan_updated"
+  | "routine_updated";
+
+/**
+ * Provenance metadata attached to agent-created actionables. Currently only
+ * populated for journey runs; regular chat-created actionables have no source.
+ */
+export interface ActionableSource {
+  kind: "journey" | string;
+  trigger?: JourneyTrigger | string;
+  entity_id?: string;
+  entity_title?: string;
+}
+
 export interface LifeActionable {
   id: string;
   userId: string;
@@ -188,6 +209,8 @@ export interface LifeActionable {
   routineId: string | null;
   actionType: string;
   actionPayload?: ActionablePayload;
+  /** Journey/source metadata; absent for regular chat-created actionables. */
+  source?: ActionableSource;
   createdAt: string;
   resolvedAt: string | null;
 }

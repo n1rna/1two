@@ -74,19 +74,47 @@ func toolActionTitle(toolName string, args map[string]any) string {
 	}
 }
 
-// ExecuteToolWithSource is a compatibility wrapper used by the kim agent to
-// pass an optional source descriptor (e.g. a journey event tag) alongside a
-// tool call. The source is currently ignored here; richer stamping lives on
-// the journey branch. Exposed as a shim so both call-sites compile.
-func ExecuteToolWithSource(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall, _ map[string]any) string {
-	return ExecuteTool(ctx, db, gcalClient, userID, autoApprove, call)
+// buildInterceptedActionableArgs assembles the arg map used when a write tool
+// call is intercepted (auto-approve off) and converted into a confirm-type
+// actionable. Journey runs pass a non-nil source so the resulting actionable
+// can be grouped in the UI; regular chat runs pass nil and the source key is
+// omitted entirely.
+func buildInterceptedActionableArgs(
+	toolName, actionType string,
+	args map[string]any,
+	source map[string]any,
+) map[string]any {
+	out := map[string]any{
+		"type":           "confirm",
+		"title":          toolActionTitle(toolName, args),
+		"action_type":    actionType,
+		"action_payload": args,
+	}
+	if source != nil {
+		out["source"] = source
+	}
+	return out
 }
 
-// ExecuteTool dispatches a single tool call to the appropriate DB operation and
-// returns a JSON string result (always valid JSON).
-// When autoApprove is false, write operations are intercepted and converted to
-// confirm-type actionables so the user must approve them.
-func ExecuteTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall) string {
+// stampActionableSource injects a journey `source` into a create_actionable
+// tool args map in place. If the caller already supplied a `source`, it wins —
+// we never overwrite explicit agent intent. No-op when args or source is nil.
+func stampActionableSource(args map[string]any, source map[string]any) {
+	if args == nil || source == nil {
+		return
+	}
+	if _, has := args["source"]; has {
+		return
+	}
+	args["source"] = source
+}
+
+// ExecuteToolWithSource dispatches a tool call while carrying an optional
+// journey source descriptor. When the agent is running a journey event
+// (ChatRequest.ActionableSource is set), intercepted write tools and direct
+// create_actionable calls are stamped with the source so the resulting
+// life_actionables row is grouped by trigger in the UI.
+func ExecuteToolWithSource(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall, source map[string]any) string {
 	var args map[string]any
 	if err := json.Unmarshal([]byte(call.FunctionCall.Arguments), &args); err != nil {
 		return jsonError("invalid arguments: " + err.Error())
@@ -96,17 +124,34 @@ func ExecuteTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID
 	if !autoApprove {
 		if actionType, needsApproval := toolsRequiringApproval[call.FunctionCall.Name]; needsApproval {
 			log.Printf("life agent: intercepting %q → creating actionable (auto-approve off)", call.FunctionCall.Name)
-			title := toolActionTitle(call.FunctionCall.Name, args)
-			actionableArgs := map[string]any{
-				"type":           "confirm",
-				"title":          title,
-				"action_type":    actionType,
-				"action_payload": args,
-			}
+			actionableArgs := buildInterceptedActionableArgs(
+				call.FunctionCall.Name, actionType, args, source,
+			)
 			return toolCreateActionable(ctx, db, userID, actionableArgs)
 		}
 	}
 
+	// Direct create_actionable calls also get the journey source stamped.
+	if call.FunctionCall.Name == "create_actionable" {
+		stampActionableSource(args, source)
+		return toolCreateActionable(ctx, db, userID, args)
+	}
+
+	return dispatchTool(ctx, db, gcalClient, userID, call, args)
+}
+
+// ExecuteTool dispatches a single tool call to the appropriate DB operation and
+// returns a JSON string result (always valid JSON).
+// When autoApprove is false, write operations are intercepted and converted to
+// confirm-type actionables so the user must approve them.
+func ExecuteTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, autoApprove bool, call llms.ToolCall) string {
+	return ExecuteToolWithSource(ctx, db, gcalClient, userID, autoApprove, call, nil)
+}
+
+// dispatchTool routes non-intercepted, non-create_actionable tool calls to
+// their concrete implementation. Split out of ExecuteToolWithSource so the
+// source-stamping and intercept paths can return early.
+func dispatchTool(ctx context.Context, db *sql.DB, gcalClient *GCalClient, userID string, call llms.ToolCall, args map[string]any) string {
 	switch call.FunctionCall.Name {
 	case "create_actionable":
 		return toolCreateActionable(ctx, db, userID, args)
@@ -301,17 +346,29 @@ func toolCreateActionable(ctx context.Context, db *sql.DB, userID string, args m
 		actionPayloadJSON = b
 	}
 
+	// source JSONB — set by the journey pipeline so the actionables UI can
+	// group cascaded items by trigger/entity. Absent for regular chat tools.
+	var sourceJSON []byte
+	if src, ok := args["source"].(map[string]any); ok && len(src) > 0 {
+		b, err := json.Marshal(src)
+		if err != nil {
+			return jsonError("failed to encode source: " + err.Error())
+		}
+		sourceJSON = b
+	}
+
 	id := uuid.NewString()
 	const q = `
 		INSERT INTO life_actionables
-			(id, user_id, type, status, title, description, options, due_at, action_type, action_payload)
-		VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9)
+			(id, user_id, type, status, title, description, options, due_at, action_type, action_payload, source)
+		VALUES ($1, $2, $3, 'pending', $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, created_at`
 
 	var createdAt time.Time
 	err := db.QueryRowContext(ctx, q,
 		id, userID, aType, title, description,
 		nullableJSON(optionsJSON), dueAt, actionType, nullableJSON(actionPayloadJSON),
+		nullableJSON(sourceJSON),
 	).Scan(&id, &createdAt)
 	if err != nil {
 		return jsonError("failed to create actionable: " + err.Error())

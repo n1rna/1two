@@ -17,5 +17,12 @@
   "resolved_section": "Resueltos ({{count}})",
 
   "select_title": "Seleccionar",
-  "deselect_title": "Deseleccionar"
+  "deselect_title": "Deseleccionar",
+
+  "journey_group_title": "Recorrido",
+  "journey_group_subtitle": "Cambios en cascada por actualizaciones recientes",
+  "journey_trigger_gym_session_updated": "Sesión de gym actualizada",
+  "journey_trigger_meal_plan_updated": "Plan de comidas actualizado",
+  "journey_trigger_routine_updated": "Rutina actualizada",
+  "journey_source_chip": "desde {{title}}"
 }

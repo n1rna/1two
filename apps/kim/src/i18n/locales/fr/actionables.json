@@ -17,5 +17,12 @@
   "resolved_section": "Traitées ({{count}})",
 
   "select_title": "Sélectionner",
-  "deselect_title": "Désélectionner"
+  "deselect_title": "Désélectionner",
+
+  "journey_group_title": "Parcours",
+  "journey_group_subtitle": "Changements en cascade suite aux mises à jour récentes",
+  "journey_trigger_gym_session_updated": "Séance de gym modifiée",
+  "journey_trigger_meal_plan_updated": "Plan de repas modifié",
+  "journey_trigger_routine_updated": "Routine modifiée",
+  "journey_source_chip": "depuis {{title}}"
 }

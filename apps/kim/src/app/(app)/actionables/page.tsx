@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   RefreshCw,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -18,9 +19,53 @@ import {
   bulkDismissActionables,
   listLifeActionables,
   respondToActionable,
+  type JourneyTrigger,
   type LifeActionable,
 } from "@/lib/life";
 import { useTranslation } from "react-i18next";
+
+// Triggers we explicitly know how to label. Unknown triggers fall back to the
+// raw string so the group still renders rather than silently disappearing.
+const KNOWN_JOURNEY_TRIGGERS: JourneyTrigger[] = [
+  "gym_session_updated",
+  "meal_plan_updated",
+  "routine_updated",
+];
+
+function isJourneyActionable(a: LifeActionable): boolean {
+  return a.source?.kind === "journey" && typeof a.source.trigger === "string";
+}
+
+function groupPendingByJourney(pending: LifeActionable[]): {
+  journeyGroups: { trigger: string; items: LifeActionable[] }[];
+  other: LifeActionable[];
+} {
+  const byTrigger = new Map<string, LifeActionable[]>();
+  const other: LifeActionable[] = [];
+  for (const a of pending) {
+    if (isJourneyActionable(a)) {
+      const trig = a.source!.trigger as string;
+      const bucket = byTrigger.get(trig);
+      if (bucket) bucket.push(a);
+      else byTrigger.set(trig, [a]);
+    } else {
+      other.push(a);
+    }
+  }
+  // Order known triggers first (stable ordering), unknown triggers last.
+  const ordered: { trigger: string; items: LifeActionable[] }[] = [];
+  for (const t of KNOWN_JOURNEY_TRIGGERS) {
+    const items = byTrigger.get(t);
+    if (items) {
+      ordered.push({ trigger: t, items });
+      byTrigger.delete(t);
+    }
+  }
+  for (const [t, items] of byTrigger) {
+    ordered.push({ trigger: t, items });
+  }
+  return { journeyGroups: ordered, other };
+}
 
 export default function ActionablesPage() {
   const { t } = useTranslation("actionables");
@@ -30,6 +75,8 @@ export default function ActionablesPage() {
   const [showResolved, setShowResolved] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Journey super-group collapsible state. Collapsed by default when > 5 items.
+  const [journeyCollapsed, setJourneyCollapsed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,6 +139,24 @@ export default function ActionablesPage() {
       }),
     [pending],
   );
+
+  // Split the sorted list into a Journey super-group (by trigger) and a flat
+  // fallback list. Sort order within each group is preserved from sortedPending.
+  const { journeyGroups, other: otherPending } = useMemo(
+    () => groupPendingByJourney(sortedPending),
+    [sortedPending],
+  );
+
+  const journeyCount = useMemo(
+    () => journeyGroups.reduce((n, g) => n + g.items.length, 0),
+    [journeyGroups],
+  );
+
+  // Auto-collapse when the journey section is large so the flat list stays
+  // visible. User can toggle freely after that.
+  useEffect(() => {
+    setJourneyCollapsed(journeyCount > 5);
+  }, [journeyCount]);
 
   const toggleSelect = (id: string) => {
     setSelected((cur) => {
@@ -274,30 +339,129 @@ export default function ActionablesPage() {
         )}
 
         {!loading && sortedPending.length > 0 && (
-          <div className="px-8 py-6 space-y-2">
-            {sortedPending.map((a) => {
-              const isSel = selected.has(a.id);
-              return (
-                <div key={a.id} className="flex items-start gap-2">
-                  <button
-                    onClick={() => toggleSelect(a.id)}
-                    className={cn(
-                      "mt-4 h-[18px] w-[18px] shrink-0 rounded-[4px] border flex items-center justify-center transition-colors",
-                      isSel
-                        ? "bg-primary border-primary text-primary-foreground"
-                        : "bg-background border-border hover:border-primary/60",
-                    )}
-                    aria-pressed={isSel}
-                    title={isSel ? t("deselect_title") : t("select_title")}
-                  >
-                    {isSel && <Check className="h-3 w-3" strokeWidth={3} />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <ActionableCard actionable={a} onRespond={handleRespond} />
+          <div className="px-8 py-6 space-y-6">
+            {/* Journey super-group: cascading changes from recent updates. */}
+            {journeyGroups.length > 0 && (
+              <div className="rounded-lg border border-primary/20 bg-primary/[0.03]">
+                <button
+                  onClick={() => setJourneyCollapsed((c) => !c)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-primary/5 rounded-t-lg transition-colors"
+                >
+                  {journeyCollapsed ? (
+                    <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 text-primary shrink-0" />
+                  )}
+                  <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="text-sm font-medium text-foreground">
+                    {t("journey_group_title")}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    · {journeyCount}
+                  </span>
+                  <span className="flex-1" />
+                  <span className="text-[11px] text-muted-foreground/70 truncate">
+                    {t("journey_group_subtitle")}
+                  </span>
+                </button>
+                {!journeyCollapsed && (
+                  <div className="px-3 pb-3 pt-1 space-y-4">
+                    {journeyGroups.map((group) => {
+                      const label =
+                        KNOWN_JOURNEY_TRIGGERS.includes(
+                          group.trigger as JourneyTrigger,
+                        )
+                          ? t(`journey_trigger_${group.trigger}`)
+                          : group.trigger;
+                      return (
+                        <div key={group.trigger}>
+                          <div className="flex items-center gap-2 px-1 mb-1.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              {label}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/60">
+                              · {group.items.length}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {group.items.map((a) => {
+                              const isSel = selected.has(a.id);
+                              return (
+                                <div
+                                  key={a.id}
+                                  className="flex items-start gap-2"
+                                >
+                                  <button
+                                    onClick={() => toggleSelect(a.id)}
+                                    className={cn(
+                                      "mt-4 h-[18px] w-[18px] shrink-0 rounded-[4px] border flex items-center justify-center transition-colors",
+                                      isSel
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : "bg-background border-border hover:border-primary/60",
+                                    )}
+                                    aria-pressed={isSel}
+                                    title={
+                                      isSel
+                                        ? t("deselect_title")
+                                        : t("select_title")
+                                    }
+                                  >
+                                    {isSel && (
+                                      <Check
+                                        className="h-3 w-3"
+                                        strokeWidth={3}
+                                      />
+                                    )}
+                                  </button>
+                                  <div className="flex-1 min-w-0">
+                                    <ActionableCard
+                                      actionable={a}
+                                      onRespond={handleRespond}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              );
-            })}
+                )}
+              </div>
+            )}
+
+            {/* Flat list of non-journey pending actionables. */}
+            {otherPending.length > 0 && (
+              <div className="space-y-2">
+                {otherPending.map((a) => {
+                  const isSel = selected.has(a.id);
+                  return (
+                    <div key={a.id} className="flex items-start gap-2">
+                      <button
+                        onClick={() => toggleSelect(a.id)}
+                        className={cn(
+                          "mt-4 h-[18px] w-[18px] shrink-0 rounded-[4px] border flex items-center justify-center transition-colors",
+                          isSel
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "bg-background border-border hover:border-primary/60",
+                        )}
+                        aria-pressed={isSel}
+                        title={isSel ? t("deselect_title") : t("select_title")}
+                      >
+                        {isSel && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <ActionableCard
+                          actionable={a}
+                          onRespond={handleRespond}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

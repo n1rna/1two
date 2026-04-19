@@ -17,5 +17,12 @@
   "resolved_section": "Resolved ({{count}})",
 
   "select_title": "Select",
-  "deselect_title": "Deselect"
+  "deselect_title": "Deselect",
+
+  "journey_group_title": "Journey",
+  "journey_group_subtitle": "Cascading changes from recent updates",
+  "journey_trigger_gym_session_updated": "Gym session update",
+  "journey_trigger_meal_plan_updated": "Meal plan update",
+  "journey_trigger_routine_updated": "Routine update",
+  "journey_source_chip": "from {{title}}"
 }

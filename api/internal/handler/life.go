@@ -1333,6 +1333,7 @@ type lifeActionableRecord struct {
 	RoutineID     *string         `json:"routineId,omitempty"`
 	ActionType    string          `json:"actionType"`
 	ActionPayload json.RawMessage `json:"actionPayload,omitempty"`
+	Source        json.RawMessage `json:"source,omitempty"`
 	CreatedAt     string          `json:"createdAt"`
 	ResolvedAt    *string         `json:"resolvedAt,omitempty"`
 }
@@ -1357,7 +1358,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			rows, err = db.QueryContext(r.Context(), `
 				SELECT id, user_id, type, status, title, description,
 				       options, response, due_at, snoozed_until, routine_id,
-				       action_type, action_payload, created_at, resolved_at
+				       action_type, action_payload, source, created_at, resolved_at
 				FROM life_actionables
 				WHERE user_id = $1 AND status = $2
 				ORDER BY created_at DESC
@@ -1366,7 +1367,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			rows, err = db.QueryContext(r.Context(), `
 				SELECT id, user_id, type, status, title, description,
 				       options, response, due_at, snoozed_until, routine_id,
-				       action_type, action_payload, created_at, resolved_at
+				       action_type, action_payload, source, created_at, resolved_at
 				FROM life_actionables
 				WHERE user_id = $1
 				ORDER BY created_at DESC
@@ -1381,7 +1382,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 		actionables := make([]lifeActionableRecord, 0)
 		for rows.Next() {
 			var a lifeActionableRecord
-			var options, response, actionPayload []byte
+			var options, response, actionPayload, source []byte
 			var dueAt, snoozedUntil sql.NullTime
 			var routineID, actionType sql.NullString
 			var createdAt time.Time
@@ -1390,7 +1391,7 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			if err := rows.Scan(
 				&a.ID, &a.UserID, &a.Type, &a.Status, &a.Title, &a.Description,
 				&options, &response, &dueAt, &snoozedUntil, &routineID,
-				&actionType, &actionPayload, &createdAt, &resolvedAt,
+				&actionType, &actionPayload, &source, &createdAt, &resolvedAt,
 			); err != nil {
 				http.Error(w, `{"error":"failed to read actionable"}`, http.StatusInternalServerError)
 				return
@@ -1418,6 +1419,9 @@ func ListLifeActionables(db *sql.DB) http.HandlerFunc {
 			}
 			if len(actionPayload) > 0 {
 				a.ActionPayload = json.RawMessage(actionPayload)
+			}
+			if len(source) > 0 {
+				a.Source = json.RawMessage(source)
 			}
 			a.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 			if resolvedAt.Valid {
