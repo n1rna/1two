@@ -1,0 +1,53 @@
+{
+  "meal": {
+    "swap": "Sostituisci con alternativa",
+    "scale_portions": "Regola le porzioni",
+    "pantry_subs": "Trova sostituti in dispensa",
+    "mark_eaten": "Segna come mangiato",
+    "details": "Mostra dettagli"
+  },
+  "exercise": {
+    "alternatives": "Mostra alternative",
+    "change_reps": "Cambia ripetizioni",
+    "change_sets": "Cambia serie",
+    "mark_skipped": "Segna come saltato",
+    "explain": "Spiega l'esercizio"
+  },
+  "event": {
+    "reschedule": "Riprogramma",
+    "draft_message": "Componi messaggio ai partecipanti",
+    "cancel_with_note": "Annulla con nota",
+    "find_commute": "Trova tempi di spostamento"
+  },
+  "task": {
+    "complete": "Completa",
+    "break_down": "Suddividi in sottoattività",
+    "schedule_block": "Pianifica un blocco",
+    "snooze": "Posticipa",
+    "delegate": "Delega / condividi"
+  },
+  "metric": {
+    "explain_trend": "Spiega la tendenza",
+    "suggest_interventions": "Suggerisci interventi",
+    "compare_last_month": "Confronta col mese scorso",
+    "correlate": "Correla con un'altra metrica",
+    "set_target": "Imposta obiettivo"
+  },
+  "ack": {
+    "done": "Fatto.",
+    "failed": "Non riuscito.",
+    "completed": "Completato.",
+    "marked_eaten": "Segnato come mangiato.",
+    "reps_updated": "Ripetizioni aggiornate.",
+    "sets_updated": "Serie aggiornate.",
+    "target_set": "Obiettivo impostato."
+  },
+  "common": {
+    "commit": "Conferma",
+    "cancel": "Annulla",
+    "video_demo": "Video dimostrativo",
+    "open_in_gcal": "Apri in Google Calendar",
+    "not_supported": "Non ancora supportato per questa metrica.",
+    "days_suffix": "giorni"
+  }
+}

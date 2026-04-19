@@ -68,6 +68,7 @@ export function KimDrawer() {
     newConversation,
     setOpen,
     activeForm,
+    registerComposer,
   } = kim;
   const activeCommands = useMemo(() => commandsForMode(mode), [mode]);
   const slash = useSlashCommands(activeCommands);
@@ -85,6 +86,27 @@ export function KimDrawer() {
       requestAnimationFrame(() => textareaRef.current?.focus());
     }
   }, [open]);
+
+  // Expose composer imperative handle to the provider so smart-UI actions
+  // (e.g. smartPrompt) can prefill + focus without threading refs through
+  // React.
+  useEffect(() => {
+    registerComposer({
+      setInput: (v: string) => {
+        setInput(v);
+        requestAnimationFrame(() => {
+          const el = textareaRef.current;
+          if (!el) return;
+          el.style.height = "auto";
+          el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+        });
+      },
+      focus: () => {
+        requestAnimationFrame(() => textareaRef.current?.focus());
+      },
+    });
+    return () => registerComposer(null);
+  }, [registerComposer]);
 
   // Autoscroll on stream
   useEffect(() => {

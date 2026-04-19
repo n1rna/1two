@@ -1,0 +1,53 @@
+{
+  "meal": {
+    "swap": "Wissel voor alternatief",
+    "scale_portions": "Porties aanpassen",
+    "pantry_subs": "Voorraad-alternatieven zoeken",
+    "mark_eaten": "Gegeten markeren",
+    "details": "Details tonen"
+  },
+  "exercise": {
+    "alternatives": "Alternatieven tonen",
+    "change_reps": "Herhalingen aanpassen",
+    "change_sets": "Sets aanpassen",
+    "mark_skipped": "Overgeslagen markeren",
+    "explain": "Oefening uitleggen"
+  },
+  "event": {
+    "reschedule": "Opnieuw plannen",
+    "draft_message": "Bericht aan deelnemers opstellen",
+    "cancel_with_note": "Annuleren met notitie",
+    "find_commute": "Reistijd zoeken"
+  },
+  "task": {
+    "complete": "Voltooien",
+    "break_down": "Opsplitsen in subtaken",
+    "schedule_block": "Tijdblok plannen",
+    "snooze": "Uitstellen",
+    "delegate": "Delegeren / delen"
+  },
+  "metric": {
+    "explain_trend": "Trend uitleggen",
+    "suggest_interventions": "Interventies voorstellen",
+    "compare_last_month": "Vergelijk met vorige maand",
+    "correlate": "Correleer met andere metriek",
+    "set_target": "Doel instellen"
+  },
+  "ack": {
+    "done": "Klaar.",
+    "failed": "Mislukt.",
+    "completed": "Voltooid.",
+    "marked_eaten": "Gegeten gemarkeerd.",
+    "reps_updated": "Herhalingen bijgewerkt.",
+    "sets_updated": "Sets bijgewerkt.",
+    "target_set": "Doel ingesteld."
+  },
+  "common": {
+    "commit": "Bevestigen",
+    "cancel": "Annuleren",
+    "video_demo": "Videodemo",
+    "open_in_gcal": "Openen in Google Agenda",
+    "not_supported": "Nog niet ondersteund voor deze metriek.",
+    "days_suffix": "dagen"
+  }
+}

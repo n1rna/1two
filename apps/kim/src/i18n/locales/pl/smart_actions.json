@@ -1,0 +1,53 @@
+{
+  "meal": {
+    "swap": "Zamień na alternatywę",
+    "scale_portions": "Dostosuj porcje",
+    "pantry_subs": "Znajdź zamienniki ze spiżarni",
+    "mark_eaten": "Oznacz jako zjedzone",
+    "details": "Pokaż szczegóły"
+  },
+  "exercise": {
+    "alternatives": "Pokaż alternatywy",
+    "change_reps": "Zmień powtórzenia",
+    "change_sets": "Zmień serie",
+    "mark_skipped": "Oznacz jako pominięte",
+    "explain": "Wyjaśnij ćwiczenie"
+  },
+  "event": {
+    "reschedule": "Zmień termin",
+    "draft_message": "Napisz wiadomość do uczestników",
+    "cancel_with_note": "Anuluj z notatką",
+    "find_commute": "Znajdź czas dojazdu"
+  },
+  "task": {
+    "complete": "Zakończ",
+    "break_down": "Podziel na podzadania",
+    "schedule_block": "Zaplanuj blok",
+    "snooze": "Odłóż",
+    "delegate": "Deleguj / udostępnij"
+  },
+  "metric": {
+    "explain_trend": "Wyjaśnij trend",
+    "suggest_interventions": "Zasugeruj interwencje",
+    "compare_last_month": "Porównaj z zeszłym miesiącem",
+    "correlate": "Skoreluj z inną metryką",
+    "set_target": "Ustaw cel"
+  },
+  "ack": {
+    "done": "Gotowe.",
+    "failed": "Nie powiodło się.",
+    "completed": "Ukończono.",
+    "marked_eaten": "Oznaczono jako zjedzone.",
+    "reps_updated": "Powtórzenia zaktualizowane.",
+    "sets_updated": "Serie zaktualizowane.",
+    "target_set": "Cel ustawiony."
+  },
+  "common": {
+    "commit": "Potwierdź",
+    "cancel": "Anuluj",
+    "video_demo": "Demo wideo",
+    "open_in_gcal": "Otwórz w Google Calendar",
+    "not_supported": "Jeszcze nieobsługiwane dla tej metryki.",
+    "days_suffix": "dni"
+  }
+}

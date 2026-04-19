@@ -18,3 +18,18 @@ export type { ChipToggleProps } from "./chip-toggle";
 
 export { SmartDivider } from "./smart-divider";
 export type { SmartDividerProps } from "./smart-divider";
+
+export {
+  SMART_ACTION_KEYS,
+  smartAgent,
+  smartPrompt,
+  smartQuick,
+  useSmartActions,
+} from "./actions";
+export type {
+  KimContext,
+  SmartActionKey,
+  SmartAgentOpts,
+  SmartPromptOpts,
+  SmartQuickOpts,
+} from "./actions";

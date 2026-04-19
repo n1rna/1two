@@ -18,6 +18,7 @@ import enOnboarding from "./locales/en/onboarding.json";
 import enLanding from "./locales/en/landing.json";
 import enLogin from "./locales/en/login.json";
 import enKim from "./locales/en/kim.json";
+import enSmartActions from "./locales/en/smart_actions.json";
 
 import frCommon from "./locales/fr/common.json";
 import frToday from "./locales/fr/today.json";
@@ -35,6 +36,7 @@ import frOnboarding from "./locales/fr/onboarding.json";
 import frLanding from "./locales/fr/landing.json";
 import frLogin from "./locales/fr/login.json";
 import frKim from "./locales/fr/kim.json";
+import frSmartActions from "./locales/fr/smart_actions.json";
 
 import nlCommon from "./locales/nl/common.json";
 import nlToday from "./locales/nl/today.json";
@@ -52,6 +54,7 @@ import nlOnboarding from "./locales/nl/onboarding.json";
 import nlLanding from "./locales/nl/landing.json";
 import nlLogin from "./locales/nl/login.json";
 import nlKim from "./locales/nl/kim.json";
+import nlSmartActions from "./locales/nl/smart_actions.json";
 
 import deCommon from "./locales/de/common.json";
 import deToday from "./locales/de/today.json";
@@ -69,6 +72,7 @@ import deOnboarding from "./locales/de/onboarding.json";
 import deLanding from "./locales/de/landing.json";
 import deLogin from "./locales/de/login.json";
 import deKim from "./locales/de/kim.json";
+import deSmartActions from "./locales/de/smart_actions.json";
 
 import esCommon from "./locales/es/common.json";
 import esToday from "./locales/es/today.json";
@@ -86,6 +90,7 @@ import esOnboarding from "./locales/es/onboarding.json";
 import esLanding from "./locales/es/landing.json";
 import esLogin from "./locales/es/login.json";
 import esKim from "./locales/es/kim.json";
+import esSmartActions from "./locales/es/smart_actions.json";
 
 import itCommon from "./locales/it/common.json";
 import itToday from "./locales/it/today.json";
@@ -103,6 +108,7 @@ import itOnboarding from "./locales/it/onboarding.json";
 import itLanding from "./locales/it/landing.json";
 import itLogin from "./locales/it/login.json";
 import itKim from "./locales/it/kim.json";
+import itSmartActions from "./locales/it/smart_actions.json";
 
 import plCommon from "./locales/pl/common.json";
 import plToday from "./locales/pl/today.json";
@@ -120,6 +126,7 @@ import plOnboarding from "./locales/pl/onboarding.json";
 import plLanding from "./locales/pl/landing.json";
 import plLogin from "./locales/pl/login.json";
 import plKim from "./locales/pl/kim.json";
+import plSmartActions from "./locales/pl/smart_actions.json";
 
 export const SUPPORTED_LOCALES = [
   "en",
@@ -159,6 +166,7 @@ export const NAMESPACES = [
   "landing",
   "login",
   "kim",
+  "smart_actions",
 ] as const;
 
 const ns = (
@@ -178,6 +186,7 @@ const ns = (
   landing: object,
   login: object,
   kim: object,
+  smart_actions: object,
 ) => ({
   common,
   today,
@@ -195,16 +204,17 @@ const ns = (
   landing,
   login,
   kim,
+  smart_actions,
 });
 
 const resources = {
-  en: ns(enCommon, enToday, enHealth, enChannels, enSettings, enRoutines, enMeals, enSessions, enCalendar, enActionables, enMemories, enMarketplace, enOnboarding, enLanding, enLogin, enKim),
-  fr: ns(frCommon, frToday, frHealth, frChannels, frSettings, frRoutines, frMeals, frSessions, frCalendar, frActionables, frMemories, frMarketplace, frOnboarding, frLanding, frLogin, frKim),
-  nl: ns(nlCommon, nlToday, nlHealth, nlChannels, nlSettings, nlRoutines, nlMeals, nlSessions, nlCalendar, nlActionables, nlMemories, nlMarketplace, nlOnboarding, nlLanding, nlLogin, nlKim),
-  de: ns(deCommon, deToday, deHealth, deChannels, deSettings, deRoutines, deMeals, deSessions, deCalendar, deActionables, deMemories, deMarketplace, deOnboarding, deLanding, deLogin, deKim),
-  es: ns(esCommon, esToday, esHealth, esChannels, esSettings, esRoutines, esMeals, esSessions, esCalendar, esActionables, esMemories, esMarketplace, esOnboarding, esLanding, esLogin, esKim),
-  it: ns(itCommon, itToday, itHealth, itChannels, itSettings, itRoutines, itMeals, itSessions, itCalendar, itActionables, itMemories, itMarketplace, itOnboarding, itLanding, itLogin, itKim),
-  pl: ns(plCommon, plToday, plHealth, plChannels, plSettings, plRoutines, plMeals, plSessions, plCalendar, plActionables, plMemories, plMarketplace, plOnboarding, plLanding, plLogin, plKim),
+  en: ns(enCommon, enToday, enHealth, enChannels, enSettings, enRoutines, enMeals, enSessions, enCalendar, enActionables, enMemories, enMarketplace, enOnboarding, enLanding, enLogin, enKim, enSmartActions),
+  fr: ns(frCommon, frToday, frHealth, frChannels, frSettings, frRoutines, frMeals, frSessions, frCalendar, frActionables, frMemories, frMarketplace, frOnboarding, frLanding, frLogin, frKim, frSmartActions),
+  nl: ns(nlCommon, nlToday, nlHealth, nlChannels, nlSettings, nlRoutines, nlMeals, nlSessions, nlCalendar, nlActionables, nlMemories, nlMarketplace, nlOnboarding, nlLanding, nlLogin, nlKim, nlSmartActions),
+  de: ns(deCommon, deToday, deHealth, deChannels, deSettings, deRoutines, deMeals, deSessions, deCalendar, deActionables, deMemories, deMarketplace, deOnboarding, deLanding, deLogin, deKim, deSmartActions),
+  es: ns(esCommon, esToday, esHealth, esChannels, esSettings, esRoutines, esMeals, esSessions, esCalendar, esActionables, esMemories, esMarketplace, esOnboarding, esLanding, esLogin, esKim, esSmartActions),
+  it: ns(itCommon, itToday, itHealth, itChannels, itSettings, itRoutines, itMeals, itSessions, itCalendar, itActionables, itMemories, itMarketplace, itOnboarding, itLanding, itLogin, itKim, itSmartActions),
+  pl: ns(plCommon, plToday, plHealth, plChannels, plSettings, plRoutines, plMeals, plSessions, plCalendar, plActionables, plMemories, plMarketplace, plOnboarding, plLanding, plLogin, plKim, plSmartActions),
 };
 
 void i18n

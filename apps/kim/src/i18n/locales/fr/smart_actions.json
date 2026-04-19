@@ -1,0 +1,53 @@
+{
+  "meal": {
+    "swap": "Remplacer par une alternative",
+    "scale_portions": "Ajuster les portions",
+    "pantry_subs": "Trouver des substituts du garde-manger",
+    "mark_eaten": "Marquer comme mangé",
+    "details": "Voir les détails"
+  },
+  "exercise": {
+    "alternatives": "Voir les alternatives",
+    "change_reps": "Modifier les répétitions",
+    "change_sets": "Modifier les séries",
+    "mark_skipped": "Marquer comme sauté",
+    "explain": "Expliquer l'exercice"
+  },
+  "event": {
+    "reschedule": "Reprogrammer",
+    "draft_message": "Rédiger un message aux participants",
+    "cancel_with_note": "Annuler avec note",
+    "find_commute": "Trouver le temps de trajet"
+  },
+  "task": {
+    "complete": "Terminer",
+    "break_down": "Décomposer en sous-tâches",
+    "schedule_block": "Planifier un créneau",
+    "snooze": "Reporter",
+    "delegate": "Déléguer / partager"
+  },
+  "metric": {
+    "explain_trend": "Expliquer la tendance",
+    "suggest_interventions": "Suggérer des interventions",
+    "compare_last_month": "Comparer au mois dernier",
+    "correlate": "Corréler avec une autre métrique",
+    "set_target": "Définir un objectif"
+  },
+  "ack": {
+    "done": "Fait.",
+    "failed": "Échec.",
+    "completed": "Terminé.",
+    "marked_eaten": "Marqué comme mangé.",
+    "reps_updated": "Répétitions mises à jour.",
+    "sets_updated": "Séries mises à jour.",
+    "target_set": "Objectif défini."
+  },
+  "common": {
+    "commit": "Valider",
+    "cancel": "Annuler",
+    "video_demo": "Démo vidéo",
+    "open_in_gcal": "Ouvrir dans Google Agenda",
+    "not_supported": "Pas encore pris en charge pour cette métrique.",
+    "days_suffix": "jours"
+  }
+}

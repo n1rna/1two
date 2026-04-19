@@ -72,6 +72,24 @@ interface KimActions {
   registerFormDraft: (form: KimFormKind, handler: KimFormDraftHandler) => () => void;
   registerEffectListener: (tool: string, handler: KimEffectHandler) => () => void;
   askKim: (message: string) => void;
+  /**
+   * Post a silent marker message (no LLM call). Renders in the thread as
+   * "→ {label}" with an optional short ack note underneath. Used by
+   * Smart-UI quick actions that call the backend directly without invoking
+   * the agent.
+   */
+  postSilent: (label: string, ack?: string) => void;
+  /** Imperatively sets the composer input value (used by smartPrompt). */
+  setInput: (value: string) => void;
+  /** Focuses the composer textarea (used by smartPrompt). */
+  focusComposer: () => void;
+  /** Internal: lets the drawer register its composer refs. */
+  registerComposer: (h: ComposerHandle | null) => void;
+}
+
+export interface ComposerHandle {
+  setInput: (v: string) => void;
+  focus: () => void;
 }
 
 interface KimStateExtra {
@@ -143,6 +161,36 @@ export function KimProvider({ children }: { children: ReactNode }) {
   >({ routine: [], meal_plan: [], session: [] });
   const effectHandlersRef = useRef<Record<string, KimEffectHandler[]>>({});
   const streamBufRef = useRef("");
+  const composerRef = useRef<ComposerHandle | null>(null);
+
+  const registerComposer = useCallback((h: ComposerHandle | null) => {
+    composerRef.current = h;
+  }, []);
+
+  const setInput = useCallback((v: string) => {
+    composerRef.current?.setInput(v);
+  }, []);
+
+  const focusComposer = useCallback(() => {
+    setOpen(true);
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }, []);
+
+  const postSilent = useCallback((label: string, ack?: string) => {
+    const now = new Date().toISOString();
+    setOpen(true);
+    setMessages((cur) => [
+      ...cur,
+      {
+        id: `silent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        role: "user",
+        content: label,
+        silent: true,
+        ack,
+        createdAt: now,
+      },
+    ]);
+  }, []);
 
   const setActiveForm = useCallback((form: KimActiveForm | null) => {
     setActiveFormState(form);
@@ -524,6 +572,10 @@ export function KimProvider({ children }: { children: ReactNode }) {
       registerFormDraft,
       registerEffectListener,
       askKim,
+      postSilent,
+      setInput,
+      focusComposer,
+      registerComposer,
     }),
     [
       open,
@@ -557,6 +609,10 @@ export function KimProvider({ children }: { children: ReactNode }) {
       registerFormDraft,
       registerEffectListener,
       askKim,
+      postSilent,
+      setInput,
+      focusComposer,
+      registerComposer,
     ],
   );
 

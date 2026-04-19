@@ -1,0 +1,53 @@
+{
+  "meal": {
+    "swap": "Swap for alternative",
+    "scale_portions": "Scale portions",
+    "pantry_subs": "Find pantry subs",
+    "mark_eaten": "Mark eaten",
+    "details": "Show details"
+  },
+  "exercise": {
+    "alternatives": "Show alternatives",
+    "change_reps": "Change reps",
+    "change_sets": "Change sets",
+    "mark_skipped": "Mark skipped",
+    "explain": "Explain the lift"
+  },
+  "event": {
+    "reschedule": "Reschedule",
+    "draft_message": "Draft message to attendees",
+    "cancel_with_note": "Cancel with note",
+    "find_commute": "Find commute time"
+  },
+  "task": {
+    "complete": "Complete",
+    "break_down": "Break down into subtasks",
+    "schedule_block": "Schedule a block",
+    "snooze": "Snooze",
+    "delegate": "Delegate / share"
+  },
+  "metric": {
+    "explain_trend": "Explain the trend",
+    "suggest_interventions": "Suggest interventions",
+    "compare_last_month": "Compare to last month",
+    "correlate": "Correlate with another metric",
+    "set_target": "Set target"
+  },
+  "ack": {
+    "done": "Done.",
+    "failed": "Failed.",
+    "completed": "Completed.",
+    "marked_eaten": "Marked eaten.",
+    "reps_updated": "Reps updated.",
+    "sets_updated": "Sets updated.",
+    "target_set": "Target set."
+  },
+  "common": {
+    "commit": "Commit",
+    "cancel": "Cancel",
+    "video_demo": "Video demo",
+    "open_in_gcal": "Open in Google Calendar",
+    "not_supported": "Not supported for this metric yet.",
+    "days_suffix": "days"
+  }
+}

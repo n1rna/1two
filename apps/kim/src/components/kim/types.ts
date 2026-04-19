@@ -37,6 +37,17 @@ export interface KimMessage {
   selection?: KimSelection[];
   pending?: boolean;
   createdAt: string;
+  /**
+   * When true, this user message was posted from a smart-UI module (e.g. a
+   * quick action) rather than typed into the composer. Rendered as a compact
+   * "→ {label}" marker instead of a full bubble.
+   */
+  silent?: boolean;
+  /**
+   * Optional short system/assistant ack shown as a faint inline note under
+   * the silent marker (e.g. "Marked as eaten."). Only used on silent messages.
+   */
+  ack?: string;
 }
 
 export function messageFromLife(m: LifeMessage): KimMessage {

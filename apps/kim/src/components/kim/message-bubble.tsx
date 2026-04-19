@@ -28,6 +28,31 @@ export function MessageBubble({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Silent marker (smart-UI quick actions). Compact "→ {label}" with optional
+  // ack underneath. Rendered inline rather than as a full user bubble so the
+  // thread stays visually light when the user clicks many quick actions.
+  if (isUser && msg.silent) {
+    return (
+      <div className="py-1.5 pl-1 flex flex-col items-start">
+        <div
+          className="kim-mono text-[11px] flex items-baseline gap-1.5"
+          style={{ color: "var(--kim-ink-dim)" }}
+        >
+          <span style={{ color: "var(--kim-amber)" }}>→</span>
+          <span>{msg.content}</span>
+        </div>
+        {msg.ack && (
+          <div
+            className="kim-mono text-[10px] pl-4 mt-0.5"
+            style={{ color: "var(--kim-ink-faint)" }}
+          >
+            {msg.ack}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (isUser) {
     return (
       <div className="group py-3">
