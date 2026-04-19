@@ -29,6 +29,8 @@ import { KimMessageList } from "./kim-message-list";
 import { KimGreeting } from "./kim-greeting";
 import { CtxChip } from "./ctx-chip";
 import { SmartUiSlot } from "./smart-ui/smart-ui-slot";
+import { ActivitySection } from "./activity-section";
+import { useAgentRunsPulse } from "./use-agent-runs-pulse";
 import { commandsForMode } from "./slash-commands";
 import { SlashCommandMenu, useSlashCommands } from "@/components/ui/slash-commands";
 import type { SlashCommand } from "@/components/ui/slash-commands";
@@ -207,8 +209,9 @@ export function KimDrawer() {
     ? (typeof window !== "undefined" ? Math.min(920, window.innerWidth * 0.55) : width)
     : width;
   const streaming = sending || !!streamingText || !!streamingTool;
+  const pulse = useAgentRunsPulse({ open });
 
-  if (!open) return <KimCollapsedRail />;
+  if (!open) return <KimCollapsedRail pulseRunning={pulse.running} pulseCount={pulse.count} />;
 
   return (
     <motion.aside
@@ -247,6 +250,7 @@ export function KimDrawer() {
             {t("drawer_subtitle")}
           </span>
           <KimStatusPill streaming={streaming} />
+          <ActivityPulse running={pulse.running} count={pulse.count} />
         </div>
         <div className="flex items-center gap-1">
           <HeaderButton
@@ -410,6 +414,9 @@ export function KimDrawer() {
         )}
       </AnimatePresence>
 
+      {/* Background agent activity — collapsible list of recent runs. */}
+      <ActivitySection open={open} />
+
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 relative">
         {messages.length === 0 && !streamingText && (
@@ -545,6 +552,33 @@ export function KimDrawer() {
   );
 }
 
+function ActivityPulse({
+  running,
+  count,
+}: {
+  running: boolean;
+  count: number;
+}) {
+  const { t } = useTranslation("kim");
+  if (!running) return null;
+  return (
+    <span
+      aria-label={t("activity_pulse_aria", { count })}
+      title={t("activity_pulse_aria", { count })}
+      className="inline-flex items-center"
+    >
+      <span
+        aria-hidden
+        className="ml-1 inline-block h-1.5 w-1.5 rounded-full"
+        style={{
+          background: "var(--kim-amber)",
+          animation: "kim-pulse-dot 1.4s ease-in-out infinite",
+        }}
+      />
+    </span>
+  );
+}
+
 function KimStatusPill({ streaming }: { streaming: boolean }) {
   const { t } = useTranslation("kim");
   return (
@@ -593,7 +627,14 @@ function HeaderButton({
   );
 }
 
-function KimCollapsedRail() {
+function KimCollapsedRail({
+  pulseRunning = false,
+  pulseCount = 0,
+}: {
+  pulseRunning?: boolean;
+  pulseCount?: number;
+}) {
+  const { t } = useTranslation("kim");
   const { setOpen, selection } = useKim();
   const pathname = usePathname();
   // The full-screen chat page is itself a Kim surface — no rail needed.
@@ -607,10 +648,20 @@ function KimCollapsedRail() {
     >
       <div className="kim-rail" />
       <span
-        className="kim-display text-2xl"
+        className="kim-display text-2xl relative"
         style={{ color: "var(--kim-amber)" }}
       >
         k
+        {pulseRunning && (
+          <span
+            aria-label={t("activity_pulse_aria", { count: pulseCount })}
+            className="absolute -top-0.5 -right-1.5 inline-block h-1.5 w-1.5 rounded-full"
+            style={{
+              background: "var(--kim-amber)",
+              animation: "kim-pulse-dot 1.4s ease-in-out infinite",
+            }}
+          />
+        )}
       </span>
       <div
         className="kim-display italic"

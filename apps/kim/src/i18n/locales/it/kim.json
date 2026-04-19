@@ -241,5 +241,12 @@
   "kind_diet_profile": "profilo dieta",
   "kind_gym_profile": "profilo palestra",
   "smart_ui_expand": "espandi",
-  "smart_ui_stack_label": "pila"
+  "smart_ui_stack_label": "pila",
+  "activity_title": "attività",
+  "activity_running": "in corso",
+  "activity_completed": "fatto",
+  "activity_failed": "fallito",
+  "activity_empty": "nessuna attività recente",
+  "activity_view_actionables": "Vedi {{count}} azioni →",
+  "activity_pulse_aria": "Kim sta lavorando ({{count}})"
 }

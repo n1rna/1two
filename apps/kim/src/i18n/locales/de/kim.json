@@ -241,5 +241,12 @@
   "kind_diet_profile": "Ernährungsprofil",
   "kind_gym_profile": "Trainingsprofil",
   "smart_ui_expand": "ausklappen",
-  "smart_ui_stack_label": "stapel"
+  "smart_ui_stack_label": "stapel",
+  "activity_title": "Aktivität",
+  "activity_running": "läuft",
+  "activity_completed": "fertig",
+  "activity_failed": "fehlgeschlagen",
+  "activity_empty": "keine aktuelle Aktivität",
+  "activity_view_actionables": "{{count}} Aktionen ansehen →",
+  "activity_pulse_aria": "Kim arbeitet ({{count}})"
 }

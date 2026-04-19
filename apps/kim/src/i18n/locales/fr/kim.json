@@ -241,5 +241,12 @@
   "kind_diet_profile": "profil alimentaire",
   "kind_gym_profile": "profil sportif",
   "smart_ui_expand": "déplier",
-  "smart_ui_stack_label": "pile"
+  "smart_ui_stack_label": "pile",
+  "activity_title": "activité",
+  "activity_running": "en cours",
+  "activity_completed": "terminé",
+  "activity_failed": "échec",
+  "activity_empty": "aucune activité récente",
+  "activity_view_actionables": "Voir {{count}} actions →",
+  "activity_pulse_aria": "Kim travaille ({{count}})"
 }
