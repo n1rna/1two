@@ -322,7 +322,7 @@ func main() {
 				r.Get("/health/sessions", handler.ListHealthSessions(db))
 				r.Post("/health/sessions", handler.CreateHealthSession(db))
 				r.Get("/health/sessions/{id}", handler.GetHealthSession(db))
-				r.Put("/health/sessions/{id}", handler.UpdateHealthSession(db))
+				r.Put("/health/sessions/{id}", handler.UpdateHealthSession(db, lifeAgent))
 				r.Delete("/health/sessions/{id}", handler.DeleteHealthSession(db))
 				r.Post("/health/sessions/{id}/exercises", handler.AddHealthSessionExercise(db))
 				r.Put("/health/sessions/{sid}/exercises/{eid}", handler.UpdateHealthSessionExercise(db))

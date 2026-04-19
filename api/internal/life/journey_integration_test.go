@@ -197,6 +197,123 @@ func TestProcessJourneyEvent_EndToEnd_RoutineUpdated(t *testing.T) {
 	}
 }
 
+func TestProcessJourneyEvent_EndToEnd_GymSessionUpdated_CreatesActionable(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	userID := "test_user_journey_" + uuid.NewString()
+	cleanupUser(t, db, userID)
+	defer cleanupUser(t, db, userID)
+
+	if _, err := db.Exec(
+		`INSERT INTO life_profiles (user_id, timezone) VALUES ($1, 'UTC')`,
+		userID,
+	); err != nil {
+		t.Fatalf("seed profile: %v", err)
+	}
+
+	// Simulate the agent proposing a calendar reschedule after the user
+	// extended a gym session's duration. Write tool intercepts with
+	// AutoApprove=false → confirm actionable tagged with the journey source.
+	agent := &fakeJourneyAgent{
+		db:             db,
+		toolCallsToRun: []string{"update_calendar_event"},
+		toolArgs: []string{
+			`{"event_id":"evt_abc","summary":"Gym – Push day","start":"2026-04-18T07:00:00Z","end":"2026-04-18T08:30:00Z"}`,
+		},
+	}
+
+	err := ProcessJourneyEvent(context.Background(), db, agent, JourneyEvent{
+		UserID:        userID,
+		Trigger:       JourneyTriggerGymSessionUpdated,
+		EntityID:      "sess_123",
+		EntityTitle:   "Push day",
+		ChangeSummary: "estimated_duration → 90 min",
+	})
+	if err != nil {
+		t.Fatalf("ProcessJourneyEvent: %v", err)
+	}
+
+	var aType, status, actionType string
+	var sourceJSON []byte
+	if err := db.QueryRow(
+		`SELECT type, status, action_type, source
+		 FROM life_actionables WHERE user_id = $1`, userID,
+	).Scan(&aType, &status, &actionType, &sourceJSON); err != nil {
+		t.Fatalf("load actionable: %v", err)
+	}
+	if aType != "confirm" || status != "pending" || actionType != "update_calendar_event" {
+		t.Errorf("actionable metadata: type=%q status=%q actionType=%q", aType, status, actionType)
+	}
+	var source map[string]any
+	if err := json.Unmarshal(sourceJSON, &source); err != nil {
+		t.Fatalf("unmarshal source: %v", err)
+	}
+	if source["trigger"] != JourneyTriggerGymSessionUpdated {
+		t.Errorf("source.trigger: got %v, want %v", source["trigger"], JourneyTriggerGymSessionUpdated)
+	}
+	if source["entity_id"] != "sess_123" {
+		t.Errorf("source.entity_id: got %v", source["entity_id"])
+	}
+}
+
+func TestProcessJourneyEvent_EndToEnd_MealPlanUpdated_CreatesGroceryActionable(t *testing.T) {
+	db := openTestDB(t)
+	defer db.Close()
+
+	userID := "test_user_journey_" + uuid.NewString()
+	cleanupUser(t, db, userID)
+	defer cleanupUser(t, db, userID)
+
+	if _, err := db.Exec(
+		`INSERT INTO life_profiles (user_id, timezone) VALUES ($1, 'UTC')`,
+		userID,
+	); err != nil {
+		t.Fatalf("seed profile: %v", err)
+	}
+
+	// The agent proposes a grocery-prep task after the meal plan changed.
+	// We use create_task (intercepted) to produce a grocery-oriented
+	// actionable, verifying the cascade reaches the task surface.
+	agent := &fakeJourneyAgent{
+		db:             db,
+		toolCallsToRun: []string{"create_task"},
+		toolArgs: []string{
+			`{"title":"Refresh grocery list for new meal plan","notes":"Added: tofu, spinach"}`,
+		},
+	}
+
+	err := ProcessJourneyEvent(context.Background(), db, agent, JourneyEvent{
+		UserID:        userID,
+		Trigger:       JourneyTriggerMealPlanUpdated,
+		EntityID:      "plan_9",
+		EntityTitle:   "Cut phase week 3",
+		ChangeSummary: "meals/content updated",
+	})
+	if err != nil {
+		t.Fatalf("ProcessJourneyEvent: %v", err)
+	}
+
+	var actionType string
+	var sourceJSON []byte
+	if err := db.QueryRow(
+		`SELECT action_type, source FROM life_actionables WHERE user_id = $1`, userID,
+	).Scan(&actionType, &sourceJSON); err != nil {
+		t.Fatalf("load actionable: %v", err)
+	}
+	if actionType != "create_task" {
+		t.Errorf("action_type: got %q, want %q", actionType, "create_task")
+	}
+	var source map[string]any
+	_ = json.Unmarshal(sourceJSON, &source)
+	if source["trigger"] != JourneyTriggerMealPlanUpdated {
+		t.Errorf("source.trigger: got %v, want %v", source["trigger"], JourneyTriggerMealPlanUpdated)
+	}
+	if source["entity_title"] != "Cut phase week 3" {
+		t.Errorf("source.entity_title: got %v", source["entity_title"])
+	}
+}
+
 func TestProcessJourneyEvent_EndToEnd_DirectCreateActionable(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
