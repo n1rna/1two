@@ -107,6 +107,7 @@ const KIND_TO_MODE: Record<SelectableKind, KimMode> = {
   exercise: "gym",
   memory: "general",
   actionable: "general",
+  metric: "health",
 };
 
 function modeForSelection(

@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AskKimButton } from "@/components/kim";
 import type { LifeActionable } from "@/lib/life";
 
 function relativeTime(iso: string): string {
@@ -470,6 +471,14 @@ export function ActionableCard({
             )}
           </div>
         </div>
+        <AskKimButton
+          kind="actionable"
+          id={actionable.id}
+          title={actionable.title}
+          snapshot={actionable as unknown as Record<string, unknown>}
+          variant="icon-button"
+          className="shrink-0"
+        />
       </div>
 
       <div className="p-3 pt-3">

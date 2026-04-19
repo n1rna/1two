@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ListShell } from "@/components/list-shell";
-import { useKim, useKimAutoContext } from "@/components/kim";
+import { useKim, useKimAutoContext, AskKimButton } from "@/components/kim";
 import { cn } from "@/lib/utils";
 import { getHealthProfile, type HealthProfile } from "@/lib/health";
 import { routes } from "@/lib/routes";
@@ -397,14 +397,18 @@ function Stat({
   value,
   sub,
   subColor,
+  metricId,
+  snapshot,
 }: {
   label: string;
   value: string;
   sub?: string;
   subColor?: string;
+  metricId?: string;
+  snapshot?: Record<string, unknown>;
 }) {
   return (
-    <div className="rounded-md bg-muted/40 px-3 py-2">
+    <div className="relative rounded-md bg-muted/40 px-3 py-2 group">
       <div className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </div>
@@ -412,6 +416,18 @@ function Stat({
       {sub && (
         <div className={cn("text-[10px] mt-0.5", subColor ?? "text-muted-foreground")}>
           {sub}
+        </div>
+      )}
+      {metricId && snapshot && (
+        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <AskKimButton
+            kind="metric"
+            id={metricId}
+            title={`${label}: ${value}`}
+            snapshot={snapshot}
+            variant="icon-button"
+            className="h-5 w-5"
+          />
         </div>
       )}
     </div>
@@ -503,16 +519,42 @@ function BodyCard({
               value={profile.bmi ? profile.bmi.toFixed(1) : "—"}
               sub={cat?.label}
               subColor={cat?.color}
+              metricId="bmi"
+              snapshot={{
+                metric: "bmi",
+                value: profile.bmi,
+                category: cat?.label,
+                weightKg: profile.weightKg,
+                heightCm: profile.heightCm,
+              }}
             />
             <Stat
               label="BMR"
               value={profile.bmr ? Math.round(profile.bmr).toString() : "—"}
               sub="kcal/day"
+              metricId="bmr"
+              snapshot={{
+                metric: "bmr",
+                value: profile.bmr,
+                unit: "kcal/day",
+                weightKg: profile.weightKg,
+                heightCm: profile.heightCm,
+                age: profile.age,
+                gender: profile.gender,
+              }}
             />
             <Stat
               label="TDEE"
               value={profile.tdee ? Math.round(profile.tdee).toString() : "—"}
               sub="kcal/day"
+              metricId="tdee"
+              snapshot={{
+                metric: "tdee",
+                value: profile.tdee,
+                unit: "kcal/day",
+                activityLevel: profile.activityLevel,
+                bmr: profile.bmr,
+              }}
             />
           </div>
         </div>

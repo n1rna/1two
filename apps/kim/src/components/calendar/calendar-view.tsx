@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Loader2,
   RefreshCw,
+  Sparkles,
   Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -523,8 +524,9 @@ function EventBlock({
   isSummary?: boolean;
 }) {
   const tz = useTz();
-  const { isSelected, toggleSelection, setOpen } = useKim();
+  const { isSelected, toggleSelection, setOpen, addSelection } = useKim();
   const selected = !isSummary && isSelected("event", ev.id);
+  const { t } = useTranslation("common");
 
   const topFraction = getEventFraction(ev.start, tz);
   const heightFraction = getDurationFraction(ev.start, ev.end);
@@ -579,6 +581,25 @@ function EventBlock({
           </p>
         )}
       </div>
+      {!isSummary && height > 40 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            addSelection(eventSelection(ev));
+            setOpen(true);
+          }}
+          aria-label={t("ask_kim")}
+          title={t("ask_kim")}
+          className={cn(
+            "absolute top-1 right-1 hidden group-hover:inline-flex items-center justify-center",
+            "h-4 w-4 rounded-full bg-background/80 text-foreground/70 hover:text-primary",
+            "border border-border shadow-sm",
+          )}
+        >
+          <Sparkles className="h-2.5 w-2.5" strokeWidth={1.75} />
+        </button>
+      )}
     </div>
   );
 }

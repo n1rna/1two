@@ -4,7 +4,9 @@ export { Selectable } from "./selectable";
 export { SelectCheckbox, useKimAutoContext } from "./kim-context-hooks";
 export { useKimForm } from "./use-kim-form";
 export { useKimEffect } from "./use-kim-effect";
-export { AskKimButton, KimPromptChip, AskKimEyebrow } from "./kim-buttons";
+export { AskKimHeroButton, KimPromptChip, AskKimEyebrow } from "./kim-buttons";
+export { AskKimButton } from "./ask-kim-button";
+export type { AskKimButtonProps, KimSelectionKind } from "./ask-kim-button";
 export type {
   KimMode,
   KimSelection,

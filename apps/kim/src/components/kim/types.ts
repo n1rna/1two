@@ -18,7 +18,8 @@ export type SelectableKind =
   | "session"
   | "exercise"
   | "memory"
-  | "actionable";
+  | "actionable"
+  | "metric";
 
 export interface KimSelection {
   kind: SelectableKind;
