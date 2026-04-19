@@ -16,6 +16,7 @@ import (
 	"github.com/n1rna/1tt/api/internal/health"
 	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/tracked"
 )
 
 // buildSessionChangeSummary produces a compact natural-language diff string
@@ -97,19 +98,47 @@ func buildMealPlanChangeSummary(
 }
 
 // fireJourneyEventAsync kicks off a journey agent run in a detached goroutine
-// so the caller's HTTP response is unaffected. A 2-minute timeout matches the
-// outer SLA for cascading actionable creation; errors are logged.
+// so the caller's HTTP response is unaffected. The invocation is wrapped in
+// tracked.Run so a row lands in life_agent_runs with the status, tool calls,
+// and any actionables the run produced — powering the drawer's activity
+// surface. Errors are logged and persisted to the run row; callers are
+// fire-and-forget.
 func fireJourneyEventAsync(db *sql.DB, agent life.ChatAgent, ev life.JourneyEvent) {
 	if agent == nil || ev.UserID == "" || ev.Trigger == "" {
 		return
 	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-		if err := life.ProcessJourneyEvent(ctx, db, agent, ev); err != nil {
+
+	tracked.Run(context.Background(), db, tracked.Meta{
+		UserID:      ev.UserID,
+		Kind:        "journey",
+		Title:       journeyRunTitle(ev.Trigger),
+		Subtitle:    ev.EntityTitle,
+		Trigger:     ev.Trigger,
+		EntityID:    ev.EntityID,
+		EntityTitle: ev.EntityTitle,
+	}, func(ctx context.Context, runID string) (tracked.RunOutput, error) {
+		result, err := life.ProcessJourneyEventWithResult(ctx, db, agent, ev)
+		if err != nil {
 			log.Printf("journey: %s for user %s: %v", ev.Trigger, ev.UserID, err)
+			return tracked.RunOutput{Summary: "Journey run failed"}, err
 		}
-	}()
+		return tracked.FromToolResult(result, ""), nil
+	})
+}
+
+// journeyRunTitle returns a user-visible label for the activity feed given
+// a journey trigger constant. Falls back to the trigger string verbatim.
+func journeyRunTitle(trigger string) string {
+	switch trigger {
+	case life.JourneyTriggerGymSessionUpdated:
+		return "Processing gym session update"
+	case life.JourneyTriggerMealPlanUpdated:
+		return "Processing meal plan update"
+	case life.JourneyTriggerRoutineUpdated:
+		return "Processing routine update"
+	default:
+		return "Processing " + strings.ReplaceAll(trigger, "_", " ")
+	}
 }
 
 // Health is the API liveness check endpoint.

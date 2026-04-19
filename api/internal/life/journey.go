@@ -33,10 +33,22 @@ type JourneyEvent struct {
 // `source` field so the UI can group and explain them.
 //
 // Intended to be called from a goroutine after a successful entity update.
-// Errors are logged; callers typically fire-and-forget.
+// Errors are logged; callers typically fire-and-forget. See
+// ProcessJourneyEventWithResult when callers need the agent's ChatResult
+// (e.g. the tracked activity pipeline that records tool calls + produced
+// actionable ids).
 func ProcessJourneyEvent(ctx context.Context, db *sql.DB, agent ChatAgent, ev JourneyEvent) error {
+	_, err := ProcessJourneyEventWithResult(ctx, db, agent, ev)
+	return err
+}
+
+// ProcessJourneyEventWithResult is the same as ProcessJourneyEvent but also
+// returns the agent's ChatResult so callers can inspect tool effects — used
+// by the activity tracker (tracked.Run) to persist the run's tool_calls and
+// produced_actionable_ids.
+func ProcessJourneyEventWithResult(ctx context.Context, db *sql.DB, agent ChatAgent, ev JourneyEvent) (*ChatResult, error) {
 	if ev.UserID == "" || ev.Trigger == "" {
-		return fmt.Errorf("journey: user_id and trigger are required")
+		return nil, fmt.Errorf("journey: user_id and trigger are required")
 	}
 
 	// Load profile.
@@ -101,11 +113,11 @@ func ProcessJourneyEvent(ctx context.Context, db *sql.DB, agent ChatAgent, ev Jo
 	result, err := agent.Chat(ctx, req)
 	if err != nil {
 		log.Printf("journey: agent chat for %s/%s: %v", ev.UserID, ev.Trigger, err)
-		return fmt.Errorf("journey: agent chat: %w", err)
+		return nil, fmt.Errorf("journey: agent chat: %w", err)
 	}
 
 	log.Printf("journey: %s for user %s → %d effects", ev.Trigger, ev.UserID, len(result.Effects))
-	return nil
+	return result, nil
 }
 
 // buildJourneyChatRequest composes the ChatRequest sent to the agent for a
