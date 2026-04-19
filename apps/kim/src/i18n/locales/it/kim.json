@@ -49,6 +49,18 @@
   "mode_locked": "bloccato",
 
   "error_prefix": "errore: {{message}}",
+  "error_label": "errore",
+
+  "status_ready": "pronto",
+  "status_thinking": "pensa",
+
+  "trace_working": "Lavorando · {{seconds}}s",
+  "trace_done": "Fatto · {{count}} passi",
+
+  "starter_plan_day": "Pianifica la giornata",
+  "starter_log_meal": "Registra un pasto",
+  "starter_whats_next": "Cosa segue?",
+  "starter_review_today": "Rivedi oggi",
 
   "tool_saved_to_memory": "Salvato nei ricordi",
   "tool_saving_to_memory": "Salvataggio nei ricordi",

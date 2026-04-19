@@ -49,6 +49,18 @@
   "mode_locked": "sperren",
 
   "error_prefix": "Fehler: {{message}}",
+  "error_label": "fehler",
+
+  "status_ready": "bereit",
+  "status_thinking": "denkt",
+
+  "trace_working": "Arbeite · {{seconds}}s",
+  "trace_done": "Fertig · {{count}} Schritte",
+
+  "starter_plan_day": "Tag planen",
+  "starter_log_meal": "Mahlzeit erfassen",
+  "starter_whats_next": "Was kommt als Nächstes?",
+  "starter_review_today": "Heute zusammenfassen",
 
   "tool_saved_to_memory": "In Erinnerung gespeichert",
   "tool_saving_to_memory": "In Erinnerung speichern",

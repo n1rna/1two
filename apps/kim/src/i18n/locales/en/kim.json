@@ -49,6 +49,18 @@
   "mode_locked": "lock",
 
   "error_prefix": "error: {{message}}",
+  "error_label": "error",
+
+  "status_ready": "ready",
+  "status_thinking": "thinking",
+
+  "trace_working": "Working · {{seconds}}s",
+  "trace_done": "Done · {{count}} steps",
+
+  "starter_plan_day": "Plan my day",
+  "starter_log_meal": "Log a meal",
+  "starter_whats_next": "What's next?",
+  "starter_review_today": "Review today",
 
   "tool_saved_to_memory": "Saved to memory",
   "tool_saving_to_memory": "Saving to memory",

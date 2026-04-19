@@ -337,6 +337,10 @@
   0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
+@keyframes kim-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.6; }
+}
 @keyframes kim-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }

@@ -49,6 +49,18 @@
   "mode_locked": "vergrendeld",
 
   "error_prefix": "fout: {{message}}",
+  "error_label": "fout",
+
+  "status_ready": "klaar",
+  "status_thinking": "denkt",
+
+  "trace_working": "Bezig · {{seconds}}s",
+  "trace_done": "Klaar · {{count}} stappen",
+
+  "starter_plan_day": "Plan mijn dag",
+  "starter_log_meal": "Maaltijd loggen",
+  "starter_whats_next": "Wat nu?",
+  "starter_review_today": "Dag terugkijken",
 
   "tool_saved_to_memory": "Opgeslagen in geheugen",
   "tool_saving_to_memory": "Opslaan in geheugen",

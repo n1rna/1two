@@ -49,6 +49,18 @@
   "mode_locked": "zablokuj",
 
   "error_prefix": "błąd: {{message}}",
+  "error_label": "błąd",
+
+  "status_ready": "gotowa",
+  "status_thinking": "myśli",
+
+  "trace_working": "Pracuje · {{seconds}}s",
+  "trace_done": "Gotowe · {{count}} kroków",
+
+  "starter_plan_day": "Zaplanuj dzień",
+  "starter_log_meal": "Zapisz posiłek",
+  "starter_whats_next": "Co dalej?",
+  "starter_review_today": "Podsumuj dzień",
 
   "tool_saved_to_memory": "Zapisano we wspomnieniach",
   "tool_saving_to_memory": "Zapisuję we wspomnieniach",

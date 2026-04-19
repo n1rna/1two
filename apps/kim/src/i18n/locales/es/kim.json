@@ -49,6 +49,18 @@
   "mode_locked": "bloquear",
 
   "error_prefix": "error: {{message}}",
+  "error_label": "error",
+
+  "status_ready": "listo",
+  "status_thinking": "pensando",
+
+  "trace_working": "Trabajando · {{seconds}}s",
+  "trace_done": "Listo · {{count}} pasos",
+
+  "starter_plan_day": "Planear mi día",
+  "starter_log_meal": "Registrar comida",
+  "starter_whats_next": "¿Qué sigue?",
+  "starter_review_today": "Revisar el día",
 
   "tool_saved_to_memory": "Guardado en memoria",
   "tool_saving_to_memory": "Guardando en memoria",

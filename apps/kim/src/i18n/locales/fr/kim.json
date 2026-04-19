@@ -49,6 +49,18 @@
   "mode_locked": "verrouillé",
 
   "error_prefix": "erreur : {{message}}",
+  "error_label": "erreur",
+
+  "status_ready": "prêt",
+  "status_thinking": "réfléchit",
+
+  "trace_working": "En cours · {{seconds}}s",
+  "trace_done": "Terminé · {{count}} étapes",
+
+  "starter_plan_day": "Planifier ma journée",
+  "starter_log_meal": "Enregistrer un repas",
+  "starter_whats_next": "Quelle est la suite ?",
+  "starter_review_today": "Bilan du jour",
 
   "tool_saved_to_memory": "Enregistré en mémoire",
   "tool_saving_to_memory": "Enregistrement en mémoire",
