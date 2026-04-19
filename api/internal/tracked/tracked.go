@@ -119,6 +119,52 @@ func Run(parent context.Context, db *sql.DB, meta Meta, fn func(ctx context.Cont
 	return runID
 }
 
+// RunSync executes fn in the calling goroutine and persists the life_agent_runs
+// row before returning. Intended for use inside a River worker so the worker
+// goroutine owns the lifecycle and River can track retries/attempts.
+// Returns fn's error unchanged. Panics in fn are recovered and returned as an
+// error so River treats them as a normal failure.
+func RunSync(ctx context.Context, db *sql.DB, meta Meta, fn func(ctx context.Context, runID string) (RunOutput, error)) (string, error) {
+	if fn == nil {
+		return "", nil
+	}
+	if meta.UserID == "" || meta.Kind == "" || db == nil {
+		out, err := safeCall(ctx, "", fn)
+		_ = out
+		return "", err
+	}
+
+	runID := uuid.NewString()
+	started := time.Now()
+
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO life_agent_runs
+		    (id, user_id, kind, status, title, subtitle, trigger, entity_id, entity_title, started_at)
+		VALUES ($1, $2, $3, 'running', $4, $5, $6, NULLIF($7, ''), NULLIF($8, ''), $9)`,
+		runID, meta.UserID, meta.Kind, meta.Title, meta.Subtitle, meta.Trigger,
+		meta.EntityID, meta.EntityTitle, started,
+	); err != nil {
+		log.Printf("tracked.RunSync: insert %s: %v", runID, err)
+	} else {
+		publishSnapshot(db, runID, meta.UserID)
+	}
+
+	out, runErr := safeCall(ctx, runID, fn)
+	finish(db, runID, started, out, runErr)
+	return runID, runErr
+}
+
+func safeCall(ctx context.Context, runID string, fn func(ctx context.Context, runID string) (RunOutput, error)) (out RunOutput, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = fmt.Errorf("panic: %v", rec)
+			log.Printf("tracked.RunSync: panic in fn (run %s): %v\n%s", runID, rec, debug.Stack())
+		}
+	}()
+	out, err = fn(ctx, runID)
+	return
+}
+
 func finish(db *sql.DB, runID string, started time.Time, out RunOutput, runErr error) {
 	finished := time.Now()
 	duration := int(finished.Sub(started).Milliseconds())

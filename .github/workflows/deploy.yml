@@ -16,6 +16,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       kim: ${{ steps.filter.outputs.kim }}
       api: ${{ steps.filter.outputs.api }}
+      worker: ${{ steps.filter.outputs.worker }}
       cli: ${{ steps.filter.outputs.cli }}
       email-worker: ${{ steps.filter.outputs.email-worker }}
     steps:
@@ -41,6 +42,9 @@ jobs:
             api:
               - 'api/**'
               - 'workers/api-container/**'
+            worker:
+              - 'api/**'
+              - 'workers/worker-container/**'
             cli:
               - 'cli/**'
             email-worker:
@@ -173,6 +177,37 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/api-container
+          command: deploy --config wrangler.toml
+          packageManager: bun
+
+  deploy-worker:
+    name: Deploy Worker (Cloudflare Container)
+    needs: changes
+    if: needs.changes.outputs.worker == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: workers/worker-container
+        run: bun install
+
+      - name: Deploy Worker Container
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/worker-container
           command: deploy --config wrangler.toml
           packageManager: bun
 
