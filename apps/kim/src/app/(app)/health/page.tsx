@@ -458,6 +458,18 @@ function BodyCard({
       "I want to update my body info — things like weight, goal weight, height, age, gender, or activity level. Ask me whichever of these need changing.",
     );
 
+  const bodySnapshot = {
+    weightKg: profile.weightKg,
+    heightCm: profile.heightCm,
+    age: profile.age,
+    gender: profile.gender,
+    activityLevel: profile.activityLevel,
+    goalWeightKg: profile.goalWeightKg,
+    bmi: profile.bmi,
+    bmr: profile.bmr,
+    tdee: profile.tdee,
+  };
+
   return (
     <SectionCard
       icon={<UserIcon className="h-4 w-4" />}
@@ -465,6 +477,16 @@ function BodyCard({
       subtitle={t("section_body_subtitle")}
       complete={complete}
       onEdit={edit}
+      editSlot={
+        <AskKimButton
+          kind="diet-profile"
+          id="health-profile-body"
+          title={t("section_body_title")}
+          snapshot={bodySnapshot}
+          className="h-7"
+          title_={t("ask_kim")}
+        />
+      }
     >
       {!complete && !profile.weightKg && !profile.heightCm ? (
         <MissingCta
