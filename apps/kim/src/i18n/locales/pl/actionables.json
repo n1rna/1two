@@ -24,5 +24,10 @@
   "journey_trigger_gym_session_updated": "Aktualizacja sesji siłowni",
   "journey_trigger_meal_plan_updated": "Aktualizacja planu posiłków",
   "journey_trigger_routine_updated": "Aktualizacja rutyny",
-  "journey_source_chip": "z {{title}}"
+  "journey_source_chip": "z {{title}}",
+
+  "run_filter_banner": "Pokazywanie {{count}} akcji z {{source}}",
+  "run_filter_loading": "Ładowanie przebiegu…",
+  "run_filter_missing": "Nie znaleziono przebiegu — pusty filtr",
+  "run_filter_clear": "Wyczyść filtr"
 }

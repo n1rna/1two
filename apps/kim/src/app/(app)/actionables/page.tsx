@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Check,
@@ -17,10 +18,12 @@ import { ListShell } from "@/components/list-shell";
 import { ActionableCard } from "@/components/actionables/actionable-card";
 import {
   bulkDismissActionables,
+  getLifeAgentRun,
   listLifeActionables,
   respondToActionable,
   type JourneyTrigger,
   type LifeActionable,
+  type LifeAgentRun,
 } from "@/lib/life";
 import { useTranslation } from "react-i18next";
 
@@ -69,6 +72,13 @@ function groupPendingByJourney(pending: LifeActionable[]): {
 
 export default function ActionablesPage() {
   const { t } = useTranslation("actionables");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Deep-link filter: when ?run=<id> is present the page only shows
+  // actionables this run produced. Populated from agent-runs detail.
+  const runId = searchParams.get("run");
+  const [runFilter, setRunFilter] = useState<LifeAgentRun | null>(null);
+  const [runFilterLoading, setRunFilterLoading] = useState(false);
   const [actionables, setActionables] = useState<LifeActionable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +103,35 @@ export default function ActionablesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Hydrate the run filter whenever the ?run query param changes. The
+  // endpoint returns the full run payload, and we only need its produced
+  // actionable ids to filter client-side.
+  useEffect(() => {
+    let cancelled = false;
+    if (!runId) {
+      setRunFilter(null);
+      return;
+    }
+    setRunFilterLoading(true);
+    getLifeAgentRun(runId)
+      .then((r) => {
+        if (!cancelled) setRunFilter(r);
+      })
+      .catch(() => {
+        if (!cancelled) setRunFilter(null);
+      })
+      .finally(() => {
+        if (!cancelled) setRunFilterLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [runId]);
+
+  const clearRunFilter = useCallback(() => {
+    router.replace("/actionables");
+  }, [router]);
 
   const handleRespond = useCallback(
     async (id: string, action: string, data?: unknown) => {
@@ -120,11 +159,20 @@ export default function ActionablesPage() {
     [],
   );
 
+  // When a run filter is active, restrict the dataset to actionables the
+  // run produced. Works across pending + resolved so revisiting a completed
+  // run still shows the items the user has already actioned.
+  const filteredActionables = useMemo(() => {
+    if (!runFilter) return actionables;
+    const allowed = new Set(runFilter.producedActionableIds);
+    return actionables.filter((a) => allowed.has(a.id));
+  }, [actionables, runFilter]);
+
   const pending = useMemo(
-    () => actionables.filter((a) => a.status === "pending"),
-    [actionables],
+    () => filteredActionables.filter((a) => a.status === "pending"),
+    [filteredActionables],
   );
-  const resolved = actionables.filter((a) => a.status !== "pending");
+  const resolved = filteredActionables.filter((a) => a.status !== "pending");
 
   const sortedPending = useMemo(
     () =>
@@ -271,6 +319,40 @@ export default function ActionablesPage() {
       }
     >
       <div>
+        {/* Run filter banner — surfaced when the page was opened from the
+            Kim drawer's "View N actionables" deep link. */}
+        {runId && (
+          <div className="mx-8 mt-4 flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] px-3 py-2 text-xs">
+            <Sparkles className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              {runFilterLoading ? (
+                <span className="text-muted-foreground">
+                  {t("run_filter_loading")}
+                </span>
+              ) : runFilter ? (
+                <span className="text-foreground">
+                  {t("run_filter_banner", {
+                    count: runFilter.producedActionableIds.length,
+                    source:
+                      runFilter.subtitle || runFilter.title || runFilter.kind,
+                  })}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  {t("run_filter_missing")}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={clearRunFilter}
+              className="shrink-0 inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <X className="h-3 w-3" />
+              {t("run_filter_clear")}
+            </button>
+          </div>
+        )}
+
         {/* Bulk action bar */}
         {selected.size > 0 && (
           <div className="sticky top-0 z-10 flex items-center gap-3 px-8 py-2.5 border-b bg-accent/40 backdrop-blur">

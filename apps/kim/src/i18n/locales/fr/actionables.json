@@ -24,5 +24,10 @@
   "journey_trigger_gym_session_updated": "Séance de gym modifiée",
   "journey_trigger_meal_plan_updated": "Plan de repas modifié",
   "journey_trigger_routine_updated": "Routine modifiée",
-  "journey_source_chip": "depuis {{title}}"
+  "journey_source_chip": "depuis {{title}}",
+
+  "run_filter_banner": "Affichage de {{count}} actions de {{source}}",
+  "run_filter_loading": "Chargement de l'exécution…",
+  "run_filter_missing": "Exécution introuvable — filtre vide",
+  "run_filter_clear": "Retirer le filtre"
 }

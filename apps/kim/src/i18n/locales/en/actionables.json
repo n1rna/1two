@@ -24,5 +24,10 @@
   "journey_trigger_gym_session_updated": "Gym session update",
   "journey_trigger_meal_plan_updated": "Meal plan update",
   "journey_trigger_routine_updated": "Routine update",
-  "journey_source_chip": "from {{title}}"
+  "journey_source_chip": "from {{title}}",
+
+  "run_filter_banner": "Showing {{count}} actionables from {{source}}",
+  "run_filter_loading": "Loading run…",
+  "run_filter_missing": "Run not found — showing empty filter",
+  "run_filter_clear": "Clear filter"
 }

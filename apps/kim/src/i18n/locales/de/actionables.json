@@ -24,5 +24,10 @@
   "journey_trigger_gym_session_updated": "Gym-Session aktualisiert",
   "journey_trigger_meal_plan_updated": "Essensplan aktualisiert",
   "journey_trigger_routine_updated": "Routine aktualisiert",
-  "journey_source_chip": "aus {{title}}"
+  "journey_source_chip": "aus {{title}}",
+
+  "run_filter_banner": "Zeige {{count}} Aufgaben aus {{source}}",
+  "run_filter_loading": "Lauf wird geladen…",
+  "run_filter_missing": "Lauf nicht gefunden — leerer Filter",
+  "run_filter_clear": "Filter entfernen"
 }
