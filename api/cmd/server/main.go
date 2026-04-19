@@ -352,6 +352,10 @@ func main() {
 				r.Get("/life/actionables", handler.ListLifeActionables(db))
 				r.Post("/life/actionables/bulk-dismiss", handler.BulkDismissActionables(db))
 				r.Post("/life/actionables/{id}/respond", handler.RespondToActionable(db, lifeAgent))
+				// Background agent activity (powered by tracked.Run).
+				r.Get("/life/agent-runs", handler.ListAgentRuns(db))
+				r.Get("/life/agent-runs/pulse", handler.AgentRunsPulse(db))
+				r.Get("/life/agent-runs/{id}", handler.GetAgentRun(db))
 				r.Get("/life/routines", handler.ListLifeRoutines(db))
 				r.Get("/life/routines/{id}", handler.GetLifeRoutine(db))
 				r.Post("/life/routines", handler.CreateLifeRoutine(db))
