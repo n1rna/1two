@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -14,12 +14,10 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import {
-  listLifeAgentRuns,
-  type LifeAgentRun,
-} from "@/lib/life";
+import { type LifeAgentRun } from "@/lib/life";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { useAgentRunsStream } from "./use-agent-runs-stream";
 
 interface ActivitySectionProps {
   /** Drawer open state — polling ramps up when true, idles when false. */
@@ -28,9 +26,10 @@ interface ActivitySectionProps {
 
 /**
  * ActivitySection renders recent background agent runs inside the Kim drawer.
- * It polls /life/agent-runs every 3s while something is running and the
- * drawer is open, otherwise every 30s as a lightweight keep-alive so the
- * section is already populated when the user opens the drawer next.
+ * It hydrates once from /life/agent-runs and then subscribes to
+ * /life/agent-runs/stream (SSE) via useAgentRunsStream so updates arrive
+ * live — no polling. The pulse dot on the drawer trigger is still driven
+ * by useAgentRunsPulse, which uses the cheap pulse endpoint.
  *
  * The list itself is collapsed by default when the drawer has thread
  * content, and expanded when the thread is empty so the user always knows
@@ -38,36 +37,9 @@ interface ActivitySectionProps {
  */
 export function ActivitySection({ open }: ActivitySectionProps) {
   const { t } = useTranslation("kim");
-  const [runs, setRuns] = useState<LifeAgentRun[]>([]);
-  const [hasActive, setHasActive] = useState(false);
+  const { runs, hasActive } = useAgentRunsStream({ open });
   const [collapsed, setCollapsed] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const tick = useCallback(async () => {
-    try {
-      const res = await listLifeAgentRuns({ status: "all", limit: 20 });
-      if (!mountedRef.current) return;
-      setRuns(res.runs);
-      setHasActive(res.hasActive);
-    } catch {
-      // Swallow — drawer activity is best-effort.
-    }
-  }, []);
-
-  useEffect(() => {
-    void tick();
-    const interval = hasActive && open ? 3000 : 30000;
-    const h = setInterval(() => void tick(), interval);
-    return () => clearInterval(h);
-  }, [tick, hasActive, open]);
 
   const visibleRuns = useMemo(() => runs.slice(0, 10), [runs]);
 

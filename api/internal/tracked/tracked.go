@@ -88,6 +88,10 @@ func Run(parent context.Context, db *sql.DB, meta Meta, fn func(ctx context.Cont
 	); err != nil {
 		log.Printf("tracked.Run: insert %s: %v", runID, err)
 		// continue anyway — don't lose the work
+	} else {
+		// Notify SSE subscribers so the activity drawer sees the new running
+		// row without waiting for its next poll.
+		publishSnapshot(db, runID, meta.UserID)
 	}
 
 	go func() {
@@ -136,7 +140,8 @@ func finish(db *sql.DB, runID string, started time.Time, out RunOutput, runErr e
 		ids = []string{}
 	}
 
-	if _, uerr := db.ExecContext(context.Background(), `
+	var userID string
+	if uerr := db.QueryRowContext(context.Background(), `
 		UPDATE life_agent_runs
 		   SET status = $1,
 		       completed_at = $2,
@@ -145,12 +150,17 @@ func finish(db *sql.DB, runID string, started time.Time, out RunOutput, runErr e
 		       result_summary = $5,
 		       produced_actionable_ids = $6,
 		       error = $7
-		 WHERE id = $8`,
+		 WHERE id = $8
+		 RETURNING user_id`,
 		status, finished, duration, string(toolCallsJSON),
 		out.Summary, pq.Array(ids), errStr, runID,
-	); uerr != nil {
+	).Scan(&userID); uerr != nil {
 		log.Printf("tracked.Run: update %s: %v", runID, uerr)
+		return
 	}
+
+	// Fan the terminal snapshot out to any live SSE subscribers.
+	publishSnapshot(db, runID, userID)
 }
 
 // FromToolResult converts an ai.ToolAgentResult into a RunOutput, extracting

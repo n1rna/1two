@@ -26,6 +26,7 @@ import (
 	"github.com/n1rna/1tt/api/internal/neon"
 	"github.com/n1rna/1tt/api/internal/poker"
 	"github.com/n1rna/1tt/api/internal/storage"
+	"github.com/n1rna/1tt/api/internal/tracked"
 	"github.com/n1rna/1tt/api/internal/tunnel"
 	"github.com/n1rna/1tt/api/internal/turso"
 	"github.com/n1rna/1tt/api/internal/upstash"
@@ -355,6 +356,7 @@ func main() {
 				// Background agent activity (powered by tracked.Run).
 				r.Get("/life/agent-runs", handler.ListAgentRuns(db))
 				r.Get("/life/agent-runs/pulse", handler.AgentRunsPulse(db))
+				r.Get("/life/agent-runs/stream", handler.StreamLifeAgentRuns(db, tracked.DefaultBus()))
 				r.Get("/life/agent-runs/{id}", handler.GetAgentRun(db))
 				r.Get("/life/routines", handler.ListLifeRoutines(db))
 				r.Get("/life/routines/{id}", handler.GetLifeRoutine(db))

@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/n1rna/1tt/api/internal/middleware"
+	"github.com/n1rna/1tt/api/internal/tracked"
 )
 
 // lifeAgentRunRecord mirrors the life_agent_runs row as JSON. Uses
@@ -265,5 +267,70 @@ func AgentRunsPulse(db *sql.DB) http.HandlerFunc {
 			"running": count > 0,
 			"count":   count,
 		})
+	}
+}
+
+// StreamLifeAgentRuns serves GET /life/agent-runs/stream as a Server-Sent
+// Events feed. It emits a `run` event every time tracked.Run publishes a
+// state change for the authenticated user (start, completion, failure) and
+// a `ping` event every 20s so intermediaries don't idle-close the
+// connection. Clients re-hydrate the initial state via ListAgentRuns and
+// apply incoming events as upserts-by-id.
+//
+// Pattern borrowed from handler.LifeChatStream: set SSE headers, grab the
+// http.Flusher, loop on select until the request context cancels.
+func StreamLifeAgentRuns(db *sql.DB, bus *tracked.Bus) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		// Disable proxy buffering (nginx, Cloudflare) so events flush
+		// immediately instead of getting batched.
+		w.Header().Set("X-Accel-Buffering", "no")
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, `{"error":"streaming not supported"}`, http.StatusInternalServerError)
+			return
+		}
+
+		ch, cancel := bus.Subscribe(userID)
+		defer cancel()
+
+		// Initial heartbeat tells the client the stream is live. Without
+		// this, some proxies don't forward response headers until the first
+		// body byte.
+		fmt.Fprintf(w, "event: ready\ndata: {}\n\n")
+		flusher.Flush()
+
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+
+		ctx := r.Context()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				fmt.Fprintf(w, "event: ping\ndata: {}\n\n")
+				flusher.Flush()
+			case ev, ok := <-ch:
+				if !ok {
+					return
+				}
+				data, err := json.Marshal(ev.Run)
+				if err != nil {
+					continue
+				}
+				fmt.Fprintf(w, "event: run\ndata: %s\n\n", data)
+				flusher.Flush()
+			}
+		}
 	}
 }
