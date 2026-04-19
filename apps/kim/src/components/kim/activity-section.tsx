@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowLeft,
   Check,
-  ChevronDown,
   ChevronRight,
   CircleDashed,
   GitBranch,
@@ -22,6 +22,16 @@ import { useAgentRunsStream } from "./use-agent-runs-stream";
 interface ActivitySectionProps {
   /** Drawer open state — polling ramps up when true, idles when false. */
   open: boolean;
+  /**
+   * "preview" shows the 2 most recent runs with a "View all" button; used
+   * inline above the chat thread. "full" replaces the chat body with a
+   * scrollable list of all runs plus a back button.
+   */
+  mode: "preview" | "full";
+  /** Called when the user clicks "View all activity" in preview mode. */
+  onViewAll?: () => void;
+  /** Called when the user clicks the back arrow in full mode. */
+  onBack?: () => void;
 }
 
 /**
@@ -31,59 +41,51 @@ interface ActivitySectionProps {
  * live — no polling. The pulse dot on the drawer trigger is still driven
  * by useAgentRunsPulse, which uses the cheap pulse endpoint.
  *
- * The list itself is collapsed by default when the drawer has thread
- * content, and expanded when the thread is empty so the user always knows
- * Kim is doing things in the background.
+ * Two modes:
+ *   preview — shows runs.slice(0, 2) plus a "View all activity · N" button.
+ *             Rendered above the chat thread. Returns null if no runs.
+ *   full    — replaces the chat body; shows up to 50 runs in a scrollable
+ *             list with a back button at the top.
  */
-export function ActivitySection({ open }: ActivitySectionProps) {
+export function ActivitySection({
+  open,
+  mode,
+  onViewAll,
+  onBack,
+}: ActivitySectionProps) {
   const { t } = useTranslation("kim");
   const { runs, hasActive } = useAgentRunsStream({ open });
-  const [collapsed, setCollapsed] = useState(false);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
-  const visibleRuns = useMemo(() => runs.slice(0, 10), [runs]);
+  const previewRuns = useMemo(() => runs.slice(0, 2), [runs]);
+  const fullRuns = useMemo(() => runs.slice(0, 50), [runs]);
 
-  if (visibleRuns.length === 0) return null;
-
-  return (
-    <div
-      className="relative border-b"
-      style={{ borderColor: "var(--kim-border)" }}
-    >
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-[var(--kim-teal-soft)]/60"
+  if (mode === "preview") {
+    if (previewRuns.length === 0) return null;
+    return (
+      <div
+        className="relative border-b"
+        style={{ borderColor: "var(--kim-border)" }}
       >
-        {collapsed ? (
-          <ChevronRight size={11} style={{ color: "var(--kim-amber)" }} />
-        ) : (
-          <ChevronDown size={11} style={{ color: "var(--kim-amber)" }} />
-        )}
-        <Sparkles size={11} style={{ color: "var(--kim-amber)" }} />
-        <span
-          className="kim-mono text-[10px] uppercase tracking-[0.18em]"
-          style={{ color: "var(--kim-ink-dim)" }}
-        >
-          {t("activity_title")}
-        </span>
-        <span
-          className="kim-mono text-[10px] tracking-[0.14em]"
-          style={{ color: "var(--kim-ink-faint)" }}
-        >
-          · {visibleRuns.length}
-        </span>
-        {hasActive && (
+        <div className="flex items-center gap-2 px-5 py-2.5">
+          <Sparkles size={11} style={{ color: "var(--kim-amber)" }} />
           <span
-            className="ml-auto kim-mono text-[9.5px] uppercase tracking-[0.16em]"
-            style={{ color: "var(--kim-amber)" }}
+            className="kim-mono text-[10px] uppercase tracking-[0.18em]"
+            style={{ color: "var(--kim-ink-dim)" }}
           >
-            {t("activity_running")}
+            {t("activity_title")}
           </span>
-        )}
-      </button>
-      {!collapsed && (
+          {hasActive && (
+            <span
+              className="ml-auto kim-mono text-[9.5px] uppercase tracking-[0.16em]"
+              style={{ color: "var(--kim-amber)" }}
+            >
+              {t("activity_running")}
+            </span>
+          )}
+        </div>
         <div className="px-3 pb-2 space-y-1">
-          {visibleRuns.map((run) => (
+          {previewRuns.map((run) => (
             <ActivityRunRow
               key={run.id}
               run={run}
@@ -94,7 +96,88 @@ export function ActivitySection({ open }: ActivitySectionProps) {
             />
           ))}
         </div>
-      )}
+        {onViewAll && (
+          <button
+            onClick={onViewAll}
+            className="w-full flex items-center justify-between px-5 py-2 border-t hover:bg-[var(--kim-teal-soft)]/60 kim-mono text-[10px] uppercase tracking-[0.16em]"
+            style={{
+              borderColor: "var(--kim-border)",
+              color: "var(--kim-amber)",
+            }}
+          >
+            <span>{t("activity_view_all", { count: runs.length })}</span>
+            <ChevronRight size={11} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Full mode — fills the drawer body.
+  return (
+    <div className="relative flex-1 min-h-0 flex flex-col">
+      <div
+        className="flex items-center gap-2 px-5 py-2.5 border-b"
+        style={{ borderColor: "var(--kim-border)" }}
+      >
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 kim-mono text-[10px] uppercase tracking-[0.16em] hover:opacity-100"
+            style={{ color: "var(--kim-amber)" }}
+            title={t("activity_back_to_chat")}
+          >
+            <ArrowLeft size={11} />
+            {t("activity_back_to_chat")}
+          </button>
+        )}
+        <Sparkles
+          size={11}
+          className="ml-3"
+          style={{ color: "var(--kim-amber)" }}
+        />
+        <span
+          className="kim-mono text-[10px] uppercase tracking-[0.18em]"
+          style={{ color: "var(--kim-ink-dim)" }}
+        >
+          {t("activity_title")}
+        </span>
+        <span
+          className="kim-mono text-[10px] tracking-[0.14em]"
+          style={{ color: "var(--kim-ink-faint)" }}
+        >
+          · {fullRuns.length}
+        </span>
+        {hasActive && (
+          <span
+            className="ml-auto kim-mono text-[9.5px] uppercase tracking-[0.16em]"
+            style={{ color: "var(--kim-amber)" }}
+          >
+            {t("activity_running")}
+          </span>
+        )}
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-1">
+        {fullRuns.length === 0 ? (
+          <div
+            className="px-2 py-6 text-xs italic text-center"
+            style={{ color: "var(--kim-ink-faint)" }}
+          >
+            {t("activity_empty")}
+          </div>
+        ) : (
+          fullRuns.map((run) => (
+            <ActivityRunRow
+              key={run.id}
+              run={run}
+              expanded={expandedRunId === run.id}
+              onToggleExpanded={() =>
+                setExpandedRunId((cur) => (cur === run.id ? null : run.id))
+              }
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

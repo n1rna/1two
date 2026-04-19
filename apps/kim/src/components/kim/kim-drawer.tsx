@@ -82,15 +82,30 @@ export function KimDrawer() {
   const [showHistory, setShowHistory] = useState(false);
   const [showModeMenu, setShowModeMenu] = useState(false);
   const [maximized, setMaximized] = useState(false);
+  const [viewMode, setViewMode] = useState<"chat" | "activity">("chat");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Focus on open
+  // Focus on open + reset to chat view whenever the drawer is reopened.
+  // Tracks the previous open state so we only reset on the false → true
+  // transition (not every re-render while open).
+  const prevOpenRef = useRef(open);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
+      setViewMode("chat");
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    } else if (open) {
       requestAnimationFrame(() => textareaRef.current?.focus());
     }
+    prevOpenRef.current = open;
   }, [open]);
+
+  // Starting a new conversation always takes the user back to the chat
+  // view — the activity list is meta, not per-conversation.
+  const handleNewConversation = useCallback(() => {
+    setViewMode("chat");
+    newConversation();
+  }, [newConversation]);
 
   // Expose composer imperative handle to the provider so smart-UI actions
   // (e.g. smartPrompt) can prefill + focus without threading refs through
@@ -262,7 +277,7 @@ export function KimDrawer() {
           <HeaderButton title={t("drawer_history_title")} onClick={() => setShowHistory((s) => !s)}>
             <History size={13} />
           </HeaderButton>
-          <HeaderButton title={t("drawer_new_conversation_title")} onClick={newConversation}>
+          <HeaderButton title={t("drawer_new_conversation_title")} onClick={handleNewConversation}>
             <Plus size={13} />
           </HeaderButton>
           <HeaderButton title={t("drawer_close_title")} onClick={() => setOpen(false)}>
@@ -271,6 +286,14 @@ export function KimDrawer() {
         </div>
       </header>
 
+      {viewMode === "activity" ? (
+        <ActivitySection
+          open={open}
+          mode="full"
+          onBack={() => setViewMode("chat")}
+        />
+      ) : (
+        <>
       {/* Mode + selection bar */}
       <div
         className="relative px-5 pb-3 flex items-center gap-2 border-b"
@@ -414,8 +437,14 @@ export function KimDrawer() {
         )}
       </AnimatePresence>
 
-      {/* Background agent activity — collapsible list of recent runs. */}
-      <ActivitySection open={open} />
+      {/* Background agent activity — preview of the 2 most recent runs
+          with a "View all" button that swaps the drawer body into the
+          full activity view. */}
+      <ActivitySection
+        open={open}
+        mode="preview"
+        onViewAll={() => setViewMode("activity")}
+      />
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 relative">
@@ -548,6 +577,8 @@ export function KimDrawer() {
           </Link>
         </div>
       </div>
+        </>
+      )}
     </motion.aside>
   );
 }

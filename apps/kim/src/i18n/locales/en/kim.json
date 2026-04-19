@@ -248,5 +248,7 @@
   "activity_failed": "failed",
   "activity_empty": "no recent activity",
   "activity_view_actionables": "View {{count}} actionables →",
-  "activity_pulse_aria": "Kim is working ({{count}})"
+  "activity_pulse_aria": "Kim is working ({{count}})",
+  "activity_view_all": "View all activity · {{count}}",
+  "activity_back_to_chat": "Back to chat"
 }

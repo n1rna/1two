@@ -248,5 +248,7 @@
   "activity_failed": "fehlgeschlagen",
   "activity_empty": "keine aktuelle Aktivität",
   "activity_view_actionables": "{{count}} Aktionen ansehen →",
-  "activity_pulse_aria": "Kim arbeitet ({{count}})"
+  "activity_pulse_aria": "Kim arbeitet ({{count}})",
+  "activity_view_all": "Alle Aktivitäten anzeigen · {{count}}",
+  "activity_back_to_chat": "Zurück zum Chat"
 }

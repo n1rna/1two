@@ -248,5 +248,7 @@
   "activity_failed": "mislukt",
   "activity_empty": "geen recente activiteit",
   "activity_view_actionables": "Bekijk {{count}} acties →",
-  "activity_pulse_aria": "Kim is bezig ({{count}})"
+  "activity_pulse_aria": "Kim is bezig ({{count}})",
+  "activity_view_all": "Alle activiteit bekijken · {{count}}",
+  "activity_back_to_chat": "Terug naar chat"
 }
