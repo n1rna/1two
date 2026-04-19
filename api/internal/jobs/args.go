@@ -48,3 +48,23 @@ func (DailyCycleArgs) Kind() string { return "daily_cycle" }
 type SchedulerScanArgs struct{}
 
 func (SchedulerScanArgs) Kind() string { return "scheduler_scan" }
+
+// SummaryScanArgs checks which user+date pairs need a day summary
+// regenerated and enqueues one SummaryGenerateArgs per hit.
+type SummaryScanArgs struct{}
+
+func (SummaryScanArgs) Kind() string { return "summary_scan" }
+
+// SummaryGenerateArgs generates a single day summary for one user.
+type SummaryGenerateArgs struct {
+	UserID string `json:"user_id"`
+	Date   string `json:"date"` // YYYY-MM-DD
+}
+
+func (SummaryGenerateArgs) Kind() string { return "summary_generate" }
+
+// CleanupArgs runs the nightly housekeeping sweep: expired files from R2,
+// life_agent_runs retention, etc.
+type CleanupArgs struct{}
+
+func (CleanupArgs) Kind() string { return "cleanup" }
