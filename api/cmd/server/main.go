@@ -13,12 +13,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/n1rna/1tt/api/internal/ai"
 	"github.com/n1rna/1tt/api/internal/billing"
 	"github.com/n1rna/1tt/api/internal/config"
 	"github.com/n1rna/1tt/api/internal/crawl"
 	"github.com/n1rna/1tt/api/internal/database"
 	"github.com/n1rna/1tt/api/internal/handler"
+	"github.com/n1rna/1tt/api/internal/jobs"
 	"github.com/n1rna/1tt/api/internal/kim"
 	"github.com/n1rna/1tt/api/internal/life"
 	"github.com/n1rna/1tt/api/internal/llms"
@@ -41,6 +43,32 @@ func main() {
 	}
 	if db != nil {
 		defer db.Close()
+	}
+
+	// River queue: shared pgxpool + insert-only client so HTTP handlers can
+	// enqueue background work. Draining happens in the separate cmd/worker
+	// process. Skip silently if DATABASE_URL is unset (local dev without db).
+	var riverClient *jobs.Client
+	var riverPool = (func() *pgxpool.Pool { return nil })()
+	if cfg.DatabaseURL != "" {
+		pool, perr := jobs.OpenPool(context.Background(), cfg.DatabaseURL)
+		if perr != nil {
+			log.Printf("WARNING: failed to open jobs pool: %v (background work will not enqueue)", perr)
+		} else {
+			riverPool = pool
+			if merr := jobs.MigrateUp(context.Background(), pool); merr != nil {
+				log.Printf("WARNING: river migrate failed: %v", merr)
+			}
+			riverClient, err = jobs.NewInsertOnly(pool)
+			if err != nil {
+				log.Printf("WARNING: failed to build river insert client: %v", err)
+				riverClient = nil
+			}
+		}
+	}
+	_ = riverClient
+	if riverPool != nil {
+		defer riverPool.Close()
 	}
 
 	var r2 *storage.R2Client

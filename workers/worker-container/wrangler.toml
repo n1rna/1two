@@ -1,0 +1,29 @@
+name = "onetruetool-worker"
+main = "src/index.ts"
+compatibility_date = "2025-03-09"
+compatibility_flags = ["nodejs_compat"]
+
+# River worker process. Always-on: a cron ticks every minute to keep the
+# container warm so River polling + PeriodicJobs run continuously. Shares
+# the same Neon DB as onetruetool-api.
+[[containers]]
+class_name = "WorkerContainer"
+image = "./../../api/Dockerfile.worker"
+max_instances = 1
+
+[[durable_objects.bindings]]
+class_name = "WorkerContainer"
+name = "WORKER_CONTAINER"
+
+[[migrations]]
+new_sqlite_classes = ["WorkerContainer"]
+tag = "v1"
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+# Keep-alive ping every minute. The container's sleepAfter must be >= 60s so
+# the next ping arrives before it sleeps.
+[triggers]
+crons = ["* * * * *"]
