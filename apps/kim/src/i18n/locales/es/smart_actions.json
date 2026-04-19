@@ -33,6 +33,22 @@
     "correlate": "Correlacionar con otra métrica",
     "set_target": "Establecer objetivo"
   },
+  "session": {
+    "start": "Empezar sesión",
+    "finish_early": "Terminar antes",
+    "add_exercise": "Añadir ejercicio",
+    "swap": "Cambiar ejercicio",
+    "explain_progression": "Explicar la progresión",
+    "warmup": "Sugerir calentamiento"
+  },
+  "routine": {
+    "edit_schedule": "Editar horario",
+    "pause": "Pausar rutina",
+    "resume": "Reanudar rutina",
+    "link_calendar": "Vincular al calendario",
+    "explain": "Explicar rutina",
+    "archive": "Archivar rutina"
+  },
   "ack": {
     "done": "Hecho.",
     "failed": "Error.",

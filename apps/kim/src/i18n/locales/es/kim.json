@@ -255,5 +255,7 @@
   "kind_event": "evento",
   "kind_task": "tarea",
   "kind_metric": "métrica",
+  "kind_session": "sesión",
+  "kind_routine": "rutina",
   "smart_ui_expand": "expandir"
 }

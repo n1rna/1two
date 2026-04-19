@@ -33,6 +33,22 @@
     "correlate": "Correleer met andere metriek",
     "set_target": "Doel instellen"
   },
+  "session": {
+    "start": "Sessie starten",
+    "finish_early": "Eerder afsluiten",
+    "add_exercise": "Oefening toevoegen",
+    "swap": "Oefening wisselen",
+    "explain_progression": "Progressie uitleggen",
+    "warmup": "Warming-up voorstellen"
+  },
+  "routine": {
+    "edit_schedule": "Schema bewerken",
+    "pause": "Routine pauzeren",
+    "resume": "Routine hervatten",
+    "link_calendar": "Koppel aan agenda",
+    "explain": "Routine uitleggen",
+    "archive": "Routine archiveren"
+  },
   "ack": {
     "done": "Klaar.",
     "failed": "Mislukt.",

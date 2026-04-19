@@ -255,5 +255,7 @@
   "kind_event": "Termin",
   "kind_task": "Aufgabe",
   "kind_metric": "Kennzahl",
+  "kind_session": "Workout",
+  "kind_routine": "Routine",
   "smart_ui_expand": "ausklappen"
 }

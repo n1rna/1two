@@ -32,6 +32,8 @@ export { ExerciseSmartCard } from "./exercise";
 export { EventSmartCard } from "./event";
 export { TaskSmartCard } from "./task";
 export { MetricSmartCard } from "./metric";
+export { SessionSmartCard } from "./session";
+export { RoutineSmartCard } from "./routine";
 export type {
   KimContext,
   SmartActionKey,

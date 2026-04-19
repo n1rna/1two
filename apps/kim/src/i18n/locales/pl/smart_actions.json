@@ -33,6 +33,22 @@
     "correlate": "Skoreluj z inną metryką",
     "set_target": "Ustaw cel"
   },
+  "session": {
+    "start": "Rozpocznij sesję",
+    "finish_early": "Zakończ wcześniej",
+    "add_exercise": "Dodaj ćwiczenie",
+    "swap": "Zamień ćwiczenie",
+    "explain_progression": "Wyjaśnij progresję",
+    "warmup": "Zaproponuj rozgrzewkę"
+  },
+  "routine": {
+    "edit_schedule": "Edytuj harmonogram",
+    "pause": "Wstrzymaj rutynę",
+    "resume": "Wznów rutynę",
+    "link_calendar": "Połącz z kalendarzem",
+    "explain": "Wyjaśnij rutynę",
+    "archive": "Archiwizuj rutynę"
+  },
   "ack": {
     "done": "Gotowe.",
     "failed": "Nie powiodło się.",

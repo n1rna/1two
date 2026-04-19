@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   Dumbbell,
+  Repeat,
   Utensils,
   X,
   type LucideIcon,
@@ -17,6 +18,8 @@ import { EventSmartCard } from "./event";
 import { ExerciseSmartCard } from "./exercise";
 import { MealSmartCard } from "./meal";
 import { MetricSmartCard } from "./metric";
+import { RoutineSmartCard } from "./routine";
+import { SessionSmartCard } from "./session";
 import { TaskSmartCard } from "./task";
 
 /**
@@ -31,6 +34,8 @@ const KIND_ICON: Partial<Record<SelectableKind, LucideIcon>> = {
   event: Calendar,
   task: Check,
   metric: Activity,
+  session: Dumbbell,
+  routine: Repeat,
 };
 
 /** i18n key for the pretty-print kind label (see kim.json: `kind_*`). */
@@ -41,6 +46,8 @@ const KIND_I18N_KEY: Partial<Record<SelectableKind, string>> = {
   event: "kind_event",
   task: "kind_task",
   metric: "kind_metric",
+  session: "kind_session",
+  routine: "kind_routine",
 };
 
 /**
@@ -84,6 +91,12 @@ export function SmartUiSlot() {
       break;
     case "metric":
       card = <MetricSmartCard item={primary} />;
+      break;
+    case "session":
+      card = <SessionSmartCard item={primary} />;
+      break;
+    case "routine":
+      card = <RoutineSmartCard item={primary} />;
       break;
     default:
       card = null;

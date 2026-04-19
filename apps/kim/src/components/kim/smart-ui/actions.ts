@@ -33,6 +33,18 @@ export const SMART_ACTION_KEYS = [
   "metric.compare_last_month",
   "metric.correlate",
   "metric.set_target",
+  "session.start",
+  "session.finish_early",
+  "session.add_exercise",
+  "session.swap",
+  "session.explain_progression",
+  "session.warmup",
+  "routine.edit_schedule",
+  "routine.pause",
+  "routine.resume",
+  "routine.link_calendar",
+  "routine.explain",
+  "routine.archive",
 ] as const;
 
 export type SmartActionKey = (typeof SMART_ACTION_KEYS)[number];

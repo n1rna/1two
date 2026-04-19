@@ -255,5 +255,7 @@
   "kind_event": "afspraak",
   "kind_task": "taak",
   "kind_metric": "meetwaarde",
+  "kind_session": "workout",
+  "kind_routine": "routine",
   "smart_ui_expand": "uitklappen"
 }
