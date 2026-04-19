@@ -28,6 +28,7 @@ import { MODE_LABELS, type KimMode } from "./types";
 import { KimMessageList } from "./kim-message-list";
 import { KimGreeting } from "./kim-greeting";
 import { CtxChip } from "./ctx-chip";
+import { SmartUiSlot } from "./smart-ui/smart-ui-slot";
 import { commandsForMode } from "./slash-commands";
 import { SlashCommandMenu, useSlashCommands } from "@/components/ui/slash-commands";
 import type { SlashCommand } from "@/components/ui/slash-commands";
@@ -472,6 +473,11 @@ export function KimDrawer() {
           </div>
         )}
       </div>
+
+      {/* Smart-UI slot — renders a card matching the primary selection
+          kind (meal, exercise, etc.). Sits between the thread and composer
+          so the user can act on the item without leaving the drawer. */}
+      <SmartUiSlot />
 
       {/* Composer region — context chips directly above the textarea so
           users can see what Kim is reasoning over. */}
