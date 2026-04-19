@@ -1,8 +1,10 @@
 "use client";
 
 import { useKim } from "../kim-provider";
+import { EventSmartCard } from "./event";
 import { ExerciseSmartCard } from "./exercise";
 import { MealSmartCard } from "./meal";
+import { TaskSmartCard } from "./task";
 
 /**
  * Renders the smart-UI card matching the first (primary) selection. Mounted
@@ -27,6 +29,12 @@ export function SmartUiSlot() {
       break;
     case "exercise":
       card = <ExerciseSmartCard item={primary} />;
+      break;
+    case "event":
+      card = <EventSmartCard item={primary} />;
+      break;
+    case "task":
+      card = <TaskSmartCard item={primary} />;
       break;
     default:
       card = null;

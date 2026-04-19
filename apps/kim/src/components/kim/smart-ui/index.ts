@@ -29,6 +29,8 @@ export {
 export { SmartUiSlot } from "./smart-ui-slot";
 export { MealSmartCard } from "./meal";
 export { ExerciseSmartCard } from "./exercise";
+export { EventSmartCard } from "./event";
+export { TaskSmartCard } from "./task";
 export type {
   KimContext,
   SmartActionKey,
