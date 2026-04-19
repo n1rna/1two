@@ -1,7 +1,16 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   defaultArrayItem,
   defaultFieldValue,
@@ -106,29 +115,28 @@ function FieldInput({
   switch (field.type) {
     case "string":
       return (
-        <input
+        <Input
           type="text"
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           disabled={disabled}
-          className={baseInputCls}
         />
       );
     case "text":
       return (
-        <textarea
+        <Textarea
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           disabled={disabled}
           rows={3}
-          className={cn(baseInputCls, "resize-y")}
+          className="resize-y"
         />
       );
     case "number":
       return (
-        <input
+        <Input
           type="number"
           value={typeof value === "number" ? value : value == null ? "" : Number(value as string)}
           onChange={(e) =>
@@ -139,36 +147,38 @@ function FieldInput({
           max={field.max}
           step={field.step ?? 1}
           disabled={disabled}
-          className={cn(baseInputCls, "w-32")}
+          className="w-32"
         />
       );
     case "boolean":
       return (
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+        <div className="inline-flex items-center gap-3 text-sm">
+          <Switch
             checked={value === true}
-            onChange={(e) => onChange(e.target.checked)}
+            onCheckedChange={(checked) => onChange(checked)}
             disabled={disabled}
-            className="accent-primary"
           />
           <span className="text-muted-foreground">{field.placeholder ?? "Enabled"}</span>
-        </label>
+        </div>
       );
     case "enum":
       return (
-        <select
+        <Select
           value={typeof value === "string" ? value : (field.options?.[0]?.value ?? "")}
-          onChange={(e) => onChange(e.target.value)}
+          onValueChange={(v) => onChange(v as string)}
           disabled={disabled}
-          className={cn(baseInputCls, "appearance-none cursor-pointer")}
         >
-          {field.options?.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {field.options?.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       );
     case "array":
       return (
@@ -269,12 +279,12 @@ function ScalarArrayItem({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <input
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={cn(baseInputCls, "flex-1")}
+        className="flex-1"
       />
       <button
         type="button"
@@ -339,6 +349,3 @@ function NestedArrayItem({
     </div>
   );
 }
-
-const baseInputCls =
-  "w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50 disabled:opacity-50";

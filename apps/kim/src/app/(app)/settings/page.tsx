@@ -1,21 +1,92 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n/config";
 import { PageShell, Card } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
+import { Switch } from "@/components/ui/switch";
+import { TimePicker } from "@/components/ui/time-picker";
 import {
   getLifeProfile,
   updateLifeProfile,
   type LifeProfile,
 } from "@/lib/life";
 
+interface TzMeta {
+  label: string;
+  search: string;
+}
+
+function tzZoneName(tz: string, date: Date, type: "short" | "shortOffset") {
+  try {
+    const parts = new Intl.DateTimeFormat("en", {
+      timeZone: tz,
+      timeZoneName: type,
+    }).formatToParts(date);
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function buildTimezones(): { values: string[]; meta: Record<string, TzMeta> } {
+  const fn = (Intl as unknown as {
+    supportedValuesOf?: (k: string) => string[];
+  }).supportedValuesOf;
+  const values =
+    typeof fn === "function"
+      ? fn("timeZone")
+      : [
+          "UTC",
+          "Europe/Berlin",
+          "Europe/London",
+          "America/New_York",
+          "America/Los_Angeles",
+          "Asia/Tokyo",
+        ];
+  const jan = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 15));
+  const jul = new Date(Date.UTC(new Date().getUTCFullYear(), 6, 15));
+  const meta: Record<string, TzMeta> = {};
+  for (const tz of values) {
+    const segs = tz.split("/");
+    const city = segs[segs.length - 1].replace(/_/g, " ");
+    const region = segs.slice(0, -1).join(" / ").replace(/_/g, " ");
+    const abbrWinter = tzZoneName(tz, jan, "short");
+    const abbrSummer = tzZoneName(tz, jul, "short");
+    const offset = tzZoneName(tz, new Date(), "shortOffset") || "UTC";
+    const niceLabel = region ? `${city} · ${region}` : city;
+    const abbrs = [abbrWinter, abbrSummer].filter(
+      (v, i, a) => v && !v.startsWith("GMT") && a.indexOf(v) === i,
+    );
+    const label = `${niceLabel}  (${offset})`;
+    meta[tz] = {
+      label,
+      search: [label, city, region, tz, offset, ...abbrs]
+        .join(" ")
+        .toLowerCase(),
+    };
+  }
+  return { values, meta };
+}
+
 export default function SettingsPage() {
   const { t, i18n } = useTranslation("settings");
   const [profile, setProfile] = useState<LifeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const { values: timezones, meta: tzMeta } = useMemo(buildTimezones, []);
 
   useEffect(() => {
     (async () => {
@@ -62,51 +133,78 @@ export default function SettingsPage() {
       <div className="max-w-xl">
         <Card>
           <Field label={t("field_timezone")}>
-            <input
+            <Combobox
+              items={timezones}
               value={profile.timezone}
-              onChange={(e) => update("timezone", e.target.value)}
-              placeholder={t("timezone_placeholder")}
-              className="w-full bg-transparent border border-border rounded-md px-3 py-1.5 text-sm"
-            />
+              onValueChange={(v) => update("timezone", (v as string) ?? "")}
+              itemToStringLabel={(v) => tzMeta[v as string]?.label ?? String(v)}
+              filter={(item, q) => {
+                if (!q) return true;
+                const hay = tzMeta[item as string]?.search ?? String(item).toLowerCase();
+                return hay.includes(q.toLowerCase());
+              }}
+            >
+              <ComboboxTrigger>
+                <ComboboxValue placeholder={t("timezone_placeholder")} />
+              </ComboboxTrigger>
+              <ComboboxContent>
+                <ComboboxInput placeholder="Search city, region or abbr (EST, CET…)" />
+                <ComboboxEmpty>No matches</ComboboxEmpty>
+                <ComboboxList>
+                  {(tz: string) => (
+                    <ComboboxItem key={tz} value={tz}>
+                      {tzMeta[tz]?.label ?? tz}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
           </Field>
           <Field label={t("field_wake_time")}>
-            <input
-              type="time"
-              value={profile.wakeTime ?? ""}
-              onChange={(e) => update("wakeTime", e.target.value)}
-              className="w-full bg-transparent border border-border rounded-md px-3 py-1.5 text-sm"
+            <TimePicker
+              value={profile.wakeTime}
+              onChange={(v) => update("wakeTime", v)}
             />
           </Field>
           <Field label={t("field_sleep_time")}>
-            <input
-              type="time"
-              value={profile.sleepTime ?? ""}
-              onChange={(e) => update("sleepTime", e.target.value)}
-              className="w-full bg-transparent border border-border rounded-md px-3 py-1.5 text-sm"
+            <TimePicker
+              value={profile.sleepTime}
+              onChange={(v) => update("sleepTime", v)}
             />
           </Field>
           <Field label={t("field_kim_agent")}>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-3 text-sm">
+              <Switch
                 checked={profile.agentEnabled}
-                onChange={(e) => update("agentEnabled", e.target.checked)}
+                onCheckedChange={(checked) => update("agentEnabled", checked)}
               />
-              {t("agent_enabled_label")}
-            </label>
+              <span className="text-muted-foreground">
+                {t("agent_enabled_label")}
+              </span>
+            </div>
           </Field>
           <Field label="Language">
-            <select
+            <Combobox
+              items={[...SUPPORTED_LOCALES]}
               value={i18n.language}
-              onChange={(e) => i18n.changeLanguage(e.target.value)}
-              className="w-full bg-transparent border border-border rounded-md px-3 py-1.5 text-sm"
+              onValueChange={(v) => v && i18n.changeLanguage(v as string)}
+              itemToStringLabel={(v) => LOCALE_LABELS[v as typeof SUPPORTED_LOCALES[number]] ?? String(v)}
             >
-              {SUPPORTED_LOCALES.map((loc) => (
-                <option key={loc} value={loc}>
-                  {LOCALE_LABELS[loc]}
-                </option>
-              ))}
-            </select>
+              <ComboboxTrigger>
+                <ComboboxValue placeholder="Select language" />
+              </ComboboxTrigger>
+              <ComboboxContent>
+                <ComboboxInput placeholder="Search language…" />
+                <ComboboxEmpty>No matches</ComboboxEmpty>
+                <ComboboxList>
+                  {(loc: string) => (
+                    <ComboboxItem key={loc} value={loc}>
+                      {LOCALE_LABELS[loc as typeof SUPPORTED_LOCALES[number]] ?? loc}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
           </Field>
         </Card>
       </div>
@@ -122,11 +220,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block mb-3">
+    <div className="block mb-3">
       <span className="block text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
         {label}
       </span>
       {children}
-    </label>
+    </div>
   );
 }
