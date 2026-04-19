@@ -120,7 +120,7 @@ export function SmartUiSlot() {
           className="kim-mono text-[9.5px] uppercase tracking-[0.18em] mr-0.5 shrink-0"
           style={{ color: "var(--kim-ink-faint)" }}
         >
-          {t("smart_ui_stack_label", { defaultValue: "stack" })}
+          {t("drawer_context_label")}
         </span>
         {selection.map((s) => {
           const isPrimary = s.kind === primary.kind && s.id === primary.id;
