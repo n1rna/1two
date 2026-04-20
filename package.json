@@ -11,6 +11,9 @@
     "dev:web": "bun run --filter ./apps/web dev",
     "dev:kim": "bun run --filter ./apps/kim dev",
     "dev:api": "ee apply development -c .ee.api -- go run ./api/cmd/server",
+    "mobile:start": "bun run --filter ./apps/kim-mobile start",
+    "mobile:ios": "bun run --filter ./apps/kim-mobile ios",
+    "mobile:android": "bun run --filter ./apps/kim-mobile android",
     "build:web": "bun run --filter ./apps/web build",
     "build:kim": "bun run --filter ./apps/kim build",
     "lint": "bun run --filter './apps/*' lint",
@@ -31,5 +34,5 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "jszip": "^3.10.1",
     "react-i18next": "^17.0.3"
-  }
+  },
 }
