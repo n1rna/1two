@@ -12,7 +12,6 @@
         "react-i18next": "^17.0.3",
       },
       "devDependencies": {
-        "@1tt/kim": "./apps/kim",
         "typescript": "^5",
         "vitest": "^4.1.4",
       },
