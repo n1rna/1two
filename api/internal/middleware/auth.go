@@ -5,11 +5,33 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/n1rna/1tt/api/internal/config"
 )
+
+// extractToken pulls the session token from the two supported transports:
+// the `X-Session-Token` header (forwarded by the Next.js proxy after it
+// validates the cookie) and `Authorization: Bearer <token>` (used by the
+// kim-mobile app, which has no cookie jar). Returns the raw token string
+// or the empty string if neither is present.
+func extractToken(r *http.Request) string {
+	if t := r.Header.Get("X-Session-Token"); t != "" {
+		return t
+	}
+	authz := r.Header.Get("Authorization")
+	if authz == "" {
+		return ""
+	}
+	// Accept "Bearer foo" or "bearer foo" (RFC 6750 case-insensitive scheme).
+	const prefix = "bearer "
+	if len(authz) > len(prefix) && strings.EqualFold(authz[:len(prefix)], prefix) {
+		return strings.TrimSpace(authz[len(prefix):])
+	}
+	return ""
+}
 
 type contextKey string
 
@@ -36,18 +58,20 @@ func Auth(cfg *config.Config) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get session token from header (forwarded by Next.js proxy)
-			token := r.Header.Get("X-Session-Token")
+			// Session token comes from either X-Session-Token (proxy flow)
+			// or Authorization: Bearer (mobile flow). See extractToken.
+			token := extractToken(r)
 			userID := r.Header.Get("X-User-ID")
 
-			// If proxy already validated and forwarded user ID, trust it
+			// Proxy already validated the cookie and forwarded the user id.
+			// Trust that short-circuit; the bearer path below re-validates.
 			if userID != "" && token != "" {
 				ctx := context.WithValue(r.Context(), UserIDKey, userID)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
 
-			// Fallback: validate token directly against database
+			// No token at all — reject before hitting the database.
 			if token == "" {
 				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 				return

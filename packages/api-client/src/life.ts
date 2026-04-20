@@ -54,16 +54,66 @@ export interface ChatEffect {
   data?: Record<string, unknown>; // parsed tool result for memory/routine
 }
 
+// ─── Client configuration ────────────────────────────────────────────────────
+
+/**
+ * Tunables that let the same api-client run in two environments:
+ *
+ * - **Web** (kim1.ai): talks to a Next.js proxy at `/api/proxy/life/*` which
+ *   forwards to the Go backend. Session auth rides in an HTTP-only cookie, so
+ *   we use `credentials: "include"` and no `Authorization` header.
+ * - **Mobile** (Expo / React Native): talks directly to the Go backend at
+ *   an absolute URL. There's no cookie jar in RN's fetch, so auth is a
+ *   bearer token sourced via `getAuthToken` (typically from SecureStore).
+ *
+ * Callers reconfigure with `configureLifeClient({...})` at app startup.
+ * Defaults match the web setup so existing web callers need no changes.
+ */
+export interface LifeClientConfig {
+  /** URL prefix prepended to every `/path` below (no trailing slash). */
+  baseUrl: string;
+  /** Returns a bearer token, or null/undefined when not authenticated. */
+  getAuthToken?: () => string | null | undefined | Promise<string | null | undefined>;
+  /** fetch credentials mode. Web uses "include" for cookies, mobile "omit". */
+  credentials?: RequestCredentials;
+}
+
+let config: LifeClientConfig = {
+  baseUrl: "/api/proxy/life",
+  credentials: "include",
+};
+
+/** Merge-replace the active config. Unset fields keep their current value. */
+export function configureLifeClient(next: Partial<LifeClientConfig>): void {
+  config = { ...config, ...next };
+}
+
+/** Snapshot of the active config. Exposed for tests + mobile auth plumbing. */
+export function getLifeClientConfig(): LifeClientConfig {
+  return config;
+}
+
+async function resolveAuthHeader(): Promise<Record<string, string>> {
+  if (!config.getAuthToken) return {};
+  const token = await config.getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function lifeApiFetch<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`/api/proxy/life${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+  const authHeader = await resolveAuthHeader();
+  const res = await fetch(`${config.baseUrl}${path}`, {
+    credentials: config.credentials,
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader,
+      ...(options?.headers as Record<string, string> | undefined),
+    },
   });
 
   if (!res.ok) {
@@ -432,10 +482,11 @@ export async function streamLifeChat(
   autoApprove?: boolean,
   category?: string,
 ): Promise<void> {
-  const res = await fetch("/api/proxy/life/chat/stream", {
+  const authHeader = await resolveAuthHeader();
+  const res = await fetch(`${config.baseUrl}/chat/stream`, {
     method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    credentials: config.credentials,
+    headers: { "Content-Type": "application/json", ...authHeader },
     body: JSON.stringify({ message, conversationId, systemContext, routineId, autoApprove, category }),
   });
 
