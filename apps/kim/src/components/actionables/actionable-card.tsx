@@ -29,7 +29,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { AskKimButton } from "@/components/kim";
 import type { JourneyTrigger, LifeActionable } from "@/lib/life";
-import { domainOf, type ActionableDomain } from "@/lib/actionables-group";
+import { domainOf, type ActionableDomain } from "@1tt/api-client/life-group";
 
 const DOMAIN_CHIP_META: Record<
   ActionableDomain,

@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./life": "./src/life.ts",
+    "./life-group": "./src/life-group.ts",
     "./health": "./src/health.ts",
     "./marketplace": "./src/marketplace.ts",
     "./auth-schema": "./src/auth-schema.ts"

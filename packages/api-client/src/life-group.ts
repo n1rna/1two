@@ -1,4 +1,7 @@
-import type { LifeActionable } from "@/lib/life";
+// Shared grouping + filtering helpers for Life actionables. Pure functions —
+// safe to import from both web (apps/kim) and mobile (apps/kim-mobile).
+
+import type { LifeActionable } from "./life";
 
 export type ActionableDomain =
   | "calendar"
