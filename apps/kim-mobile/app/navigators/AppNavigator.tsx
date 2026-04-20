@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack"
 
 import Config from "@/config"
 import { useAuth } from "@/context/AuthContext"
+import { ConversationsScreen } from "@/screens/ConversationsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
 import { SignInScreen } from "@/screens/SignInScreen"
 import { useAppTheme } from "@/theme/context"
@@ -35,7 +36,14 @@ const AppStack = () => {
       initialRouteName={isAuthenticated ? "Main" : "SignIn"}
     >
       {isAuthenticated ? (
-        <Stack.Screen name="Main" component={MainNavigator} />
+        <>
+          <Stack.Screen name="Main" component={MainNavigator} />
+          <Stack.Screen
+            name="Conversations"
+            component={ConversationsScreen}
+            options={{ headerShown: true, title: "Past conversations" }}
+          />
+        </>
       ) : (
         <Stack.Screen name="SignIn" component={SignInScreen} />
       )}
