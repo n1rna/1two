@@ -44,7 +44,7 @@ import {
   domainOf,
   groupByBucket,
   matchesSearch,
-} from "@/lib/actionables-group";
+} from "@1tt/api-client/life-group";
 import { useTranslation } from "react-i18next";
 
 const DOMAIN_ICON: Record<ActionableDomain, React.ElementType> = {
