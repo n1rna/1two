@@ -1,4 +1,4 @@
-import { FC } from "react"
+import { FC, useState } from "react"
 import { TextStyle, ViewStyle } from "react-native"
 
 import { Button } from "@/components/Button"
@@ -12,13 +12,27 @@ import { useAppTheme } from "@/theme/context"
 interface SignInScreenProps extends AppStackScreenProps<"SignIn"> {}
 
 /**
- * Placeholder sign-in. Real Google OAuth via `expo-auth-session` +
- * `expo-secure-store` lands in QBL-69. For now a single "Continue" button
- * mints a fake token so we can exercise the authed side of the nav tree.
+ * Sign-in screen. Taps open the system browser via better-auth's expo plugin,
+ * complete OAuth on kim1.ai, and deep-link back to `kim://auth/callback` with
+ * the session token which gets persisted in SecureStore.
  */
 export const SignInScreen: FC<SignInScreenProps> = () => {
-  const { setAuthToken } = useAuth()
+  const { signIn } = useAuth()
   const { themed } = useAppTheme()
+  const [busy, setBusy] = useState<"google" | "github" | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSignIn = async (provider: "google" | "github") => {
+    setError(null)
+    setBusy(provider)
+    try {
+      await signIn(provider)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <Screen
@@ -34,12 +48,23 @@ export const SignInScreen: FC<SignInScreenProps> = () => {
       </Text>
 
       <Button
-        testID="continue-button"
-        text="Continue (placeholder)"
+        testID="google-signin-button"
+        text={busy === "google" ? "Opening browser…" : "Continue with Google"}
         preset="reversed"
-        onPress={() => setAuthToken(String(Date.now()))}
+        onPress={() => handleSignIn("google")}
+        disabled={busy !== null}
         style={themed($button)}
       />
+      <Button
+        testID="github-signin-button"
+        text={busy === "github" ? "Opening browser…" : "Continue with GitHub"}
+        preset="default"
+        onPress={() => handleSignIn("github")}
+        disabled={busy !== null}
+        style={themed($button)}
+      />
+
+      {error ? <Text style={themed($error)}>{error}</Text> : null}
     </Screen>
   )
 }
@@ -63,6 +88,12 @@ const $subtitle: ThemedStyle<TextStyle> = ({ spacing, colors }) => ({
 })
 
 const $button: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  minWidth: 220,
-  marginTop: spacing.md,
+  minWidth: 260,
+  marginTop: spacing.sm,
+})
+
+const $error: ThemedStyle<TextStyle> = ({ spacing, colors }) => ({
+  marginTop: spacing.lg,
+  color: colors.error,
+  textAlign: "center",
 })

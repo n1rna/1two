@@ -2,6 +2,16 @@ export interface ConfigBaseProps {
   persistNavigation: "always" | "dev" | "prod" | "never"
   catchErrors: "always" | "dev" | "prod" | "never"
   exitRoutes: string[]
+  // Env-specific URLs get merged in from config.dev.ts / config.prod.ts.
+  // Typed as optional here so the base object compiles, but the merged
+  // Config used by the app always has them populated.
+  authBaseUrl?: string
+  apiBaseUrl?: string
+}
+
+export interface EnvConfigProps {
+  authBaseUrl: string
+  apiBaseUrl: string
 }
 
 export type PersistNavigationConfig = ConfigBaseProps["persistNavigation"]

@@ -5,6 +5,11 @@
  *
  * https://reactnative.dev/docs/security#storing-sensitive-info
  */
-export default {
-  API_URL: "https://api.rss2json.com/v1/",
+import type { EnvConfigProps } from "./config.base"
+
+const ProdConfig: EnvConfigProps = {
+  authBaseUrl: "https://kim1.ai",
+  apiBaseUrl: "https://kim1.ai/api/proxy/life",
 }
+
+export default ProdConfig
