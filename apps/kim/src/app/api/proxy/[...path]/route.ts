@@ -36,6 +36,12 @@ async function proxyRequest(req: NextRequest, { params }: { params: Promise<{ pa
   if (session?.session) {
     forwardHeaders["x-session-token"] = session.session.token;
     forwardHeaders["x-user-id"] = session.user.id;
+  } else {
+    // Mobile clients have no cookie jar and send `Authorization: Bearer <token>`
+    // directly. Pass it through so the Go middleware (which already accepts
+    // bearer after QBL-70) can look up the session itself.
+    const authz = req.headers.get("authorization");
+    if (authz) forwardHeaders["authorization"] = authz;
   }
 
   const body = req.method !== "GET" && req.method !== "HEAD" ? await req.blob() : undefined;

@@ -8,13 +8,12 @@
 import type { EnvConfigProps } from "./config.base"
 
 const DevConfig: EnvConfigProps = {
-  // Kim web app hosts better-auth. The mobile app opens `authBaseUrl/api/auth/sign-in/...`
-  // in the system browser, completes OAuth, and deep-links back via `kim://`.
-  authBaseUrl: "http://lvh.me:3001",
-  // Go backend for /life/* endpoints. In dev we hit the same host the API
-  // server runs on (see `just api`). Swap to an absolute URL when testing
-  // the mobile build against a remote deployment.
-  apiBaseUrl: "http://lvh.me:3001/api/proxy/life",
+  // Mobile dev points at the production kim1.ai web + API. Local dev against
+  // `lvh.me:3001` doesn't work for OAuth because Google's registered callback
+  // URL must match what the mobile app opens in the browser, and Google rejects
+  // `10.0.2.2` / `lvh.me` variants it hasn't been registered against.
+  authBaseUrl: "https://kim1.ai",
+  apiBaseUrl: "https://kim1.ai/api/proxy/life",
 }
 
 export default DevConfig
