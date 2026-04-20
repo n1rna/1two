@@ -1,7 +1,7 @@
 {
   "name": "KimMobile",
   "slug": "KimMobile",
-  "scheme": "kimmobile",
+  "scheme": "kim",
   "version": "1.0.0",
   "orientation": "portrait",
   "userInterfaceStyle": "automatic",

@@ -12,7 +12,7 @@ import {
 import { configureLifeClient } from "@1tt/api-client/life"
 
 import Config from "@/config"
-import { authClient, getStoredSessionToken } from "@/services/auth-client"
+import { authClient, signInSocialMobile } from "@/services/auth-client"
 
 export type AuthContextType = {
   /** True once we have a non-expired session cached in SecureStore. */
@@ -46,15 +46,11 @@ export interface AuthProviderProps {}
 export const AuthProvider: FC<PropsWithChildren<AuthProviderProps>> = ({ children }) => {
   const session = authClient.useSession()
   const [loading, setLoading] = useState(true)
+  // Track session token in a ref so the life-client callback reads the
+  // latest value without re-registering on every render. Mirrored from
+  // useSession — same raw DB token the web proxy forwards as X-Session-Token.
   const tokenRef = useRef<string | null>(null)
-
-  // Push the current bearer token into the shared api-client. We read from
-  // SecureStore because better-auth's session hook returns user data but the
-  // raw token lives in the expoClient storage.
-  const refreshApiToken = useCallback(async () => {
-    const t = await getStoredSessionToken()
-    tokenRef.current = t
-  }, [])
+  tokenRef.current = session.data?.session?.token ?? null
 
   useEffect(() => {
     configureLifeClient({
@@ -62,23 +58,15 @@ export const AuthProvider: FC<PropsWithChildren<AuthProviderProps>> = ({ childre
       credentials: "omit",
       getAuthToken: () => tokenRef.current,
     })
-    refreshApiToken().finally(() => setLoading(false))
+    // One-tick delay so useSession has a chance to hydrate from storage.
+    const id = setTimeout(() => setLoading(false), 50)
+    return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Whenever the better-auth session changes (sign-in/out), resync the token.
-  useEffect(() => {
-    if (session.isPending) return
-    refreshApiToken()
-  }, [session.data?.user?.id, session.isPending, refreshApiToken])
-
   const signIn = useCallback(async (provider: "google" | "github") => {
-    await authClient.signIn.social({
-      provider,
-      callbackURL: "kim://auth/callback",
-    })
-    await refreshApiToken()
-  }, [refreshApiToken])
+    await signInSocialMobile(provider)
+  }, [])
 
   const logout = useCallback(async () => {
     await authClient.signOut()
