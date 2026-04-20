@@ -15,9 +15,12 @@ export type MainTabParamList = {
 }
 
 // Root stack: SignIn when unauthed, Main (tabs) when authed.
+// Conversations is pushed on top of Main when the user wants to browse
+// past chats from the Chat tab header.
 export type AppStackParamList = {
   SignIn: undefined
   Main: NavigatorScreenParams<MainTabParamList>
+  Conversations: undefined
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
