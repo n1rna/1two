@@ -9,6 +9,7 @@ import {
   View,
   ViewStyle,
 } from "react-native"
+import { useIsFocused } from "@react-navigation/native"
 import {
   listLifeConversations,
   getLifeConversationMessages,
@@ -17,11 +18,14 @@ import {
   type LifeMessage,
 } from "@1tt/api-client/life"
 
+import { ActivityListModal } from "@/components/ActivityListModal"
+import { ActivityPulseDot } from "@/components/ActivityPulseDot"
 import { Button } from "@/components/Button"
 import { PressableIcon } from "@/components/Icon"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
 import { ToolTraceBlock, type TraceState } from "@/components/ToolTraceBlock"
+import { useAgentRunsPulse } from "@/hooks/useAgentRunsPulse"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -81,7 +85,13 @@ export const ChatScreen: FC<ChatScreenProps> = ({ navigation }) => {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activityOpen, setActivityOpen] = useState(false)
   const conversationIdRef = useRef<string | null>(null)
+
+  // Only the focused screen runs the fast 5s pulse poll. Actionables does
+  // the same, so at any moment exactly one tab is on the 5s cadence.
+  const isFocused = useIsFocused()
+  const { running, count } = useAgentRunsPulse({ active: isFocused })
 
   // On first render pick up the most recent conversation so the user
   // continues where they left off. If the list is empty we stay at an
@@ -205,6 +215,11 @@ export const ChatScreen: FC<ChatScreenProps> = ({ navigation }) => {
             {conversationIdRef.current ? "Continuing conversation" : "New conversation"}
           </Text>
         </View>
+        <ActivityPulseDot
+          running={running}
+          count={count}
+          onPress={() => setActivityOpen(true)}
+        />
         <Button
           text="New"
           preset="default"
@@ -279,6 +294,15 @@ export const ChatScreen: FC<ChatScreenProps> = ({ navigation }) => {
           />
         </View>
       </KeyboardAvoidingView>
+
+      <ActivityListModal
+        visible={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        onNavigateActionables={() => {
+          setActivityOpen(false)
+          navigation.navigate("Main", { screen: "Actionables" })
+        }}
+      />
     </Screen>
   )
 }
