@@ -12,16 +12,24 @@ const Tab = createBottomTabNavigator<MainTabParamList>()
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>["name"]
 
+interface TabIconProps {
+  focused: boolean
+  color: string
+  size: number
+}
+
+function makeTabIcon(focusedName: IoniconsName, outlineName: IoniconsName) {
+  const TabIcon = ({ focused, color, size }: TabIconProps) => (
+    <Ionicons name={focused ? focusedName : outlineName} size={size} color={color} />
+  )
+  TabIcon.displayName = `TabIcon(${String(focusedName)})`
+  return TabIcon
+}
+
 export const MainNavigator = () => {
   const {
     theme: { colors },
   } = useAppTheme()
-
-  const renderIcon =
-    (focusedName: IoniconsName, outlineName: IoniconsName) =>
-    ({ focused, color, size }: { focused: boolean; color: string; size: number }) => (
-      <Ionicons name={focused ? focusedName : outlineName} size={size} color={color} />
-    )
 
   return (
     <Tab.Navigator
@@ -39,21 +47,21 @@ export const MainNavigator = () => {
         name="Chat"
         component={ChatScreen}
         options={{
-          tabBarIcon: renderIcon("chatbubble-ellipses", "chatbubble-ellipses-outline"),
+          tabBarIcon: makeTabIcon("chatbubble-ellipses", "chatbubble-ellipses-outline"),
         }}
       />
       <Tab.Screen
         name="Actionables"
         component={ActionablesScreen}
         options={{
-          tabBarIcon: renderIcon("checkbox", "checkbox-outline"),
+          tabBarIcon: makeTabIcon("checkbox", "checkbox-outline"),
         }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarIcon: renderIcon("settings", "settings-outline"),
+          tabBarIcon: makeTabIcon("settings", "settings-outline"),
         }}
       />
     </Tab.Navigator>
