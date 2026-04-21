@@ -1,5 +1,6 @@
 import { FC, useCallback, useEffect, useMemo, useState } from "react"
 import { Alert, RefreshControl, ScrollView, TextStyle, View, ViewStyle } from "react-native"
+import { useIsFocused } from "@react-navigation/native"
 import {
   bulkDismissActionables,
   listLifeActionables,
@@ -9,10 +10,13 @@ import {
 import { groupByBucket, type TimeBucket } from "@1tt/api-client/life-group"
 
 import { ActionableCard } from "@/components/ActionableCard"
+import { ActivityListModal } from "@/components/ActivityListModal"
+import { ActivityPulseDot } from "@/components/ActivityPulseDot"
 import { Button } from "@/components/Button"
 import { EmptyState } from "@/components/EmptyState"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
+import { useAgentRunsPulse } from "@/hooks/useAgentRunsPulse"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -43,6 +47,12 @@ export const ActionablesScreen: FC<ActionablesScreenProps> = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showResolved, setShowResolved] = useState(false)
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
+
+  // Chat and Actionables both mount the pulse hook; the focused screen
+  // gets the 5s cadence, the unfocused one idles at 30s.
+  const isFocused = useIsFocused()
+  const { running, count } = useAgentRunsPulse({ active: isFocused })
 
   const load = useCallback(async () => {
     try {
@@ -163,6 +173,11 @@ export const ActionablesScreen: FC<ActionablesScreenProps> = () => {
               : "All caught up"}
           </Text>
         </View>
+        <ActivityPulseDot
+          running={running}
+          count={count}
+          onPress={() => setActivityOpen(true)}
+        />
         {pending.length > 0 ? (
           <Button
             text={selectMode ? "Done" : "Select"}
@@ -264,6 +279,12 @@ export const ActionablesScreen: FC<ActionablesScreenProps> = () => {
           </View>
         ) : null}
       </ScrollView>
+
+      <ActivityListModal
+        visible={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        onNavigateActionables={() => setActivityOpen(false)}
+      />
     </Screen>
   )
 }
