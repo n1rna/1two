@@ -284,8 +284,8 @@ const MessageBubble: FC<{ message: ChatMessage }> = ({ message }) => {
         </Text>
         {message.toolCalls && message.toolCalls.length > 0 ? (
           <View style={themed($toolRow)}>
-            {message.toolCalls.map((tc) => (
-              <View key={tc.id ?? tc.tool} style={themed($toolChip)}>
+            {message.toolCalls.map((tc, i) => (
+              <View key={`${tc.id ?? tc.tool}-${i}`} style={themed($toolChip)}>
                 <Text size="xxs" style={themed($toolChipText)}>
                   {tc.tool}
                   {tc.success === false ? " ✗" : ""}
