@@ -290,6 +290,442 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /life/travel/trips:
+    get:
+      operationId: listTrips
+      summary: List trips the caller owns or is a member of
+      tags: [travel]
+      security:
+        - sessionAuth: []
+      responses:
+        "200":
+          description: Trip list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trips:
+                    type: array
+                    items: { $ref: "#/components/schemas/TravelTrip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createTrip
+      summary: Create a trip
+      tags: [travel]
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTripRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trip: { $ref: "#/components/schemas/TravelTrip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /life/travel/trips/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getTrip
+      tags: [travel]
+      security:
+        - sessionAuth: []
+      responses:
+        "200":
+          description: Trip
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trip: { $ref: "#/components/schemas/TravelTrip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateTrip
+      tags: [travel]
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateTripRequest" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trip: { $ref: "#/components/schemas/TravelTrip" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteTrip
+      tags: [travel]
+      security:
+        - sessionAuth: []
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /life/travel/trips/{id}/destinations:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listDestinations
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "200":
+          description: Destinations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  destinations:
+                    type: array
+                    items: { $ref: "#/components/schemas/TravelDestination" }
+    post:
+      operationId: addDestination
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddDestinationRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  destination: { $ref: "#/components/schemas/TravelDestination" }
+
+  /life/travel/trips/{id}/destinations/reorder:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      operationId: reorderDestinations
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order]
+              properties:
+                order:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200": { description: Reordered }
+
+  /life/travel/destinations/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateDestination
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateDestinationRequest" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  destination: { $ref: "#/components/schemas/TravelDestination" }
+    delete:
+      operationId: deleteDestination
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "204": { description: Deleted }
+
+  /life/travel/destinations/{id}/activities:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    post:
+      operationId: addActivity
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddActivityRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activity: { $ref: "#/components/schemas/TravelActivity" }
+
+  /life/travel/trips/{id}/activities:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listTripActivities
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "200":
+          description: Activities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activities:
+                    type: array
+                    items: { $ref: "#/components/schemas/TravelActivity" }
+
+  /life/travel/activities/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateActivity
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateActivityRequest" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activity: { $ref: "#/components/schemas/TravelActivity" }
+    delete:
+      operationId: deleteActivity
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "204": { description: Deleted }
+
+  /life/travel/trips/{id}/reservations:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listReservations
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "200":
+          description: Reservations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations:
+                    type: array
+                    items: { $ref: "#/components/schemas/TravelReservation" }
+    post:
+      operationId: addReservation
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddReservationRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservation: { $ref: "#/components/schemas/TravelReservation" }
+
+  /life/travel/reservations/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: updateReservation
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateReservationRequest" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservation: { $ref: "#/components/schemas/TravelReservation" }
+    delete:
+      operationId: deleteReservation
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "204": { description: Deleted }
+
+  /life/travel/trips/{id}/tickets:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: listTickets
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "200":
+          description: Tickets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+                    items: { $ref: "#/components/schemas/TravelTicket" }
+    post:
+      operationId: uploadTicket
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                title: { type: string }
+                kind: { type: string, enum: [transit, event, pass, voucher] }
+                reservationId: { type: string }
+                issuedTo: { type: string }
+                validFrom: { type: string, format: date-time }
+                validUntil: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticket: { $ref: "#/components/schemas/TravelTicket" }
+
+  /life/travel/tickets/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    delete:
+      operationId: deleteTicket
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "204": { description: Deleted }
+
+  /life/travel/preferences:
+    get:
+      operationId: getTravelPreferences
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preferences: { $ref: "#/components/schemas/TravelPreferences" }
+    put:
+      operationId: updateTravelPreferences
+      tags: [travel]
+      security: [ { sessionAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TravelPreferencesInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preferences: { $ref: "#/components/schemas/TravelPreferences" }
+
 components:
   securitySchemes:
     sessionAuth:
@@ -477,6 +913,237 @@ components:
         error:
           type: string
 
+    TravelTrip:
+      type: object
+      properties:
+        id: { type: string }
+        ownerUserId: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        startDate: { type: string, nullable: true }
+        endDate: { type: string, nullable: true }
+        coverImageUrl: { type: string }
+        status:
+          type: string
+          enum: [planning, booked, ongoing, completed, cancelled]
+        budgetCurrency: { type: string }
+        role:
+          type: string
+          enum: [owner, editor, viewer]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateTripRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        summary: { type: string }
+        startDate: { type: string, description: YYYY-MM-DD }
+        endDate: { type: string, description: YYYY-MM-DD }
+        budgetCurrency: { type: string, default: USD }
+        coverImageUrl: { type: string }
+
+    UpdateTripRequest:
+      type: object
+      properties:
+        title: { type: string }
+        summary: { type: string }
+        startDate: { type: string, nullable: true }
+        endDate: { type: string, nullable: true }
+        coverImageUrl: { type: string }
+        status: { type: string, enum: [planning, booked, ongoing, completed, cancelled] }
+        budgetCurrency: { type: string }
+
+    TravelDestination:
+      type: object
+      properties:
+        id: { type: string }
+        tripId: { type: string }
+        ordinal: { type: integer }
+        name: { type: string }
+        mapboxPlaceId: { type: string }
+        country: { type: string }
+        region: { type: string }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        arriveAt: { type: string, format: date-time, nullable: true }
+        departAt: { type: string, format: date-time, nullable: true }
+        notes: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AddDestinationRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        mapboxPlaceId: { type: string }
+        country: { type: string }
+        region: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        arriveAt: { type: string, format: date-time }
+        departAt: { type: string, format: date-time }
+        notes: { type: string }
+
+    UpdateDestinationRequest:
+      type: object
+      properties:
+        name: { type: string }
+        country: { type: string }
+        region: { type: string }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        arriveAt: { type: string, format: date-time, nullable: true }
+        departAt: { type: string, format: date-time, nullable: true }
+        notes: { type: string }
+
+    TravelActivity:
+      type: object
+      properties:
+        id: { type: string }
+        tripId: { type: string }
+        destinationId: { type: string }
+        title: { type: string }
+        category:
+          type: string
+          enum: [sightseeing, food, nightlife, outdoor, wellness, other]
+        startAt: { type: string, format: date-time, nullable: true }
+        endAt: { type: string, format: date-time, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        address: { type: string }
+        costAmount: { type: number, nullable: true }
+        costCurrency: { type: string }
+        bookingUrl: { type: string }
+        notes: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AddActivityRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        category: { type: string }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        lat: { type: number }
+        lng: { type: number }
+        address: { type: string }
+        costAmount: { type: number }
+        costCurrency: { type: string }
+        bookingUrl: { type: string }
+        notes: { type: string }
+
+    UpdateActivityRequest:
+      type: object
+      properties:
+        title: { type: string }
+        category: { type: string }
+        startAt: { type: string, format: date-time, nullable: true }
+        endAt: { type: string, format: date-time, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        address: { type: string }
+        costAmount: { type: number, nullable: true }
+        costCurrency: { type: string }
+        bookingUrl: { type: string }
+        notes: { type: string }
+
+    TravelReservation:
+      type: object
+      properties:
+        id: { type: string }
+        tripId: { type: string }
+        destinationId: { type: string, nullable: true }
+        kind:
+          type: string
+          enum: [flight, train, bus, car, hotel, bnb, restaurant, event, other]
+        title: { type: string }
+        provider: { type: string }
+        confirmationCode: { type: string }
+        startAt: { type: string, format: date-time, nullable: true }
+        endAt: { type: string, format: date-time, nullable: true }
+        originPlace: { type: string }
+        destPlace: { type: string }
+        costAmount: { type: number, nullable: true }
+        costCurrency: { type: string }
+        status: { type: string, enum: [planned, booked, cancelled] }
+        payload: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AddReservationRequest:
+      type: object
+      required: [kind, title]
+      properties:
+        destinationId: { type: string }
+        kind: { type: string }
+        title: { type: string }
+        provider: { type: string }
+        confirmationCode: { type: string }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        originPlace: { type: string }
+        destPlace: { type: string }
+        costAmount: { type: number }
+        costCurrency: { type: string }
+        status: { type: string, enum: [planned, booked, cancelled] }
+        payload: { type: object, additionalProperties: true }
+
+    UpdateReservationRequest:
+      type: object
+      properties:
+        title: { type: string }
+        provider: { type: string }
+        confirmationCode: { type: string }
+        startAt: { type: string, format: date-time, nullable: true }
+        endAt: { type: string, format: date-time, nullable: true }
+        originPlace: { type: string }
+        destPlace: { type: string }
+        costAmount: { type: number, nullable: true }
+        costCurrency: { type: string }
+        status: { type: string, enum: [planned, booked, cancelled] }
+        payload: { type: object, additionalProperties: true, nullable: true }
+
+    TravelTicket:
+      type: object
+      properties:
+        id: { type: string }
+        tripId: { type: string }
+        reservationId: { type: string, nullable: true }
+        title: { type: string }
+        kind: { type: string, enum: [transit, event, pass, voucher] }
+        fileUrl: { type: string }
+        issuedTo: { type: string }
+        validFrom: { type: string, format: date-time, nullable: true }
+        validUntil: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    TravelPreferences:
+      type: object
+      properties:
+        userId: { type: string }
+        pace: { type: string, enum: [slow, moderate, packed] }
+        budgetTier: { type: string, enum: [budget, mid, lux] }
+        dietary: { type: array, items: { type: string } }
+        accessibility: { type: array, items: { type: string } }
+        interests: { type: array, items: { type: string } }
+        avoid: { type: array, items: { type: string } }
+        updatedAt: { type: string, format: date-time }
+
+    TravelPreferencesInput:
+      type: object
+      properties:
+        pace: { type: string, enum: [slow, moderate, packed] }
+        budgetTier: { type: string, enum: [budget, mid, lux] }
+        dietary: { type: array, items: { type: string } }
+        accessibility: { type: array, items: { type: string } }
+        interests: { type: array, items: { type: string } }
+        avoid: { type: array, items: { type: string } }
+
   responses:
     Unauthorized:
       description: Authentication required
@@ -492,6 +1159,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Not permitted
       content:
         application/json:
           schema:
