@@ -1,5 +1,6 @@
 import { FC, useState } from "react"
 import { ActivityIndicator, TextStyle, View, ViewStyle } from "react-native"
+import { Ionicons } from "@expo/vector-icons"
 import { domainOf, type ActionableDomain } from "@1tt/api-client/life-group"
 import type { LifeActionable } from "@1tt/api-client/life"
 
@@ -8,6 +9,14 @@ import { Text } from "@/components/Text"
 import { TextField } from "@/components/TextField"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
+
+import {
+  calendarPreview,
+  mealPreview,
+  memoryPreview,
+  routinePreview,
+  taskPreview,
+} from "./actionable-domain-previews"
 
 interface ActionableCardProps {
   actionable: LifeActionable
@@ -98,6 +107,22 @@ export const ActionableCard: FC<ActionableCardProps> = ({
         ) : null}
       </View>
 
+      {journey?.entity_title ? (
+        <View style={themed($journeySourceRow)}>
+          <View style={themed($journeySourceChip)}>
+            <Ionicons
+              name="sparkles-outline"
+              size={10}
+              color={colors.palette.primary500}
+              style={$sourceIcon}
+            />
+            <Text size="xxs" style={themed($journeySourceChipText)} numberOfLines={1}>
+              From journey · {journey.entity_title}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       <Text preset="bold" style={themed($title)}>
         {actionable.title}
       </Text>
@@ -106,6 +131,8 @@ export const ActionableCard: FC<ActionableCardProps> = ({
           {actionable.description}
         </Text>
       ) : null}
+
+      <DomainPreview actionable={actionable} domain={domain} />
 
       <Text size="xxs" style={themed($timestamp)}>
         {relativeTime(actionable.createdAt)}
@@ -139,6 +166,140 @@ export const ActionableCard: FC<ActionableCardProps> = ({
     )
   }
   return CardInner
+}
+
+// ─── Per-domain preview body ────────────────────────────────────────────────
+// Small inline block between the description and the action buttons that
+// surfaces domain-relevant fields from actionPayload.data when the backend
+// attached them (QBL-175).
+
+interface DomainPreviewProps {
+  actionable: LifeActionable
+  domain: ActionableDomain
+}
+
+const DomainPreview: FC<DomainPreviewProps> = ({ actionable, domain }) => {
+  const { themed, theme } = useAppTheme()
+  const { colors } = theme
+
+  if (domain === "meal") {
+    const p = mealPreview(actionable)
+    if (!p) return null
+    return (
+      <View style={themed($previewBlock)}>
+        <View style={themed($previewRow)}>
+          <Ionicons name="restaurant-outline" size={12} color={colors.textDim} />
+          {p.dietType ? (
+            <PreviewField label="Diet" value={p.dietType} />
+          ) : null}
+          {p.calorieTarget != null ? (
+            <PreviewField label="Target" value={`${p.calorieTarget} kcal`} />
+          ) : null}
+          {p.mealCount != null ? (
+            <PreviewField label="Meals" value={String(p.mealCount)} />
+          ) : null}
+        </View>
+      </View>
+    )
+  }
+
+  if (domain === "routine") {
+    const p = routinePreview(actionable)
+    if (!p) return null
+    return (
+      <View style={themed($previewBlock)}>
+        {p.schedule ? (
+          <View style={themed($previewRow)}>
+            <Ionicons name="alarm-outline" size={12} color={colors.textDim} />
+            <Text size="xxs" style={themed($previewValue)} numberOfLines={1}>
+              {p.schedule}
+            </Text>
+          </View>
+        ) : null}
+        {p.muscleGroup ? (
+          <View style={themed($previewRow)}>
+            <Ionicons name="fitness-outline" size={12} color={colors.textDim} />
+            <Text size="xxs" style={themed($previewValue)} numberOfLines={1}>
+              {p.muscleGroup}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    )
+  }
+
+  if (domain === "calendar") {
+    const p = calendarPreview(actionable)
+    if (!p) return null
+    return (
+      <View style={themed($previewBlock)}>
+        {p.timeLabel ? (
+          <View style={themed($previewRow)}>
+            <Ionicons name="calendar-outline" size={12} color={colors.textDim} />
+            <Text size="xxs" style={themed($previewValue)} numberOfLines={1}>
+              {p.timeLabel}
+            </Text>
+          </View>
+        ) : null}
+        {p.location ? (
+          <View style={themed($previewRow)}>
+            <Ionicons name="location-outline" size={12} color={colors.textDim} />
+            <Text size="xxs" style={themed($previewValue)} numberOfLines={1}>
+              {p.location}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    )
+  }
+
+  if (domain === "task") {
+    const p = taskPreview(actionable)
+    if (!p) return null
+    return (
+      <View style={themed($previewBlock)}>
+        <View style={themed($previewRow)}>
+          {p.priorityLabel ? (
+            <PreviewField label="Priority" value={p.priorityLabel} />
+          ) : null}
+          {p.dueLabel ? (
+            <PreviewField label="Due" value={p.dueLabel} />
+          ) : null}
+        </View>
+      </View>
+    )
+  }
+
+  if (domain === "memory") {
+    const preview = memoryPreview(actionable)
+    if (!preview) return null
+    return (
+      <View style={themed($previewBlock)}>
+        <View style={themed($previewRow)}>
+          <Ionicons name="bulb-outline" size={12} color={colors.textDim} />
+          <Text size="xxs" style={themed($previewValue)} numberOfLines={2}>
+            {preview}
+          </Text>
+        </View>
+      </View>
+    )
+  }
+
+  return null
+}
+
+const PreviewField: FC<{ label: string; value: string }> = ({ label, value }) => {
+  const { themed } = useAppTheme()
+  return (
+    <View style={themed($previewField)}>
+      <Text size="xxs" style={themed($previewLabel)}>
+        {label}
+      </Text>
+      <Text size="xxs" style={themed($previewValue)}>
+        {value}
+      </Text>
+    </View>
+  )
 }
 
 interface ActionRowProps {
@@ -281,6 +442,68 @@ const $journeyChip: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
 const $journeyChipText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.palette.primary500,
   fontWeight: "600",
+})
+
+const $journeySourceRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  marginBottom: spacing.xs,
+})
+
+const $journeySourceChip: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
+  backgroundColor: colors.palette.primary100,
+  borderColor: colors.palette.primary400,
+  borderWidth: 1,
+  paddingHorizontal: spacing.xs,
+  paddingVertical: 2,
+  borderRadius: 10,
+  maxWidth: "100%",
+})
+
+const $journeySourceChipText: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.palette.primary500,
+  fontWeight: "600",
+  flexShrink: 1,
+})
+
+const $sourceIcon: ViewStyle = { marginRight: 2 }
+
+const $previewBlock: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
+  marginBottom: spacing.sm,
+  paddingVertical: spacing.xxs,
+  paddingHorizontal: spacing.xs,
+  borderRadius: 8,
+  backgroundColor: colors.palette.neutral200,
+  gap: 4,
+})
+
+const $previewRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
+  flexDirection: "row",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: spacing.xs,
+})
+
+const $previewField: ThemedStyle<ViewStyle> = () => ({
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 3,
+})
+
+const $previewLabel: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.textDim,
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: 0.3,
+  fontWeight: "600",
+})
+
+const $previewValue: ThemedStyle<TextStyle> = ({ colors }) => ({
+  color: colors.text,
+  fontSize: 12,
+  flexShrink: 1,
 })
 
 const $title: ThemedStyle<TextStyle> = ({ spacing }) => ({
