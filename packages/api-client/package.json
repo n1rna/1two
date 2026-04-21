@@ -7,6 +7,7 @@
     "./life": "./src/life.ts",
     "./life-group": "./src/life-group.ts",
     "./health": "./src/health.ts",
+    "./travel": "./src/travel.ts",
     "./marketplace": "./src/marketplace.ts",
     "./auth-schema": "./src/auth-schema.ts"
   },
