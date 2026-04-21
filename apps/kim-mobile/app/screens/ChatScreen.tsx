@@ -21,6 +21,7 @@ import { Button } from "@/components/Button"
 import { PressableIcon } from "@/components/Icon"
 import { Screen } from "@/components/Screen"
 import { Text } from "@/components/Text"
+import { ToolTraceBlock, type TraceState } from "@/components/ToolTraceBlock"
 import type { MainTabScreenProps } from "@/navigators/navigationTypes"
 import { useAppTheme } from "@/theme/context"
 import type { ThemedStyle } from "@/theme/types"
@@ -43,6 +44,23 @@ function toChatMessage(m: LifeMessage): ChatMessage {
     content: m.content,
     toolCalls: m.toolCalls,
   }
+}
+
+/**
+ * Map a tool call's position in the list + overall streaming state onto
+ * the trace row visual state. Last row is "active" while streaming; all
+ * prior rows are "done"; once the turn finishes, every row is "done".
+ * A failed tool short-circuits to "done" + red bullet inside the block.
+ */
+function deriveTraceState(
+  effect: ChatEffect,
+  index: number,
+  total: number,
+  streaming: boolean,
+): TraceState {
+  if (effect.success === false) return "done"
+  if (!streaming) return "done"
+  return index === total - 1 ? "active" : "done"
 }
 
 /**
@@ -283,16 +301,20 @@ const MessageBubble: FC<{ message: ChatMessage }> = ({ message }) => {
           {message.content || (message.streaming ? "…" : "")}
         </Text>
         {message.toolCalls && message.toolCalls.length > 0 ? (
-          <View style={themed($toolRow)}>
-            {message.toolCalls.map((tc, i) => (
-              <View key={`${tc.id ?? tc.tool}-${i}`} style={themed($toolChip)}>
-                <Text size="xxs" style={themed($toolChipText)}>
-                  {tc.tool}
-                  {tc.success === false ? " ✗" : ""}
-                </Text>
-              </View>
-            ))}
-          </View>
+          <ToolTraceBlock
+            entries={message.toolCalls.map((tc, i) => ({
+              key: `${tc.id ?? tc.tool}-${i}`,
+              effect: tc,
+              toolName: tc.tool,
+              state: deriveTraceState(
+                tc,
+                i,
+                message.toolCalls!.length,
+                message.streaming ?? false,
+              ),
+            }))}
+            streaming={message.streaming ?? false}
+          />
         ) : null}
         {message.streaming ? (
           <ActivityIndicator
@@ -379,25 +401,6 @@ const $userText: ThemedStyle<TextStyle> = ({ colors }) => ({
 
 const $assistantText: ThemedStyle<TextStyle> = ({ colors }) => ({
   color: colors.text,
-})
-
-const $toolRow: ThemedStyle<ViewStyle> = ({ spacing }) => ({
-  flexDirection: "row",
-  flexWrap: "wrap",
-  gap: spacing.xxs,
-  marginTop: spacing.xs,
-})
-
-const $toolChip: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
-  paddingHorizontal: spacing.xs,
-  paddingVertical: 2,
-  borderRadius: 10,
-  backgroundColor: colors.palette.secondary200,
-})
-
-const $toolChipText: ThemedStyle<TextStyle> = ({ colors }) => ({
-  color: colors.text,
-  fontWeight: "600",
 })
 
 const $composerRow: ThemedStyle<ViewStyle> = ({ colors, spacing }) => ({
