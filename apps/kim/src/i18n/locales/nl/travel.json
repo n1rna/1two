@@ -1,0 +1,45 @@
+{
+  "page_title": "Reizen",
+  "page_subtitle": "Plan reizen met kim",
+  "nav_trips": "Reizen",
+  "new_trip": "Nieuwe reis",
+  "plan_a_trip": "Plan een reis",
+
+  "empty_title": "Nog geen reizen",
+  "empty_hint": "Begin er hieronder een, of druk op ⌘K en vraag kim om er een te plannen.",
+
+  "trip_count_one": "{{count}} reis",
+  "trip_count_other": "{{count}} reizen",
+  "destinations_count_one": "{{count}} bestemming",
+  "destinations_count_other": "{{count}} bestemmingen",
+
+  "status_planning": "Planning",
+  "status_booked": "Geboekt",
+  "status_ongoing": "Onderweg",
+  "status_completed": "Voltooid",
+  "status_cancelled": "Geannuleerd",
+
+  "role_owner": "Eigenaar",
+  "role_editor": "Bewerker",
+  "role_viewer": "Kijker",
+
+  "create_title": "Plan een nieuwe reis",
+  "create_subtitle": "Begin met een naam en ruwe datums. Aanpassen kan daarna.",
+  "field_title": "Titel",
+  "field_title_placeholder": "bijv. Japan, herfst 2026",
+  "field_summary": "Samenvatting",
+  "field_summary_placeholder": "Optioneel — korte omschrijving.",
+  "field_start_date": "Startdatum",
+  "field_end_date": "Einddatum",
+  "field_currency": "Budgetvaluta",
+  "create_submit": "Reis aanmaken",
+  "create_error": "Kan reis niet aanmaken. Probeer opnieuw.",
+
+  "dates_not_set": "Datums niet ingesteld",
+  "date_range": "{{start}} → {{end}}",
+  "date_start_only": "Vanaf {{start}}",
+  "date_end_only": "Tot {{end}}",
+
+  "load_error": "Reizen konden niet worden geladen.",
+  "retry": "Opnieuw"
+}

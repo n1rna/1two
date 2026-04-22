@@ -8,6 +8,10 @@
   "nav_gym": "Gym",
   "nav_memories": "Herinneringen",
   "nav_channels": "Kanalen",
+
+  "mode_life": "Life",
+  "mode_travel": "Reizen",
+  "mode_switcher_aria": "Wissel van modus",
   "nav_market": "Markt",
   "nav_settings": "Instellingen",
   "nav_conversations": "Gesprekken",

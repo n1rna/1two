@@ -1,0 +1,45 @@
+{
+  "page_title": "Travel",
+  "page_subtitle": "Plan trips with kim",
+  "nav_trips": "Trips",
+  "new_trip": "New trip",
+  "plan_a_trip": "Plan a trip",
+
+  "empty_title": "No trips yet",
+  "empty_hint": "Start one below, or press ⌘K and ask kim to plan something.",
+
+  "trip_count_one": "{{count}} trip",
+  "trip_count_other": "{{count}} trips",
+  "destinations_count_one": "{{count}} destination",
+  "destinations_count_other": "{{count}} destinations",
+
+  "status_planning": "Planning",
+  "status_booked": "Booked",
+  "status_ongoing": "Ongoing",
+  "status_completed": "Completed",
+  "status_cancelled": "Cancelled",
+
+  "role_owner": "Owner",
+  "role_editor": "Editor",
+  "role_viewer": "Viewer",
+
+  "create_title": "Plan a new trip",
+  "create_subtitle": "Start with a name and rough dates. You can shape it after.",
+  "field_title": "Title",
+  "field_title_placeholder": "e.g. Japan, autumn 2026",
+  "field_summary": "Summary",
+  "field_summary_placeholder": "Optional — short description.",
+  "field_start_date": "Start date",
+  "field_end_date": "End date",
+  "field_currency": "Budget currency",
+  "create_submit": "Create trip",
+  "create_error": "Could not create trip. Try again.",
+
+  "dates_not_set": "Dates not set",
+  "date_range": "{{start}} → {{end}}",
+  "date_start_only": "From {{start}}",
+  "date_end_only": "Until {{end}}",
+
+  "load_error": "Could not load trips.",
+  "retry": "Retry"
+}

@@ -8,6 +8,10 @@
   "nav_gym": "Gym",
   "nav_memories": "Memories",
   "nav_channels": "Channels",
+
+  "mode_life": "Life",
+  "mode_travel": "Travel",
+  "mode_switcher_aria": "Switch app mode",
   "nav_market": "Market",
   "nav_settings": "Settings",
   "nav_conversations": "Conversations",

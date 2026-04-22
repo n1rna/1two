@@ -1,0 +1,45 @@
+{
+  "page_title": "Reisen",
+  "page_subtitle": "Plane Reisen mit kim",
+  "nav_trips": "Reisen",
+  "new_trip": "Neue Reise",
+  "plan_a_trip": "Reise planen",
+
+  "empty_title": "Noch keine Reisen",
+  "empty_hint": "Starte unten eine oder drücke ⌘K und bitte kim um einen Plan.",
+
+  "trip_count_one": "{{count}} Reise",
+  "trip_count_other": "{{count}} Reisen",
+  "destinations_count_one": "{{count}} Ziel",
+  "destinations_count_other": "{{count}} Ziele",
+
+  "status_planning": "Planung",
+  "status_booked": "Gebucht",
+  "status_ongoing": "Läuft",
+  "status_completed": "Abgeschlossen",
+  "status_cancelled": "Storniert",
+
+  "role_owner": "Eigentümer",
+  "role_editor": "Bearbeiter",
+  "role_viewer": "Betrachter",
+
+  "create_title": "Neue Reise planen",
+  "create_subtitle": "Beginne mit einem Namen und groben Daten. Verfeinern kannst du später.",
+  "field_title": "Titel",
+  "field_title_placeholder": "z. B. Japan, Herbst 2026",
+  "field_summary": "Zusammenfassung",
+  "field_summary_placeholder": "Optional — kurze Beschreibung.",
+  "field_start_date": "Startdatum",
+  "field_end_date": "Enddatum",
+  "field_currency": "Budgetwährung",
+  "create_submit": "Reise erstellen",
+  "create_error": "Reise konnte nicht erstellt werden. Erneut versuchen.",
+
+  "dates_not_set": "Daten nicht gesetzt",
+  "date_range": "{{start}} → {{end}}",
+  "date_start_only": "Ab {{start}}",
+  "date_end_only": "Bis {{end}}",
+
+  "load_error": "Reisen konnten nicht geladen werden.",
+  "retry": "Erneut versuchen"
+}

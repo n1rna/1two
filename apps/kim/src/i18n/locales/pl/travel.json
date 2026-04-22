@@ -1,0 +1,45 @@
+{
+  "page_title": "Podróże",
+  "page_subtitle": "Planuj podróże z kim",
+  "nav_trips": "Podróże",
+  "new_trip": "Nowa podróż",
+  "plan_a_trip": "Zaplanuj podróż",
+
+  "empty_title": "Brak podróży",
+  "empty_hint": "Zacznij jedną poniżej lub naciśnij ⌘K i poproś kim o zaplanowanie.",
+
+  "trip_count_one": "{{count}} podróż",
+  "trip_count_other": "{{count}} podróży",
+  "destinations_count_one": "{{count}} cel",
+  "destinations_count_other": "{{count}} celów",
+
+  "status_planning": "Planowanie",
+  "status_booked": "Zarezerwowana",
+  "status_ongoing": "Trwa",
+  "status_completed": "Zakończona",
+  "status_cancelled": "Anulowana",
+
+  "role_owner": "Właściciel",
+  "role_editor": "Edytor",
+  "role_viewer": "Obserwator",
+
+  "create_title": "Zaplanuj nową podróż",
+  "create_subtitle": "Zacznij od nazwy i przybliżonych dat. Dopracujesz później.",
+  "field_title": "Tytuł",
+  "field_title_placeholder": "np. Japonia, jesień 2026",
+  "field_summary": "Opis",
+  "field_summary_placeholder": "Opcjonalnie — krótki opis.",
+  "field_start_date": "Data rozpoczęcia",
+  "field_end_date": "Data zakończenia",
+  "field_currency": "Waluta budżetu",
+  "create_submit": "Utwórz podróż",
+  "create_error": "Nie udało się utworzyć podróży. Spróbuj ponownie.",
+
+  "dates_not_set": "Daty nie ustawione",
+  "date_range": "{{start}} → {{end}}",
+  "date_start_only": "Od {{start}}",
+  "date_end_only": "Do {{end}}",
+
+  "load_error": "Nie udało się załadować podróży.",
+  "retry": "Ponów"
+}
