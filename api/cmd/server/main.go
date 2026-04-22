@@ -418,6 +418,38 @@ func main() {
 				r.Put("/life/gtasks/tasks", handler.UpdateGTask(db, gcalClient))
 				r.Delete("/life/gtasks/tasks", handler.DeleteGTask(db, gcalClient))
 				r.Post("/life/gtasks/complete", handler.CompleteGTask(db, gcalClient))
+
+				// Travel tool — trip planning.
+				r.Get("/life/travel/trips", handler.ListTrips(db))
+				r.Post("/life/travel/trips", handler.CreateTrip(db))
+				r.Get("/life/travel/trips/{id}", handler.GetTrip(db))
+				r.Patch("/life/travel/trips/{id}", handler.UpdateTrip(db))
+				r.Delete("/life/travel/trips/{id}", handler.DeleteTrip(db))
+
+				r.Get("/life/travel/trips/{id}/destinations", handler.ListDestinations(db))
+				r.Post("/life/travel/trips/{id}/destinations", handler.AddDestination(db))
+				r.Post("/life/travel/trips/{id}/destinations/reorder", handler.ReorderDestinations(db))
+				r.Patch("/life/travel/destinations/{id}", handler.UpdateDestination(db))
+				r.Delete("/life/travel/destinations/{id}", handler.DeleteDestination(db))
+
+				r.Post("/life/travel/destinations/{id}/activities", handler.AddActivity(db))
+				r.Get("/life/travel/trips/{id}/activities", handler.ListTripActivities(db))
+				r.Patch("/life/travel/activities/{id}", handler.UpdateActivity(db))
+				r.Delete("/life/travel/activities/{id}", handler.DeleteActivity(db))
+
+				r.Get("/life/travel/trips/{id}/reservations", handler.ListReservations(db))
+				r.Post("/life/travel/trips/{id}/reservations", handler.AddReservation(db))
+				r.Patch("/life/travel/reservations/{id}", handler.UpdateReservation(db))
+				r.Delete("/life/travel/reservations/{id}", handler.DeleteReservation(db))
+
+				r.Get("/life/travel/trips/{id}/tickets", handler.ListTickets(db))
+				if r2 != nil {
+					r.Post("/life/travel/trips/{id}/tickets", handler.UploadTravelTicket(cfg, db, r2))
+					r.Delete("/life/travel/tickets/{id}", handler.DeleteTravelTicket(db, r2))
+				}
+
+				r.Get("/life/travel/preferences", handler.GetTravelPreferences(db))
+				r.Put("/life/travel/preferences", handler.UpdateTravelPreferences(db))
 			}
 			if llmsSvc != nil && db != nil && r2 != nil {
 				r.Post("/llms/generate", handler.GenerateLlms(llmsSvc))
