@@ -8,6 +8,10 @@
   "nav_gym": "Training",
   "nav_memories": "Erinnerungen",
   "nav_channels": "Kanäle",
+
+  "mode_life": "Life",
+  "mode_travel": "Reisen",
+  "mode_switcher_aria": "Modus wechseln",
   "nav_market": "Marktplatz",
   "nav_settings": "Einstellungen",
   "nav_conversations": "Unterhaltungen",

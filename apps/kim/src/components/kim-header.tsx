@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
+import { ModeSwitcher } from "@/components/mode-switcher";
 import { routes } from "@/lib/routes";
 import { useTranslation } from "react-i18next";
 
@@ -31,6 +32,8 @@ export function KimHeader() {
             className="rounded-full group-hover:opacity-85 transition-opacity"
           />
         </Link>
+
+        <ModeSwitcher />
 
         <div className="flex-1" />
 

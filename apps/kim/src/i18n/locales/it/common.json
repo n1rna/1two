@@ -8,6 +8,10 @@
   "nav_gym": "Palestra",
   "nav_memories": "Ricordi",
   "nav_channels": "Canali",
+
+  "mode_life": "Life",
+  "mode_travel": "Viaggi",
+  "mode_switcher_aria": "Cambia modalità",
   "nav_market": "Marketplace",
   "nav_settings": "Impostazioni",
   "nav_conversations": "Conversazioni",

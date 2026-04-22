@@ -66,6 +66,10 @@ export const routes = {
   sessionNew: "/sessions/create" as const,
   session: (id: string) => `/sessions/${id}`,
 
+  // Travel
+  travel: "/travel" as const,
+  trip: (id: string) => `/travel/${id}`,
+
   // Marketplace
   marketplace: (opts?: { kind?: "routine" | "gym_session" | "meal_plan" }) =>
     `/marketplace${qs(opts ? { kind: opts.kind } : undefined)}`,

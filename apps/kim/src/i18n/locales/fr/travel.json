@@ -1,0 +1,45 @@
+{
+  "page_title": "Voyages",
+  "page_subtitle": "Planifiez vos voyages avec kim",
+  "nav_trips": "Voyages",
+  "new_trip": "Nouveau voyage",
+  "plan_a_trip": "Planifier un voyage",
+
+  "empty_title": "Aucun voyage",
+  "empty_hint": "Commencez-en un ci-dessous, ou appuyez sur ⌘K et demandez à kim de planifier.",
+
+  "trip_count_one": "{{count}} voyage",
+  "trip_count_other": "{{count}} voyages",
+  "destinations_count_one": "{{count}} destination",
+  "destinations_count_other": "{{count}} destinations",
+
+  "status_planning": "En cours de planification",
+  "status_booked": "Réservé",
+  "status_ongoing": "En cours",
+  "status_completed": "Terminé",
+  "status_cancelled": "Annulé",
+
+  "role_owner": "Propriétaire",
+  "role_editor": "Éditeur",
+  "role_viewer": "Observateur",
+
+  "create_title": "Planifier un nouveau voyage",
+  "create_subtitle": "Commencez par un nom et des dates approximatives. Vous pourrez affiner ensuite.",
+  "field_title": "Titre",
+  "field_title_placeholder": "p. ex. Japon, automne 2026",
+  "field_summary": "Résumé",
+  "field_summary_placeholder": "Facultatif — courte description.",
+  "field_start_date": "Date de début",
+  "field_end_date": "Date de fin",
+  "field_currency": "Devise du budget",
+  "create_submit": "Créer le voyage",
+  "create_error": "Impossible de créer le voyage. Réessayez.",
+
+  "dates_not_set": "Dates non définies",
+  "date_range": "{{start}} → {{end}}",
+  "date_start_only": "À partir du {{start}}",
+  "date_end_only": "Jusqu'au {{end}}",
+
+  "load_error": "Impossible de charger les voyages.",
+  "retry": "Réessayer"
+}
