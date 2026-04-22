@@ -9,8 +9,9 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack"
 
 // Authed-state bottom tabs.
 export type MainTabParamList = {
-  Chat: undefined
+  Chat: { prefill?: string } | undefined
   Actionables: undefined
+  Routines: undefined
   Settings: undefined
 }
 
@@ -21,6 +22,7 @@ export type AppStackParamList = {
   SignIn: undefined
   Main: NavigatorScreenParams<MainTabParamList>
   Conversations: undefined
+  RoutineDetail: { id: string }
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
