@@ -41,5 +41,20 @@
   "date_end_only": "Until {{end}}",
 
   "load_error": "Could not load trips.",
-  "retry": "Retry"
+  "retry": "Retry",
+
+  "back_to_trips": "Back to trips",
+  "click_to_rename": "Click to rename",
+  "confirm_delete": "Delete this trip? This cannot be undone.",
+  "delete_error": "Could not delete trip.",
+
+  "section_map": "Map preview",
+  "map_placeholder": "Map loads once destinations are added.",
+  "section_destinations": "Destinations",
+  "section_reservations": "Reservations",
+
+  "empty_destinations_title": "No destinations yet",
+  "empty_destinations_hint": "Ask kim to add cities, or edit destinations here once the editor ships.",
+  "empty_reservations_title": "No reservations yet",
+  "empty_reservations_hint": "Add flights, stays, and other bookings from kim or the bookings page."
 }

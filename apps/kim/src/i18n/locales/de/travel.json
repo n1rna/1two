@@ -41,5 +41,20 @@
   "date_end_only": "Bis {{end}}",
 
   "load_error": "Reisen konnten nicht geladen werden.",
-  "retry": "Erneut versuchen"
+  "retry": "Erneut versuchen",
+
+  "back_to_trips": "Zurück zu Reisen",
+  "click_to_rename": "Zum Umbenennen klicken",
+  "confirm_delete": "Diese Reise löschen? Kann nicht rückgängig gemacht werden.",
+  "delete_error": "Reise konnte nicht gelöscht werden.",
+
+  "section_map": "Kartenvorschau",
+  "map_placeholder": "Karte erscheint, sobald Ziele hinzugefügt sind.",
+  "section_destinations": "Ziele",
+  "section_reservations": "Reservierungen",
+
+  "empty_destinations_title": "Noch keine Ziele",
+  "empty_destinations_hint": "Frag kim nach Städten oder nutze später den Editor.",
+  "empty_reservations_title": "Noch keine Reservierungen",
+  "empty_reservations_hint": "Flüge, Unterkünfte und andere Buchungen via kim oder die Buchungsseite hinzufügen."
 }
