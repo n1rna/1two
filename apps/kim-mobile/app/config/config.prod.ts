@@ -10,6 +10,7 @@ import type { EnvConfigProps } from "./config.base"
 const ProdConfig: EnvConfigProps = {
   authBaseUrl: "https://kim1.ai",
   apiBaseUrl: "https://kim1.ai/api/proxy/life",
+  healthBaseUrl: "https://kim1.ai/api/proxy/health",
 }
 
 export default ProdConfig
