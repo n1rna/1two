@@ -54,7 +54,31 @@
   "section_reservations": "Reservas",
 
   "empty_destinations_title": "Aún no hay destinos",
-  "empty_destinations_hint": "Pídele a kim que añada ciudades, o usa el editor cuando esté disponible.",
+  "empty_destinations_hint": "Pide a un editor que añada ciudades, o invita a kim a planificar la ruta.",
+  "empty_destinations_hint_editable": "Añade una ciudad abajo, o pide a kim que sugiera una ruta.",
+
+  "add_destination": "Añadir destino",
+  "add_destination_title": "Añadir un destino",
+  "add_destination_subtitle": "Nombre, país y fechas de llegada/salida opcionales.",
+  "edit_destination": "Editar destino",
+  "edit_destination_title": "Editar destino",
+  "edit_destination_subtitle": "Actualiza nombre, fechas o notas.",
+  "delete_destination": "Eliminar destino",
+  "confirm_delete_destination": "¿Eliminar este destino? Las actividades asociadas también se eliminarán.",
+  "destination_save_error": "No se pudo guardar el destino. Inténtalo de nuevo.",
+  "drag_to_reorder": "Arrastra para reordenar",
+
+  "field_destination_name": "Nombre del lugar",
+  "field_destination_name_placeholder": "p. ej. Kioto",
+  "field_country": "País",
+  "field_country_placeholder": "p. ej. Japón",
+  "field_region": "Región",
+  "field_region_placeholder": "p. ej. Kansai",
+  "field_arrive_at": "Llegada",
+  "field_depart_at": "Salida",
+  "field_notes": "Notas",
+  "field_notes_placeholder": "Opcional.",
+
   "empty_reservations_title": "Aún no hay reservas",
   "empty_reservations_hint": "Añade vuelos, alojamientos y otras reservas desde kim o la página de reservas."
 }

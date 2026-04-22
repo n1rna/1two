@@ -54,7 +54,31 @@
   "section_reservations": "Reserveringen",
 
   "empty_destinations_title": "Nog geen bestemmingen",
-  "empty_destinations_hint": "Vraag kim om steden toe te voegen, of gebruik straks de editor.",
+  "empty_destinations_hint": "Vraag een bewerker om steden toe te voegen, of laat kim een route plannen.",
+  "empty_destinations_hint_editable": "Voeg hieronder een stad toe, of vraag kim om een route voor te stellen.",
+
+  "add_destination": "Bestemming toevoegen",
+  "add_destination_title": "Bestemming toevoegen",
+  "add_destination_subtitle": "Naam, land en optionele aankomst-/vertrekdata.",
+  "edit_destination": "Bestemming bewerken",
+  "edit_destination_title": "Bestemming bewerken",
+  "edit_destination_subtitle": "Werk naam, datums of notities bij.",
+  "delete_destination": "Bestemming verwijderen",
+  "confirm_delete_destination": "Deze bestemming verwijderen? Bijbehorende activiteiten worden ook verwijderd.",
+  "destination_save_error": "Bestemming kan niet worden opgeslagen. Probeer opnieuw.",
+  "drag_to_reorder": "Sleep om te herordenen",
+
+  "field_destination_name": "Plaatsnaam",
+  "field_destination_name_placeholder": "bijv. Kyoto",
+  "field_country": "Land",
+  "field_country_placeholder": "bijv. Japan",
+  "field_region": "Regio",
+  "field_region_placeholder": "bijv. Kansai",
+  "field_arrive_at": "Aankomst",
+  "field_depart_at": "Vertrek",
+  "field_notes": "Notities",
+  "field_notes_placeholder": "Optioneel.",
+
   "empty_reservations_title": "Nog geen reserveringen",
   "empty_reservations_hint": "Voeg vluchten, verblijven en andere boekingen toe via kim of de boekingenpagina."
 }
