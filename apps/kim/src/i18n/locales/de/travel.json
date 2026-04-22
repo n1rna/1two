@@ -54,7 +54,31 @@
   "section_reservations": "Reservierungen",
 
   "empty_destinations_title": "Noch keine Ziele",
-  "empty_destinations_hint": "Frag kim nach Städten oder nutze später den Editor.",
+  "empty_destinations_hint": "Bitte einen Bearbeiter, Städte hinzuzufügen, oder lass kim eine Route planen.",
+  "empty_destinations_hint_editable": "Füge unten eine Stadt hinzu oder lass kim eine Route vorschlagen.",
+
+  "add_destination": "Ziel hinzufügen",
+  "add_destination_title": "Ziel hinzufügen",
+  "add_destination_subtitle": "Name, Land und optionale Ankunfts-/Abreisedaten.",
+  "edit_destination": "Ziel bearbeiten",
+  "edit_destination_title": "Ziel bearbeiten",
+  "edit_destination_subtitle": "Name, Daten oder Notizen aktualisieren.",
+  "delete_destination": "Ziel löschen",
+  "confirm_delete_destination": "Dieses Ziel löschen? Zugehörige Aktivitäten werden ebenfalls entfernt.",
+  "destination_save_error": "Ziel konnte nicht gespeichert werden. Erneut versuchen.",
+  "drag_to_reorder": "Zum Umsortieren ziehen",
+
+  "field_destination_name": "Ortsname",
+  "field_destination_name_placeholder": "z. B. Kyoto",
+  "field_country": "Land",
+  "field_country_placeholder": "z. B. Japan",
+  "field_region": "Region",
+  "field_region_placeholder": "z. B. Kansai",
+  "field_arrive_at": "Ankunft",
+  "field_depart_at": "Abreise",
+  "field_notes": "Notizen",
+  "field_notes_placeholder": "Optional.",
+
   "empty_reservations_title": "Noch keine Reservierungen",
   "empty_reservations_hint": "Flüge, Unterkünfte und andere Buchungen via kim oder die Buchungsseite hinzufügen."
 }

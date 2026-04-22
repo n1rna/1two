@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/page-shell";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { DestinationsEditor } from "./destinations-editor";
 
 const STATUS_ORDER: TripStatus[] = ["planning", "booked", "ongoing", "completed", "cancelled"];
 
@@ -227,30 +228,12 @@ export function TripOverviewView({ tripId }: { tripId: string }) {
             <SectionHeading icon={<Plane size={14} />} count={destinations.length}>
               {t("section_destinations")}
             </SectionHeading>
-            {destinations.length === 0 ? (
-              <EmptyState title={t("empty_destinations_title")} hint={t("empty_destinations_hint")} />
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {destinations.map((d) => (
-                  <li
-                    key={d.id}
-                    className="border border-border rounded-md px-3 py-2.5 flex items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        <span className="text-muted-foreground tabular-nums mr-2">{d.ordinal + 1}.</span>
-                        {d.name}
-                      </div>
-                      {(d.country || d.region) && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {[d.region, d.country].filter(Boolean).join(", ")}
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <DestinationsEditor
+              tripId={trip.id}
+              destinations={destinations}
+              canEdit={canEdit}
+              onChange={setDestinations}
+            />
           </Card>
 
           {/* Reservations */}

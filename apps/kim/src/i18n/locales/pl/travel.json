@@ -54,7 +54,31 @@
   "section_reservations": "Rezerwacje",
 
   "empty_destinations_title": "Brak celów",
-  "empty_destinations_hint": "Poproś kim o dodanie miast lub skorzystaj z edytora, gdy będzie dostępny.",
+  "empty_destinations_hint": "Poproś edytora o dodanie miast lub poproś kim o zaplanowanie trasy.",
+  "empty_destinations_hint_editable": "Dodaj miasto poniżej lub poproś kim o sugestię trasy.",
+
+  "add_destination": "Dodaj cel",
+  "add_destination_title": "Dodaj cel",
+  "add_destination_subtitle": "Nazwa, kraj i opcjonalne daty przyjazdu/wyjazdu.",
+  "edit_destination": "Edytuj cel",
+  "edit_destination_title": "Edytuj cel",
+  "edit_destination_subtitle": "Zaktualizuj nazwę, daty lub notatki.",
+  "delete_destination": "Usuń cel",
+  "confirm_delete_destination": "Usunąć ten cel? Powiązane aktywności też zostaną usunięte.",
+  "destination_save_error": "Nie udało się zapisać celu. Spróbuj ponownie.",
+  "drag_to_reorder": "Przeciągnij, aby zmienić kolejność",
+
+  "field_destination_name": "Nazwa miejsca",
+  "field_destination_name_placeholder": "np. Kioto",
+  "field_country": "Kraj",
+  "field_country_placeholder": "np. Japonia",
+  "field_region": "Region",
+  "field_region_placeholder": "np. Kansai",
+  "field_arrive_at": "Przyjazd",
+  "field_depart_at": "Wyjazd",
+  "field_notes": "Notatki",
+  "field_notes_placeholder": "Opcjonalnie.",
+
   "empty_reservations_title": "Brak rezerwacji",
   "empty_reservations_hint": "Dodaj loty, noclegi i inne rezerwacje z kim lub strony rezerwacji."
 }

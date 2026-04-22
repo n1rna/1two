@@ -54,7 +54,31 @@
   "section_reservations": "Reservations",
 
   "empty_destinations_title": "No destinations yet",
-  "empty_destinations_hint": "Ask kim to add cities, or edit destinations here once the editor ships.",
+  "empty_destinations_hint": "Ask an editor to add cities, or invite kim to plan the route.",
+  "empty_destinations_hint_editable": "Add a city below, or ask kim to suggest a route.",
+
+  "add_destination": "Add destination",
+  "add_destination_title": "Add a destination",
+  "add_destination_subtitle": "Name, country and optional arrival/departure dates.",
+  "edit_destination": "Edit destination",
+  "edit_destination_title": "Edit destination",
+  "edit_destination_subtitle": "Update name, dates, or notes.",
+  "delete_destination": "Delete destination",
+  "confirm_delete_destination": "Delete this destination? Activities there will be removed too.",
+  "destination_save_error": "Could not save destination. Try again.",
+  "drag_to_reorder": "Drag to reorder",
+
+  "field_destination_name": "Place name",
+  "field_destination_name_placeholder": "e.g. Kyoto",
+  "field_country": "Country",
+  "field_country_placeholder": "e.g. Japan",
+  "field_region": "Region",
+  "field_region_placeholder": "e.g. Kansai",
+  "field_arrive_at": "Arrive",
+  "field_depart_at": "Depart",
+  "field_notes": "Notes",
+  "field_notes_placeholder": "Optional.",
+
   "empty_reservations_title": "No reservations yet",
   "empty_reservations_hint": "Add flights, stays, and other bookings from kim or the bookings page."
 }
