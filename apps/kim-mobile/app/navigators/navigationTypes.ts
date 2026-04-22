@@ -13,6 +13,7 @@ export type MainTabParamList = {
   Actionables: undefined
   Routines: undefined
   Meals: undefined
+  Health: undefined
   Settings: undefined
 }
 
