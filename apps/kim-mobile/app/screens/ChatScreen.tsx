@@ -76,7 +76,7 @@ function deriveTraceState(
  * v1 scope: category `auto`, no slash commands, no routine context, no
  * form drafting — those stay web-only per QBL-67.
  */
-export const ChatScreen: FC<ChatScreenProps> = ({ navigation }) => {
+export const ChatScreen: FC<ChatScreenProps> = ({ navigation, route }) => {
   const { themed, theme } = useAppTheme()
   const { colors } = theme
 
@@ -92,6 +92,16 @@ export const ChatScreen: FC<ChatScreenProps> = ({ navigation }) => {
   // the same, so at any moment exactly one tab is on the 5s cadence.
   const isFocused = useIsFocused()
   const { running, count } = useAgentRunsPulse({ active: isFocused })
+
+  // Consume a one-shot prefill param from other screens (e.g. Routines'
+  // "Ask Kim to edit" CTA), then clear it so returning to Chat doesn't
+  // refill the composer on every focus.
+  const prefill = route.params?.prefill
+  useEffect(() => {
+    if (!prefill) return
+    setInput(prefill)
+    navigation.setParams({ prefill: undefined })
+  }, [prefill, navigation])
 
   // On first render pick up the most recent conversation so the user
   // continues where they left off. If the list is empty we stay at an

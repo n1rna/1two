@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 
 import { ActionablesScreen } from "@/screens/ActionablesScreen"
 import { ChatScreen } from "@/screens/ChatScreen"
+import { RoutinesScreen } from "@/screens/RoutinesScreen"
 import { SettingsScreen } from "@/screens/SettingsScreen"
 import { useAppTheme } from "@/theme/context"
 
@@ -55,6 +56,13 @@ export const MainNavigator = () => {
         component={ActionablesScreen}
         options={{
           tabBarIcon: makeTabIcon("checkbox", "checkbox-outline"),
+        }}
+      />
+      <Tab.Screen
+        name="Routines"
+        component={RoutinesScreen}
+        options={{
+          tabBarIcon: makeTabIcon("repeat", "repeat-outline"),
         }}
       />
       <Tab.Screen

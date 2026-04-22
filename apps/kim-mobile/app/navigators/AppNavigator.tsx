@@ -9,6 +9,7 @@ import Config from "@/config"
 import { useAuth } from "@/context/AuthContext"
 import { ConversationsScreen } from "@/screens/ConversationsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
+import { RoutineDetailScreen } from "@/screens/RoutineDetailScreen"
 import { SignInScreen } from "@/screens/SignInScreen"
 import { useAppTheme } from "@/theme/context"
 
@@ -42,6 +43,11 @@ const AppStack = () => {
             name="Conversations"
             component={ConversationsScreen}
             options={{ headerShown: true, title: "Past conversations" }}
+          />
+          <Stack.Screen
+            name="RoutineDetail"
+            component={RoutineDetailScreen}
+            options={{ headerShown: true, title: "Routine" }}
           />
         </>
       ) : (
