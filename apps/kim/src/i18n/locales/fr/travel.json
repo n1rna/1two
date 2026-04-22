@@ -41,5 +41,20 @@
   "date_end_only": "Jusqu'au {{end}}",
 
   "load_error": "Impossible de charger les voyages.",
-  "retry": "Réessayer"
+  "retry": "Réessayer",
+
+  "back_to_trips": "Retour aux voyages",
+  "click_to_rename": "Cliquez pour renommer",
+  "confirm_delete": "Supprimer ce voyage ? Action irréversible.",
+  "delete_error": "Impossible de supprimer le voyage.",
+
+  "section_map": "Aperçu de la carte",
+  "map_placeholder": "La carte apparaît une fois des destinations ajoutées.",
+  "section_destinations": "Destinations",
+  "section_reservations": "Réservations",
+
+  "empty_destinations_title": "Aucune destination",
+  "empty_destinations_hint": "Demandez à kim d'ajouter des villes, ou utilisez l'éditeur quand il sera disponible.",
+  "empty_reservations_title": "Aucune réservation",
+  "empty_reservations_hint": "Ajoutez vols, hébergements et autres réservations via kim ou la page des réservations."
 }

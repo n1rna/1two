@@ -41,5 +41,20 @@
   "date_end_only": "Do {{end}}",
 
   "load_error": "Nie udało się załadować podróży.",
-  "retry": "Ponów"
+  "retry": "Ponów",
+
+  "back_to_trips": "Wróć do podróży",
+  "click_to_rename": "Kliknij, aby zmienić nazwę",
+  "confirm_delete": "Usunąć tę podróż? Operacja nieodwracalna.",
+  "delete_error": "Nie udało się usunąć podróży.",
+
+  "section_map": "Podgląd mapy",
+  "map_placeholder": "Mapa pojawi się po dodaniu celów.",
+  "section_destinations": "Cele",
+  "section_reservations": "Rezerwacje",
+
+  "empty_destinations_title": "Brak celów",
+  "empty_destinations_hint": "Poproś kim o dodanie miast lub skorzystaj z edytora, gdy będzie dostępny.",
+  "empty_reservations_title": "Brak rezerwacji",
+  "empty_reservations_hint": "Dodaj loty, noclegi i inne rezerwacje z kim lub strony rezerwacji."
 }

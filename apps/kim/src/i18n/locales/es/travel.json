@@ -41,5 +41,20 @@
   "date_end_only": "Hasta {{end}}",
 
   "load_error": "No se pudieron cargar los viajes.",
-  "retry": "Reintentar"
+  "retry": "Reintentar",
+
+  "back_to_trips": "Volver a viajes",
+  "click_to_rename": "Clic para renombrar",
+  "confirm_delete": "¿Eliminar este viaje? No se puede deshacer.",
+  "delete_error": "No se pudo eliminar el viaje.",
+
+  "section_map": "Vista previa del mapa",
+  "map_placeholder": "El mapa aparece al añadir destinos.",
+  "section_destinations": "Destinos",
+  "section_reservations": "Reservas",
+
+  "empty_destinations_title": "Aún no hay destinos",
+  "empty_destinations_hint": "Pídele a kim que añada ciudades, o usa el editor cuando esté disponible.",
+  "empty_reservations_title": "Aún no hay reservas",
+  "empty_reservations_hint": "Añade vuelos, alojamientos y otras reservas desde kim o la página de reservas."
 }

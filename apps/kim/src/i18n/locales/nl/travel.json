@@ -41,5 +41,20 @@
   "date_end_only": "Tot {{end}}",
 
   "load_error": "Reizen konden niet worden geladen.",
-  "retry": "Opnieuw"
+  "retry": "Opnieuw",
+
+  "back_to_trips": "Terug naar reizen",
+  "click_to_rename": "Klik om te hernoemen",
+  "confirm_delete": "Deze reis verwijderen? Dit kan niet ongedaan worden gemaakt.",
+  "delete_error": "Reis kan niet worden verwijderd.",
+
+  "section_map": "Kaartvoorbeeld",
+  "map_placeholder": "Kaart verschijnt zodra bestemmingen zijn toegevoegd.",
+  "section_destinations": "Bestemmingen",
+  "section_reservations": "Reserveringen",
+
+  "empty_destinations_title": "Nog geen bestemmingen",
+  "empty_destinations_hint": "Vraag kim om steden toe te voegen, of gebruik straks de editor.",
+  "empty_reservations_title": "Nog geen reserveringen",
+  "empty_reservations_hint": "Voeg vluchten, verblijven en andere boekingen toe via kim of de boekingenpagina."
 }
