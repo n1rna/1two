@@ -12,6 +12,7 @@ export type MainTabParamList = {
   Chat: { prefill?: string } | undefined
   Actionables: undefined
   Routines: undefined
+  Meals: undefined
   Settings: undefined
 }
 
@@ -23,6 +24,7 @@ export type AppStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>
   Conversations: undefined
   RoutineDetail: { id: string }
+  MealPlanDetail: { id: string }
   // 🔥 Your screens go here
   // IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }

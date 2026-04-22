@@ -9,6 +9,7 @@ import Config from "@/config"
 import { useAuth } from "@/context/AuthContext"
 import { ConversationsScreen } from "@/screens/ConversationsScreen"
 import { ErrorBoundary } from "@/screens/ErrorScreen/ErrorBoundary"
+import { MealPlanDetailScreen } from "@/screens/MealPlanDetailScreen"
 import { RoutineDetailScreen } from "@/screens/RoutineDetailScreen"
 import { SignInScreen } from "@/screens/SignInScreen"
 import { useAppTheme } from "@/theme/context"
@@ -48,6 +49,11 @@ const AppStack = () => {
             name="RoutineDetail"
             component={RoutineDetailScreen}
             options={{ headerShown: true, title: "Routine" }}
+          />
+          <Stack.Screen
+            name="MealPlanDetail"
+            component={MealPlanDetailScreen}
+            options={{ headerShown: true, title: "Meal plan" }}
           />
         </>
       ) : (

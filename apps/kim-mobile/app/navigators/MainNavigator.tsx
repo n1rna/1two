@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 
 import { ActionablesScreen } from "@/screens/ActionablesScreen"
 import { ChatScreen } from "@/screens/ChatScreen"
+import { MealsScreen } from "@/screens/MealsScreen"
 import { RoutinesScreen } from "@/screens/RoutinesScreen"
 import { SettingsScreen } from "@/screens/SettingsScreen"
 import { useAppTheme } from "@/theme/context"
@@ -63,6 +64,13 @@ export const MainNavigator = () => {
         component={RoutinesScreen}
         options={{
           tabBarIcon: makeTabIcon("repeat", "repeat-outline"),
+        }}
+      />
+      <Tab.Screen
+        name="Meals"
+        component={MealsScreen}
+        options={{
+          tabBarIcon: makeTabIcon("restaurant", "restaurant-outline"),
         }}
       />
       <Tab.Screen

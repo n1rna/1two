@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { configureHealthClient } from "@1tt/api-client/health"
 import { configureLifeClient } from "@1tt/api-client/life"
 
 import Config from "@/config"
@@ -55,6 +56,11 @@ export const AuthProvider: FC<PropsWithChildren<AuthProviderProps>> = ({ childre
   useEffect(() => {
     configureLifeClient({
       baseUrl: Config.apiBaseUrl,
+      credentials: "omit",
+      getAuthToken: () => tokenRef.current,
+    })
+    configureHealthClient({
+      baseUrl: Config.healthBaseUrl,
       credentials: "omit",
       getAuthToken: () => tokenRef.current,
     })

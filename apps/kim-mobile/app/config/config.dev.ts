@@ -14,6 +14,7 @@ const DevConfig: EnvConfigProps = {
   // `10.0.2.2` / `lvh.me` variants it hasn't been registered against.
   authBaseUrl: "https://kim1.ai",
   apiBaseUrl: "https://kim1.ai/api/proxy/life",
+  healthBaseUrl: "https://kim1.ai/api/proxy/health",
 }
 
 export default DevConfig

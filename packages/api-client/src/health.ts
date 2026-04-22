@@ -217,16 +217,66 @@ export interface HealthCalculations {
   fat_g: number;
 }
 
+// ─── Client configuration ────────────────────────────────────────────────────
+
+/**
+ * Tunables that let the same api-client run in two environments:
+ *
+ * - **Web** (kim1.ai): talks to a Next.js proxy at `/api/proxy/health/*` which
+ *   forwards to the Go backend. Session auth rides in an HTTP-only cookie, so
+ *   we use `credentials: "include"` and no `Authorization` header.
+ * - **Mobile** (Expo / React Native): talks directly to the Go backend at
+ *   an absolute URL. There's no cookie jar in RN's fetch, so auth is a
+ *   bearer token sourced via `getAuthToken` (typically from SecureStore).
+ *
+ * Callers reconfigure with `configureHealthClient({...})` at app startup.
+ * Defaults match the web setup so existing web callers need no changes.
+ */
+export interface HealthClientConfig {
+  /** URL prefix prepended to every `/path` below (no trailing slash). */
+  baseUrl: string;
+  /** Returns a bearer token, or null/undefined when not authenticated. */
+  getAuthToken?: () => string | null | undefined | Promise<string | null | undefined>;
+  /** fetch credentials mode. Web uses "include" for cookies, mobile "omit". */
+  credentials?: RequestCredentials;
+}
+
+let config: HealthClientConfig = {
+  baseUrl: "/api/proxy/health",
+  credentials: "include",
+};
+
+/** Merge-replace the active config. Unset fields keep their current value. */
+export function configureHealthClient(next: Partial<HealthClientConfig>): void {
+  config = { ...config, ...next };
+}
+
+/** Snapshot of the active config. Exposed for tests + mobile auth plumbing. */
+export function getHealthClientConfig(): HealthClientConfig {
+  return config;
+}
+
+async function resolveAuthHeader(): Promise<Record<string, string>> {
+  if (!config.getAuthToken) return {};
+  const token = await config.getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function healthApiFetch<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
-  const res = await fetch(`/api/proxy/health${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
+  const authHeader = await resolveAuthHeader();
+  const res = await fetch(`${config.baseUrl}${path}`, {
+    credentials: config.credentials,
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader,
+      ...(options?.headers as Record<string, string> | undefined),
+    },
   });
 
   if (!res.ok) {

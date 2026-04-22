@@ -7,11 +7,13 @@ export interface ConfigBaseProps {
   // Config used by the app always has them populated.
   authBaseUrl?: string
   apiBaseUrl?: string
+  healthBaseUrl?: string
 }
 
 export interface EnvConfigProps {
   authBaseUrl: string
   apiBaseUrl: string
+  healthBaseUrl: string
 }
 
 export type PersistNavigationConfig = ConfigBaseProps["persistNavigation"]
