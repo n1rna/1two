@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 
 import { ActionablesScreen } from "@/screens/ActionablesScreen"
 import { ChatScreen } from "@/screens/ChatScreen"
+import { HealthScreen } from "@/screens/HealthScreen"
 import { MealsScreen } from "@/screens/MealsScreen"
 import { RoutinesScreen } from "@/screens/RoutinesScreen"
 import { SettingsScreen } from "@/screens/SettingsScreen"
@@ -43,6 +44,11 @@ export const MainNavigator = () => {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
         },
+        // 6 tabs gets crowded with labels. Keep labels on so users learn the
+        // names, but shrink the font so nothing wraps on narrow phones.
+        tabBarLabelStyle: {
+          fontSize: 10,
+        },
       }}
     >
       <Tab.Screen
@@ -71,6 +77,13 @@ export const MainNavigator = () => {
         component={MealsScreen}
         options={{
           tabBarIcon: makeTabIcon("restaurant", "restaurant-outline"),
+        }}
+      />
+      <Tab.Screen
+        name="Health"
+        component={HealthScreen}
+        options={{
+          tabBarIcon: makeTabIcon("heart", "heart-outline"),
         }}
       />
       <Tab.Screen
