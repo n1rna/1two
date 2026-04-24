@@ -73,6 +73,17 @@ export interface KimActiveForm {
   values: Record<string, unknown>;
 }
 
+/**
+ * Snapshot of onboarding state pushed by the onboarding page so Kim's
+ * system context stays in sync with the stepper. Cleared when the page
+ * unmounts. Only used when mode === "onboarding".
+ */
+export interface KimOnboardingContext {
+  step: string;
+  profile?: Record<string, unknown> | null;
+  health?: Record<string, unknown> | null;
+}
+
 export type KimFormDraftHandler = (values: Record<string, unknown>) => void;
 export type KimEffectHandler = (data: Record<string, unknown>) => void;
 
@@ -127,6 +138,12 @@ interface KimActions {
   collapseSmartUi: () => void;
   /** Re-expands a collapsed Smart-UI module. (QBL-113) */
   expandSmartUi: () => void;
+  /**
+   * Set (or clear with null) the onboarding snapshot that Kim folds into
+   * its system context. Called by the onboarding page on every save /
+   * step-advance so the agent sees the current step + latest profile.
+   */
+  setOnboardingContext: (ctx: KimOnboardingContext | null) => void;
 }
 
 export interface ComposerHandle {
@@ -207,7 +224,15 @@ export function KimProvider({ children }: { children: ReactNode }) {
     Record<KimFormKind, KimFormDraftHandler[]>
   >({ routine: [], meal_plan: [], session: [] });
   const effectHandlersRef = useRef<Record<string, KimEffectHandler[]>>({});
+  const onboardingContextRef = useRef<KimOnboardingContext | null>(null);
   const streamBufRef = useRef("");
+
+  const setOnboardingContext = useCallback(
+    (ctx: KimOnboardingContext | null) => {
+      onboardingContextRef.current = ctx;
+    },
+    [],
+  );
   const composerRef = useRef<ComposerHandle | null>(null);
 
   const registerComposer = useCallback((h: ComposerHandle | null) => {
@@ -490,6 +515,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
         mode,
         capturedSelection,
         activeFormRef.current,
+        onboardingContextRef.current,
       );
 
       try {
@@ -795,6 +821,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
       setInput,
       focusComposer,
       registerComposer,
+      setOnboardingContext,
     }),
     [
       open,
@@ -839,6 +866,7 @@ export function KimProvider({ children }: { children: ReactNode }) {
       setInput,
       focusComposer,
       registerComposer,
+      setOnboardingContext,
     ],
   );
 
@@ -873,9 +901,29 @@ function buildSystemContext(
   mode: KimMode,
   selection: KimSelection[],
   activeForm: KimActiveForm | null,
+  onboarding: KimOnboardingContext | null,
 ): string {
   const parts: string[] = [];
   parts.push(`[kim-mode=${mode}]`);
+  if (mode === "onboarding" && onboarding) {
+    parts.push("");
+    parts.push("## Onboarding progress");
+    parts.push(`Current step: ${onboarding.step}`);
+    parts.push(
+      "Steps in order: welcome → basics (timezone) → rhythm (wake/sleep) → meals → work → health → memories → done.",
+    );
+    if (onboarding.profile) {
+      parts.push("Life profile (latest):");
+      parts.push(JSON.stringify(onboarding.profile, null, 2));
+    }
+    if (onboarding.health) {
+      parts.push("Health profile (latest):");
+      parts.push(JSON.stringify(onboarding.health, null, 2));
+    }
+    parts.push(
+      "The UI stepper drives step changes — when the user advances, they will send a message telling you the new step. Respond with guidance for that step only. Do NOT re-ask for data that's already populated above.",
+    );
+  }
   if (selection.length > 0) {
     parts.push("Selected context from current page:");
     for (const s of selection) {

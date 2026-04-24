@@ -107,7 +107,7 @@ function getActivityLevels(t: (k: string) => string) {
 export default function OnboardingPage() {
   const { t } = useTranslation("onboarding");
   const router = useRouter();
-  const { setMode, askKim } = useKim();
+  const { setMode, askKim, setOnboardingContext } = useKim();
 
   const [profile, setProfile] = useState<LifeProfile | null>(null);
   const [health, setHealth] = useState<HealthProfile | null>(null);
@@ -119,6 +119,18 @@ export default function OnboardingPage() {
     setMode("onboarding", true);
     return () => setMode("general", false);
   }, [setMode]);
+
+  // Push latest snapshot into Kim's system context whenever state changes,
+  // and clear it on unmount so other pages don't inherit stale onboarding data.
+  useEffect(() => {
+    if (!profile) return;
+    setOnboardingContext({
+      step: current,
+      profile: profile as unknown as Record<string, unknown>,
+      health: (health ?? null) as unknown as Record<string, unknown> | null,
+    });
+  }, [profile, health, current, setOnboardingContext]);
+  useEffect(() => () => setOnboardingContext(null), [setOnboardingContext]);
 
   // Initial load of both profiles.
   useEffect(() => {
@@ -150,8 +162,11 @@ export default function OnboardingPage() {
   }, []);
 
   // Helper: save and advance. Accepts any partial profile write plus the next step id.
+  // When the step advances, nudge Kim with a short message so she takes the lead on
+  // the new step instead of silently falling behind the UI.
   const saveProfile = useCallback(
     async (patch: Partial<LifeProfile>, nextStep?: StepId) => {
+      const prevStep = current;
       const body: Partial<LifeProfile> = { ...patch };
       if (nextStep) body.onboardingStep = nextStep;
       const next = await updateLifeProfile(body);
@@ -159,20 +174,43 @@ export default function OnboardingPage() {
       window.dispatchEvent(
         new CustomEvent<LifeProfile>("life-profile-updated", { detail: next }),
       );
-      if (nextStep) setCurrent(nextStep);
+      if (nextStep && nextStep !== prevStep) {
+        setCurrent(nextStep);
+        // Sync the ref-backed context synchronously so the askKim stream sees
+        // the new step without waiting for the watching useEffect to fire.
+        setOnboardingContext({
+          step: nextStep,
+          profile: next as unknown as Record<string, unknown>,
+          health: (health ?? null) as unknown as Record<string, unknown> | null,
+        });
+        if (nextStep !== "done") {
+          askKim(
+            `I just finished the "${prevStep}" step via the UI. I'm now on the "${nextStep}" step — please guide me through it.`,
+          );
+        }
+      }
     },
-    [],
+    [current, askKim, setOnboardingContext, health],
   );
 
   const saveHealth = useCallback(
     async (patch: Partial<HealthProfile>, nextStep?: StepId) => {
       const next = await updateHealthProfile(patch);
       setHealth(next);
+      // Make sure the onboarding context reflects the fresh health snapshot
+      // before saveProfile fires askKim below.
+      if (profile) {
+        setOnboardingContext({
+          step: nextStep ?? current,
+          profile: profile as unknown as Record<string, unknown>,
+          health: next as unknown as Record<string, unknown>,
+        });
+      }
       if (nextStep) {
         await saveProfile({}, nextStep);
       }
     },
-    [saveProfile],
+    [saveProfile, profile, current, setOnboardingContext],
   );
 
   const advance = useCallback(
