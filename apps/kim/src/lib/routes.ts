@@ -68,7 +68,15 @@ export const routes = {
 
   // Travel
   travel: "/travel" as const,
+  travelActionables: "/travel/actionables" as const,
+  travelMemories: "/travel/memories" as const,
   trip: (id: string) => `/travel/${id}`,
+  tripDay: (id: string) => `/travel/${id}/day`,
+  tripRoute: (id: string) => `/travel/${id}/route`,
+  tripCalendar: (id: string) => `/travel/${id}/calendar`,
+  tripReservations: (id: string) => `/travel/${id}/reservations`,
+  tripTips: (id: string) => `/travel/${id}/tips`,
+  tripBudget: (id: string) => `/travel/${id}/budget`,
 
   // Marketplace
   marketplace: (opts?: { kind?: "routine" | "gym_session" | "meal_plan" }) =>
