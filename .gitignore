@@ -75,6 +75,16 @@ api/server
 
 # planning docs
 TOOL_IDEAS.md
+docs/agent-prompts/
+design_handoff_travel/
+
+# expo cache (apps/kim-mobile/.expo and any nested)
+**/.expo/
+
+# stray expo prebuild artifacts at repo root (real ones live in apps/kim-mobile/)
+/android/
+/ios/
+/app.json
 
 # wrangler tail debug captures
 workers/api-container/tail.out
