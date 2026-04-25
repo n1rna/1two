@@ -426,6 +426,38 @@
   border-color: var(--kim-border) !important;
 }
 
+/* ─── Travel accent tokens ─────────────────────────────────────────────── */
+/* Sand/amber accent used on the travel surface. Active travel nav state,
+   PLANNING eyebrow, destination pills, connection paths, and travel-
+   suggested action chips. Light/dark share the same hue. */
+:root {
+  --sand: 233 185 131;
+  --sand-dim: 180 138 90;
+  --rust: 216 138 106;
+  --sand-bg: rgb(233 185 131 / 0.08);
+  --sand-border: rgb(233 185 131 / 0.28);
+}
+.dark {
+  --sand: 233 185 131;
+  --sand-dim: 180 138 90;
+  --rust: 216 138 106;
+  --sand-bg: rgb(233 185 131 / 0.10);
+  --sand-border: rgb(233 185 131 / 0.32);
+}
+
+.travel-accent {
+  color: rgb(var(--sand));
+}
+.travel-accent-bg {
+  background: var(--sand-bg);
+}
+.travel-accent-border {
+  border-color: var(--sand-border);
+}
+.travel-accent-fill {
+  background: rgb(var(--sand));
+}
+
 /* selection highlight on host pages */
 [data-selectable][data-selected="true"] {
   outline: 2px solid rgb(95, 149, 152);
