@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Hotel, Plus, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronRight, Hotel, Plane, Plus, Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   addActivity,
@@ -19,6 +20,21 @@ import { cn } from "@/lib/utils";
 import { routes } from "@/lib/routes";
 import { TripHeader, tripNights } from "./trip-header";
 import { TripPageLoader } from "./trip-page-loader";
+import {
+  TripDayLensTabs,
+  isDayLens,
+  type DayLens,
+  type LensCounts,
+} from "./trip-day-lens-tabs";
+import {
+  TripDayTransportView,
+  isTransportKind,
+} from "./trip-day-transport-view";
+import { TripDayStayView, isStayKind } from "./trip-day-stay-view";
+import { TripDayFoodView } from "./trip-day-food-view";
+import { DaySlotAdder } from "./trip-day-slot-adder";
+
+const LENS_STORAGE_KEY = "kim-day-lens";
 
 export function TripDayView({ tripId }: { tripId: string }) {
   return (
@@ -33,13 +49,53 @@ interface DaySlot {
   destination: Destination | null;
   activities: Activity[];
   hotel: Reservation | null;
+  transports: Reservation[];
 }
 
 function DayBody({ trip, setTrip }: { trip: Trip; setTrip: (t: Trip) => void }) {
   const { t } = useTranslation("travel");
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+
+  // ─── Lens state: URL > localStorage > "all" ───────────────────────────────
+  const urlLens = searchParams.get("lens");
+  const [lens, setLensState] = useState<DayLens>(() => {
+    if (isDayLens(urlLens)) return urlLens;
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem(LENS_STORAGE_KEY);
+      if (isDayLens(stored)) return stored;
+    }
+    return "all";
+  });
+
+  // If the URL changes externally (back/forward, deep link), follow it.
+  useEffect(() => {
+    if (isDayLens(urlLens) && urlLens !== lens) {
+      setLensState(urlLens);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlLens]);
+
+  const setLens = useCallback(
+    (next: DayLens) => {
+      setLensState(next);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(LENS_STORAGE_KEY, next);
+      }
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "all") params.delete("lens");
+      else params.set("lens", next);
+      const qs = params.toString();
+      router.replace(
+        qs ? `${routes.tripDay(trip.id)}?${qs}` : routes.tripDay(trip.id),
+        { scroll: false },
+      );
+    },
+    [router, searchParams, trip.id],
+  );
 
   useEffect(() => {
     listDestinations(trip.id).then(setDestinations).catch(() => setDestinations([]));
@@ -51,6 +107,19 @@ function DayBody({ trip, setTrip }: { trip: Trip; setTrip: (t: Trip) => void }) 
   const days = useMemo(
     () => buildDays(trip, nights, destinations, activities, reservations),
     [trip, nights, destinations, activities, reservations],
+  );
+  const destinationByDay = useMemo(() => days.map((d) => d.destination), [days]);
+
+  const counts: LensCounts = useMemo(
+    () => ({
+      all: days.length,
+      transport: reservations.filter((r) => isTransportKind(r.kind)).length,
+      stay: reservations.filter((r) => isStayKind(r.kind)).length,
+      food:
+        reservations.filter((r) => r.kind === "restaurant").length +
+        activities.filter((a) => a.category === "food" || a.category === "dining").length,
+    }),
+    [days.length, reservations, activities],
   );
 
   return (
@@ -65,20 +134,44 @@ function DayBody({ trip, setTrip }: { trip: Trip; setTrip: (t: Trip) => void }) 
       />
       <div className="flex-1 overflow-y-auto">
         <div className="px-4 py-4 sm:px-8 sm:py-6 max-w-4xl">
-          {days.length === 0 ? (
-            <EmptyState title={t("day_empty_title")} hint={t("day_empty_hint")} />
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {days.map((d, i) => (
-                <DayCard
-                  key={d.date.toISOString()}
-                  index={i}
-                  slot={d}
-                  onActivityAdded={(a) => setActivities((cur) => [...cur, a])}
-                  t={t}
-                />
-              ))}
-            </ul>
+          <div className="mb-4">
+            <TripDayLensTabs lens={lens} onLensChange={setLens} counts={counts} />
+          </div>
+
+          {lens === "all" && (
+            <AllDaysView
+              tripId={trip.id}
+              days={days}
+              setActivities={setActivities}
+              setReservations={setReservations}
+              t={t}
+            />
+          )}
+          {lens === "transport" && (
+            <TripDayTransportView
+              trip={trip}
+              destinations={destinations}
+              reservations={reservations}
+              onReservationAdded={(r) => setReservations((cur) => [...cur, r])}
+            />
+          )}
+          {lens === "stay" && (
+            <TripDayStayView
+              trip={trip}
+              nights={nights}
+              destinations={destinations}
+              reservations={reservations}
+              onReservationAdded={(r) => setReservations((cur) => [...cur, r])}
+            />
+          )}
+          {lens === "food" && (
+            <TripDayFoodView
+              trip={trip}
+              nights={nights}
+              destinationByDay={destinationByDay}
+              activities={activities}
+              reservations={reservations}
+            />
           )}
         </div>
       </div>
@@ -86,15 +179,52 @@ function DayBody({ trip, setTrip }: { trip: Trip; setTrip: (t: Trip) => void }) 
   );
 }
 
+function AllDaysView({
+  tripId,
+  days,
+  setActivities,
+  setReservations,
+  t,
+}: {
+  tripId: string;
+  days: DaySlot[];
+  setActivities: React.Dispatch<React.SetStateAction<Activity[]>>;
+  setReservations: React.Dispatch<React.SetStateAction<Reservation[]>>;
+  t: (k: string, o?: Record<string, unknown>) => string;
+}) {
+  if (days.length === 0) {
+    return <EmptyState title={t("day_empty_title")} hint={t("day_empty_hint")} />;
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {days.map((d, i) => (
+        <DayCard
+          key={d.date.toISOString()}
+          tripId={tripId}
+          index={i}
+          slot={d}
+          onActivityAdded={(a) => setActivities((cur) => [...cur, a])}
+          onReservationAdded={(r) => setReservations((cur) => [...cur, r])}
+          t={t}
+        />
+      ))}
+    </ul>
+  );
+}
+
 function DayCard({
+  tripId,
   index,
   slot,
   onActivityAdded,
+  onReservationAdded,
   t,
 }: {
+  tripId: string;
   index: number;
   slot: DaySlot;
   onActivityAdded: (a: Activity) => void;
+  onReservationAdded: (r: Reservation) => void;
   t: (k: string, o?: Record<string, unknown>) => string;
 }) {
   const [open, setOpen] = useState(false);
@@ -144,6 +274,50 @@ function DayCard({
         />
       </button>
 
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 px-3 py-2 text-xs">
+        {slot.transports.length > 0 ? (
+          slot.transports.map((r) => (
+            <ExistingChip
+              key={r.id}
+              icon={<Plane size={12} />}
+              label={r.title}
+            />
+          ))
+        ) : (
+          <DaySlotAdder
+            tripId={tripId}
+            kind="flight"
+            date={slot.date}
+            destinationId={slot.destination?.id ?? null}
+            label={t("day_add_transport")}
+            placeholder={t("day_add_transport_placeholder")}
+            icon={<Plane size={12} />}
+            onAdded={onReservationAdded}
+          />
+        )}
+        {slot.hotel ? (
+          <ExistingChip icon={<Hotel size={12} />} label={slot.hotel.title} />
+        ) : (
+          <DaySlotAdder
+            tripId={tripId}
+            kind="hotel"
+            date={slot.date}
+            destinationId={slot.destination?.id ?? null}
+            label={t("day_add_hotel")}
+            placeholder={t("day_add_hotel_placeholder")}
+            icon={<Hotel size={12} />}
+            onAdded={onReservationAdded}
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => askKim(t("day_ask_kim_day", { num: index + 1 }))}
+          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground hover:travel-accent"
+        >
+          <Sparkles size={11} /> {t("route_ask_kim_chip")}
+        </button>
+      </div>
+
       {open && (
         <div className="border-t border-border px-3 py-3 sm:px-4">
           <ul className="flex flex-col gap-1.5">
@@ -174,39 +348,21 @@ function DayCard({
             date={slot.date}
             onAdded={onActivityAdded}
           />
-          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            {slot.hotel ? (
-              <span className="inline-flex items-center gap-1 rounded-md travel-accent travel-accent-bg ring-1 ring-inset travel-accent-border px-2 py-1">
-                <Hotel size={12} /> {slot.hotel.title}
-              </span>
-            ) : (
-              <button
-                onClick={() =>
-                  askKim(
-                    t("route_ask_kim_hotel", {
-                      destination: slot.destination?.name ?? "this stop",
-                    }),
-                  )
-                }
-                className="inline-flex items-center gap-1 rounded-md travel-accent ring-1 ring-inset travel-accent-border px-2 py-1 hover:travel-accent-bg"
-              >
-                <Sparkles size={12} /> {t("day_add_hotel")}
-              </button>
-            )}
-            <button
-              onClick={() =>
-                askKim(t("day_ask_kim_day", { num: index + 1 }))
-              }
-              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground hover:travel-accent"
-            >
-              <Sparkles size={11} /> {t("route_ask_kim_chip")}
-            </button>
-          </div>
         </div>
       )}
     </li>
   );
 }
+
+function ExistingChip({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md travel-accent travel-accent-bg ring-1 ring-inset travel-accent-border px-2 py-1">
+      {icon}
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
 
 function ActivityInlineAdder({
   destination,
@@ -308,12 +464,23 @@ function buildDays(
       reservations.find(
         (r) =>
           (r.kind === "hotel" || r.kind === "bnb") &&
-          r.destinationId &&
-          dest?.id === r.destinationId &&
           r.startAt &&
-          r.startAt.startsWith(iso),
+          r.startAt.startsWith(iso) &&
+          (!r.destinationId || dest?.id === r.destinationId),
       ) ?? null;
-    slots.push({ date: d, destination: dest, activities: dayActivities, hotel });
+    const transports = reservations.filter(
+      (r) =>
+        isTransportKind(r.kind) &&
+        r.startAt &&
+        r.startAt.startsWith(iso),
+    );
+    slots.push({
+      date: d,
+      destination: dest,
+      activities: dayActivities,
+      hotel,
+      transports,
+    });
   }
   return slots;
 }
